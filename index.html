@@ -71,7 +71,7 @@
     box-shadow:0 4px 24px rgba(124,58,237,.35);
   }
   #bestTag{text-align:center;font-size:12px;color:var(--ink-dim)}
-  #reset{background:none;border:none;color:var(--ink-dim);font-size:11px;text-decoration:underline;padding:2px}
+  #reset,#sndToggle{background:none;border:none;color:var(--ink-dim);font-size:11px;text-decoration:underline;padding:2px}
 
   /* ============ BATALHA ============ */
   #battle{padding:10px;gap:8px}
@@ -314,6 +314,7 @@
 
     <button id="enter">🏰 Entrar na Masmorra</button>
     <div id="bestTag">Masmorras conquistadas: 0</div>
+    <button id="sndToggle">🔊 efeitos sonoros</button>
     <button id="reset">zerar progresso</button>
   </div>
 
@@ -398,11 +399,11 @@ const lerp = (a,b,k) => a + (b-a)*k;
 
 /* ---------- cores de masmorra: cada uma usa as unidades da sua cor ---------- */
 const DG_COLORS = {
-  red:    { dir:'Red Units/',    bdir:'Red Buildings/',    nome:'Vermelha', hex:'#f87171', boss:'Cavaleiro Vermelho' },
-  black:  { dir:'Black Units/',  bdir:'Black Buildings/',  nome:'Negra',    hex:'#8b90ad', boss:'Cavaleiro Negro' },
-  blue:   { dir:'Blue Units/',   bdir:'Blue Buildings/',   nome:'Azul',     hex:'#38bdf8', boss:'Cavaleiro Azul' },
-  purple: { dir:'Purple Units/', bdir:'Purple Buildings/', nome:'Púrpura',  hex:'#a78bfa', boss:'Cavaleiro Púrpura' },
-  yellow: { dir:'Yellow Units/', bdir:'Yellow Buildings/', nome:'Dourada',  hex:'#fbbf24', boss:'Cavaleiro Dourado' },
+  red:    { dir:'Red Units/',    bdir:'Red Buildings/',    tiles:'Tilemap_color1.png', nome:'Vermelha', hex:'#f87171', boss:'Cavaleiro Vermelho' },
+  black:  { dir:'Black Units/',  bdir:'Black Buildings/',  tiles:'Tilemap_color4.png', nome:'Negra',    hex:'#8b90ad', boss:'Cavaleiro Negro' },
+  blue:   { dir:'Blue Units/',   bdir:'Blue Buildings/',   tiles:'Tilemap_color5.png', nome:'Azul',     hex:'#38bdf8', boss:'Cavaleiro Azul' },
+  purple: { dir:'Purple Units/', bdir:'Purple Buildings/', tiles:'Tilemap_color3.png', nome:'Púrpura',  hex:'#a78bfa', boss:'Cavaleiro Púrpura' },
+  yellow: { dir:'Yellow Units/', bdir:'Yellow Buildings/', tiles:'Tilemap_color2.png', nome:'Dourada',  hex:'#fbbf24', boss:'Cavaleiro Dourado' },
 };
 const COLOR_KEYS = Object.keys(DG_COLORS);
 
@@ -525,11 +526,24 @@ function cropURL(img, sx, sy, sw, sh){
 /* ================================================================
    ANÚNCIOS — AdMob (plugin @capacitor-community/admob) no app;
    simulação de vídeo no navegador para testar o fluxo.
-   Troque os IDs de teste do Google pelos IDs reais da sua conta AdMob.
+
+   App ID do AdMob (identifica o APP; usa "~"):
+     ca-app-pub-6316768481413982~8589552985
+   Ele NÃO vai aqui — vai no AndroidManifest.xml do projeto Capacitor:
+     <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID"
+                android:value="ca-app-pub-6316768481413982~8589552985"/>
+
+   Já os IDs abaixo são de BLOCOS de anúncio (usam "/").
+   ATENÇÃO em desenvolvimento: nunca teste clicando em anúncios reais —
+   use IDs de teste do Google ou registre o aparelho em testingDevices
+   no initialize() do plugin, senão a conta AdMob pode ser suspensa.
+   ID de teste premiado:     ca-app-pub-3940256099942544/5224354917
+   ID de teste intersticial: ca-app-pub-3940256099942544/1033173712
    ================================================================ */
 const ADS = {
-  rewardedId:     'ca-app-pub-3940256099942544/5224354917',   // ID de TESTE do Google
-  interstitialId: 'ca-app-pub-3940256099942544/1033173712',   // ID de TESTE do Google
+  appId:          'ca-app-pub-6316768481413982~8589552985',   // App ID (vai no AndroidManifest)
+  rewardedId:     'ca-app-pub-6316768481413982/6127041172',   // bloco premiado "reward" (PRODUÇÃO)
+  interstitialId: 'ca-app-pub-3940256099942544/1033173712',   // TROQUE: bloco intersticial (ainda é o de teste)
   plugin: null,
   async init(){
     try {
@@ -597,9 +611,84 @@ function simAd(rewarded){
 }
 ADS.init();
 
+/* ================================================================
+   EFEITOS SONOROS — sintetizados com Web Audio API (sem arquivos).
+   O contexto de áudio só nasce no primeiro toque (política dos browsers).
+   ================================================================ */
+const SFX = {
+  ctx: null, master: null, enabled: true,
+  ensure(){
+    if (!this.ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.35;
+      this.master.connect(this.ctx.destination);
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    return this.ctx;
+  },
+  /* nota com glide de frequência e decaimento exponencial */
+  tone({ freq = 440, end = freq, type = 'square', dur = 0.15, vol = 1, delay = 0 }){
+    const c = this.ctx, t0 = c.currentTime + delay;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+    o.frequency.exponentialRampToValueAtTime(Math.max(1, end), t0 + dur);
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g); g.connect(this.master);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  },
+  /* rajada de ruído com filtro deslizante (impactos, explosões, whoosh) */
+  noise({ dur = 0.2, vol = 1, from = 3000, to = 400, delay = 0 }){
+    const c = this.ctx, t0 = c.currentTime + delay;
+    const n = Math.round(c.sampleRate * dur);
+    const buf = c.createBuffer(1, n, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random()*2 - 1) * (1 - i/n);
+    const src = c.createBufferSource(); src.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = 'lowpass';
+    f.frequency.setValueAtTime(from, t0);
+    f.frequency.exponentialRampToValueAtTime(Math.max(50, to), t0 + dur);
+    const g = c.createGain(); g.gain.value = vol;
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(t0);
+  },
+  play(name){
+    if (!this.enabled || !this.ensure()) return;
+    try { this.bank[name].call(this); } catch(e){}
+  },
+  bank: {
+    hit(){    this.noise({dur:0.12, vol:0.8, from:2500, to:500}); this.tone({freq:160, end:70, type:'triangle', dur:0.12, vol:0.7}); },
+    crit(){   this.noise({dur:0.18, vol:1.0, from:4000, to:600}); this.tone({freq:220, end:60, type:'sawtooth', dur:0.22, vol:0.8}); },
+    parry(){  this.tone({freq:1150, end:900,  type:'square',   dur:0.18, vol:0.5});
+              this.tone({freq:1750, end:1400, type:'triangle', dur:0.26, vol:0.4, delay:0.015}); },
+    block(){  this.tone({freq:420, end:200, type:'square', dur:0.12, vol:0.5}); this.noise({dur:0.08, vol:0.4, from:1500, to:300}); },
+    whoosh(){ this.noise({dur:0.22, vol:0.5, from:350, to:2800}); },
+    hurt(){   this.tone({freq:130, end:55, type:'sawtooth', dur:0.2, vol:0.7}); this.noise({dur:0.1, vol:0.5, from:1200, to:200}); },
+    boom(){   this.noise({dur:0.6, vol:1.1, from:1800, to:80}); this.tone({freq:120, end:30, type:'sine', dur:0.55, vol:1}); },
+    shield(){ this.tone({freq:900,  end:250, type:'square', dur:0.15, vol:0.5});
+              this.tone({freq:1350, end:400, type:'square', dur:0.15, vol:0.35, delay:0.03}); },
+    magic(){  this.tone({freq:500, end:950,  type:'sine', dur:0.25, vol:0.5});
+              this.tone({freq:750, end:1400, type:'sine', dur:0.30, vol:0.35, delay:0.06}); },
+    heal(){   this.tone({freq:600, end:900,  type:'sine', dur:0.18, vol:0.45});
+              this.tone({freq:900, end:1350, type:'sine', dur:0.20, vol:0.40, delay:0.12}); },
+    curse(){  this.tone({freq:400, end:120, type:'sawtooth', dur:0.5, vol:0.5});
+              this.tone({freq:610, end:180, type:'triangle', dur:0.5, vol:0.35, delay:0.05}); },
+    potion(){ this.tone({freq:350, end:700,  type:'sine', dur:0.12, vol:0.5});
+              this.tone({freq:500, end:1000, type:'sine', dur:0.12, vol:0.45, delay:0.1}); },
+    stun(){   this.tone({freq:320, end:70, type:'sawtooth', dur:0.45, vol:0.6});
+              this.tone({freq:480, end:110, type:'triangle', dur:0.45, vol:0.4, delay:0.04}); },
+  },
+};
+/* desbloqueia o áudio no primeiro toque do jogador */
+document.addEventListener('pointerdown', () => SFX.ensure(), { once:true });
+
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
-const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null };
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true };
 let S = structuredClone(DEFAULTS);
 try { const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d && d.maxhp) S = Object.assign(structuredClone(DEFAULTS), d); } catch(e){}
 if (!DG_COLORS[S.dgColor]) S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];
@@ -667,6 +756,34 @@ function makeWave(w){
 const cv = $('#cv'), ctx = cv.getContext('2d');
 let W = 0, H = 0, floats = [];
 
+/* ---------- efeitos de partícula: explosão na morte do monstro ---------- */
+const FXBASE = 'Tiny Swords (Free Pack)/Particle FX/';
+const FX_SHEETS = ['Explosion_01.png', 'Explosion_02.png'].map(f => {
+  const img = new Image();
+  img.src = (window.EMBED && window.EMBED['fx.' + f]) || (FXBASE + f);
+  return img;
+});
+let fxList = [];
+function spawnExplosion(x, y, size){
+  SFX.play('boom');
+  const img = FX_SHEETS[rnd(0, FX_SHEETS.length - 1)];
+  if (!img.naturalWidth) return;                     // sheet não carregou: sem efeito
+  fxList.push({ img, x, y, size, fs:192, frames:Math.floor(img.width/192), frame:0, acc:0 });
+}
+function updateFx(dt){
+  fxList = fxList.filter(f => {
+    f.acc += dt;
+    while (f.acc >= 70){ f.acc -= 70; f.frame++; }
+    return f.frame < f.frames;
+  });
+}
+function drawFx(){
+  for (const f of fxList){
+    ctx.drawImage(f.img, f.frame*f.fs, 0, f.fs, f.fs,
+                  f.x - f.size/2, f.y - f.size/2, f.size, f.size);
+  }
+}
+
 /* ---------- cenário: buildings da cor da masmorra + decorações ---------- */
 const DECOR_IMGS = {};
 function loadDecor(path){
@@ -676,22 +793,37 @@ function loadDecor(path){
   img.onload = () => { DECOR_IMGS[path] = img; };
   img.src = (window.EMBED && window.EMBED[path]) || path;
 }
-let scenery = [];
+let scenery = [], tileSrc = null;
 function buildScenery(){
   const cfg = DG_COLORS[S.dgColor];
   const B = 'Tiny Swords (Free Pack)/Buildings/' + cfg.bdir;
   const D = 'Tiny Swords (Free Pack)/Terrain/Decorations/';
+  tileSrc = 'Tiny Swords (Free Pack)/Terrain/Tileset/' + cfg.tiles;
+  loadDecor(tileSrc);
   scenery = [   // x/y em fração do campo; mirror acompanha o lado dos inimigos
-    { src:B + 'Castle.png',                    x:0.76, y:0.14, w:0.52, alpha:0.35, mirror:true },
-    { src:B + 'Tower.png',                     x:0.16, y:0.22, w:0.16, alpha:0.30, mirror:true },
+    { src:B + 'Castle.png',                    x:0.76, y:0.14, w:0.52, alpha:0.85, mirror:true, bg:true },
+    { src:B + 'Tower.png',                     x:0.16, y:0.22, w:0.16, alpha:0.50, mirror:true, bg:true },
     { src:D + 'Rocks/Rock' + rnd(1,4) + '.png',  x:0.10, y:0.56, w:0.14, alpha:0.55 },
     { src:D + 'Bushes/Bushe' + rnd(1,4) + '.png',x:0.90, y:0.66, w:0.16, alpha:0.55 },
     { src:D + 'Rocks/Rock' + rnd(1,4) + '.png',  x:0.46, y:0.90, w:0.13, alpha:0.45 },
   ];
   scenery.forEach(s => loadDecor(s.src));
 }
-function drawScenery(){
-  for (const s of scenery){
+/* plataforma 9-slice com o autotile 3×3 (canto sup. esquerdo do tileset) */
+function drawPlatform(img, cx, cy, w, h){
+  if (!img || !img.naturalWidth) return;
+  const T = 64;
+  const cols = Math.max(2, Math.round(w/40)), rows = Math.max(2, Math.round(h/40));
+  const tw = w/cols, th = h/rows;
+  const x0 = cx - w/2, y0 = cy - h/2;
+  const pick = (i, n) => i === 0 ? 0 : (i === n-1 ? 2 : 1);
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      ctx.drawImage(img, pick(c, cols)*T, pick(r, rows)*T, T, T,
+                    x0 + c*tw, y0 + r*th, tw + 0.6, th + 0.6);
+}
+function drawSceneryItems(list){
+  for (const s of list){
     const img = DECOR_IMGS[s.src];
     if (!img) continue;
     const w = W * s.w, h = w * img.height / img.width;
@@ -700,6 +832,15 @@ function drawScenery(){
     ctx.drawImage(img, x, H * s.y - h/2, w, h);
     ctx.globalAlpha = 1;
   }
+}
+function drawScenery(){
+  const timg = DECOR_IMGS[tileSrc];                  // terreno primeiro (chão)
+  if (timg){
+    drawPlatform(timg, mirrorX(W*0.70), H*0.34, W*0.64, H*0.38);   // arena dos monstros
+    drawPlatform(timg, mirrorX(W*0.26), H*0.76, W*0.46, H*0.20);   // arena do herói
+  }
+  drawSceneryItems(scenery.filter(s => s.bg));       // castelo/torre em pé sobre o terreno
+  drawSceneryItems(scenery.filter(s => !s.bg));      // pedras/arbustos na frente
 }
 
 function resizeCanvas(){
@@ -886,9 +1027,10 @@ function drawActor(a, t){
 function draw(t){
   ctx.clearRect(0,0,W,H);
   drawScenery();
-  [...enemies, player].filter(Boolean)
+  [...enemies, player].filter(a => a && !a.gone)
     .sort((a,b) => a.y - b.y)
     .forEach(a => drawActor(a, t));
+  drawFx();
   /* números flutuantes de dano/cura/ouro */
   floats = floats.filter(f => f.el < 900);
   for (const f of floats){
@@ -931,6 +1073,7 @@ function loop(t){
   if (!$('#battle').classList.contains('hidden') && W > 0){
     [player, ...enemies].filter(Boolean).forEach(a => updateActor(a, dt));
     floats.forEach(f => f.el += dt);
+    updateFx(dt);
     draw(t);
   } else if (!$('#menu').classList.contains('hidden')){
     drawMenuHero(dt);
@@ -975,6 +1118,17 @@ document.querySelectorAll('.shopbtn').forEach(b => b.addEventListener('click', (
   if (k === 'tocha') S.tochas++; else S.mapas++;
   save(); renderMenu();
 }));
+SFX.enabled = S.sound !== false;
+function renderSnd(){
+  $('#sndToggle').textContent = SFX.enabled ? '🔊 efeitos sonoros' : '🔇 sons desligados';
+}
+$('#sndToggle').addEventListener('click', () => {
+  SFX.enabled = !SFX.enabled;
+  S.sound = SFX.enabled; save();
+  renderSnd();
+  SFX.play('potion');                                // feedback ao religar
+});
+renderSnd();
 $('#shopToggle').addEventListener('click', () => {
   const open = $('#shopCard').classList.toggle('hidden');
   $('#shopToggle').classList.toggle('open', !open);
@@ -1014,6 +1168,7 @@ function enemyStagger(en, mult, amt = 25){
   if (en.dead) return;
   if (en.stagger >= 100 && mult >= 1.5){
     en.stagger = 0; en.exhausted = true;
+    SFX.play('stun');
     addFloat(en, 'EXAUSTO!', '#60d6ff', true);
     log('💫 ' + en.name + ' ficou exausto e perderá a próxima rodada!');
     return;
@@ -1023,6 +1178,7 @@ function enemyStagger(en, mult, amt = 25){
 function heroStagger(dmg, inCombo){
   if (stagger >= 100 && inCombo){
     stagger = 0; exhausted = true; guardBroken = true;
+    SFX.play('stun');
     addFloat(player, 'EXAUSTO!', '#60d6ff', true);
     log('💫 O combo esmagou sua guarda — sem ação nem defesa até se recuperar!');
     return;
@@ -1193,12 +1349,24 @@ function beginPlayerTurn(){
   setTurn('player');
 }
 
+/* ---- morte do monstro: 💥 explosão, some da tela e paga o ouro ---- */
+function slayEnemy(en){
+  en.dead = true;
+  S.gold += en.gold; save();                         // ouro do abate é seu mesmo morrendo depois
+  addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
+  spawnExplosion(en.x, en.y, en.size * 1.5);
+  en.gone = true;                                    // remove o sprite: só a explosão fica
+  shakeApp();
+  renderHUD(); renderTurnbar();
+}
+
 /* ---- escudos do boss: enquanto houver, cada golpe quebra escudos e o HP fica intacto ---- */
 const SHIELD_MAX = 10;
 function breakShield(en, n, big){
   const broke = Math.min(en.shield, n);
   en.shield -= broke;
   en.flash = 1;
+  SFX.play('shield');
   addFloat(en, '🛡️ -' + broke, '#60a5fa', big);
   return broke;
 }
@@ -1221,16 +1389,14 @@ async function playerAttack(){
     if (crit) dmg *= 2;
     en.hp = Math.max(0, en.hp - dmg);
     en.flash = 1;
+    SFX.play(crit ? 'crit' : 'hit');
     addFloat(en, dmg, crit ? '#fbbf24' : '#fff', crit);
     log(crit ? 'CRÍTICO! ' + dmg + ' de dano em ' + en.name + '!' : dmg + ' de dano em ' + en.name + '.');
   }
   await hit;
   if (en.hp <= 0){
-    en.dead = true;
-    S.gold += en.gold; save();                       // ouro do abate é seu mesmo morrendo depois
-    addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
-    log(en.name + ' caiu! +' + en.gold + ' de ouro.');
-    renderHUD(); renderTurnbar();
+    slayEnemy(en);
+    log('💥 ' + en.name + ' caiu! +' + en.gold + ' de ouro.');
   }
   await playerReturn();
   if (await waveCleared()) return;
@@ -1264,6 +1430,7 @@ async function playerSpecial(){
   const hit = playOnce(player, 'attack');
   await wait(200);
   shakeApp();
+  SFX.play('crit');
   for (const en of targets){
     enemyStagger(en, sp.m);
     if (en.shield > 0){ breakShield(en, 2, true); continue; }   // golpe forte quebra 2 escudos
@@ -1271,11 +1438,7 @@ async function playerSpecial(){
     en.hp = Math.max(0, en.hp - dmg);
     en.flash = 1;
     addFloat(en, dmg, '#fbbf24', true);
-    if (en.hp <= 0){
-      en.dead = true;
-      S.gold += en.gold;
-      addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
-    }
+    if (en.hp <= 0) slayEnemy(en);
   }
   save();
   renderHUD(); renderTurnbar();
@@ -1356,16 +1519,14 @@ async function playerSeq(){
     const dmg = Math.max(1, Math.round(S.atk * mult) - en.def + rnd(-1,3));
     en.hp = Math.max(0, en.hp - dmg);
     en.flash = 1;
+    SFX.play(mult >= 1.5 ? 'crit' : 'hit');
     addFloat(en, dmg, mult >= 2 ? '#fbbf24' : '#fff', mult >= 1.5);
     log('☠ Sequência Mortal ×' + mult + '! ' + dmg + ' de dano em ' + en.name + '.');
   }
   await hit;
   if (en.hp <= 0){
-    en.dead = true;
-    S.gold += en.gold; save();
-    addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
-    log(en.name + ' caiu! +' + en.gold + ' de ouro.');
-    renderHUD(); renderTurnbar();
+    slayEnemy(en);
+    log('💥 ' + en.name + ' caiu! +' + en.gold + ' de ouro.');
   }
   await playerReturn();
   if (await waveCleared()) return;
@@ -1429,21 +1590,20 @@ async function playerCombo(){
         const dmg = Math.max(1, Math.round(S.atk * MULTS[i]) - en.def + rnd(-1,2));
         en.hp = Math.max(0, en.hp - dmg);
         en.flash = 1;
+        SFX.play(MULTS[i] >= 1.8 ? 'crit' : 'hit');
         addFloat(en, dmg, i >= 2 ? '#fbbf24' : '#fff', i >= 2);
         log('🗡 Golpe ' + (i+1) + '/' + n + ' (×' + MULTS[i] + ')! ' + dmg + ' de dano.');
         if (i >= 2) shakeApp();
       }
     } else {
+      SFX.play('whoosh');
       addFloat(player, r === 'early' ? 'CEDO!' : 'ERROU!', '#8b90ad');
       log('💨 Golpe ' + (i+1) + '/' + n + ' errou o tempo!');
     }
     await swing;
     if (en.hp <= 0){
-      en.dead = true;
-      S.gold += en.gold; save();
-      addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
-      log(en.name + ' caiu no combo! +' + en.gold + ' de ouro.');
-      renderHUD(); renderTurnbar();
+      slayEnemy(en);
+      log('💥 ' + en.name + ' caiu no combo! +' + en.gold + ' de ouro.');
       break;
     }
     if (i < n - 1) await wait(200);
@@ -1460,6 +1620,7 @@ async function usePotion(){
   potions--;
   const heal = Math.round(S.maxhp * 0.4);
   hp = Math.min(S.maxhp, hp + heal);
+  SFX.play('potion');
   addFloat(player, '+' + heal, '#4ade80');
   log('Poção! +' + heal + ' de HP.');
   renderHUD();
@@ -1517,6 +1678,7 @@ async function bossShield(en){
   await wait(550);
   en.shield += gain;
   en.flash = 1;
+  SFX.play('magic');
   addFloat(en, '+' + gain + ' 🛡️', '#60a5fa', true);
   log('🛡️ ' + en.name + ' ergueu ' + gain + (gain > 1 ? ' escudos' : ' escudo') +
       ' (' + en.shield + '/' + SHIELD_MAX + '). Quebre todos antes de ferir o chefe!');
@@ -1542,6 +1704,7 @@ async function monkHeal(en, tgt){
   const heal = Math.round(tgt.maxhp * 0.3);
   tgt.hp = Math.min(tgt.maxhp, tgt.hp + heal);
   tgt.flash = 1;
+  SFX.play('heal');
   addFloat(tgt, '+' + heal, '#4ade80', true);
   log('📿 ' + en.name + ' curou ' + tgt.name + ' em ' + heal + ' de HP!');
   await cast;
@@ -1558,6 +1721,7 @@ async function monkCurse(en){
   await wait(450);
   curse = { type, turns, power: Math.max(3, Math.round(en.atk * 0.5)) };
   player.flash = 1; fieldFx('bad'); shakeApp();
+  SFX.play('curse');
   addFloat(player, type === 'dot' ? '☠ MALDIÇÃO!' : '⚡ FÚRIA SELADA!', '#c084fc', true);
   log(type === 'dot'
     ? '☠ Maldição! Você perderá ' + curse.power + ' de HP no início dos próximos ' + turns + ' turnos!'
@@ -1654,14 +1818,12 @@ async function counterAttack(en){
   const dmg = Math.max(1, Math.round(S.atk * m) - en.def);
   en.hp = Math.max(0, en.hp - dmg);
   en.flash = 1;
+  SFX.play('crit');
   addFloat(en, dmg, '#fbbf24', true);
   log('↩ CONTRA-ATAQUE ×' + m.toFixed(1) + '! Você devolveu ' + dmg + ' de dano em ' + en.name + '!');
   if (en.hp <= 0){
-    en.dead = true;
-    S.gold += en.gold; save();
-    addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
-    log('↩ CONTRA-ATAQUE fatal! ' + en.name + ' não sobreviveu à resposta!');
-    renderHUD(); renderTurnbar();
+    slayEnemy(en);
+    log('💥 CONTRA-ATAQUE fatal! ' + en.name + ' não sobreviveu à resposta!');
   }
   await swing;
 }
@@ -1690,6 +1852,7 @@ function applyHit(en, type, result, atk, inCombo){
   if (type === 'jump'){
     if (result === 'dodge'){
       dmg = 0;
+      SFX.play('whoosh');
       addFloat(player, 'ESQUIVOU!', '#4ade80', true);
       gainFury(8);                                   // esquiva também gera fúria
       log('🦘 Você saltou sobre o golpe rasteiro de ' + en.name + ' (+8 de fúria)!');
@@ -1697,6 +1860,7 @@ function applyHit(en, type, result, atk, inCombo){
     } else {
       dmg = atk + rnd(0,3);
       player.flash = 1;
+      SFX.play('hurt');
       addFloat(player, '-' + dmg, '#f87171', true);
       log('O golpe rasteiro de ' + en.name + ' varreu suas pernas! ' + dmg + ' de dano.');
       fieldFx('bad'); shakeApp();
@@ -1704,6 +1868,7 @@ function applyHit(en, type, result, atk, inCombo){
   } else if (result === 'perfect'){
     dmg = 0;
     playOnce(player, 'guard');
+    SFX.play('parry');
     addFloat(player, 'PARRY!', '#fbbf24', true);
     gainFury(10);                                    // parry perfeito também dá fúria
     enemyStagger(en, 1, 15);                         // e cansa o atacante (+15 de exaustão)
@@ -1712,6 +1877,7 @@ function applyHit(en, type, result, atk, inCombo){
   } else if (result === 'block'){
     dmg = Math.max(0, atk - S.def);
     playOnce(player, 'guard');
+    SFX.play('block');
     addFloat(player, '-' + dmg, '#a78bfa');
     gainFury(6);                                     // bloqueio também gera fúria
     log('🛡️ Bloqueado! A defesa absorveu: ' + dmg + ' de dano (+6 de fúria).');
@@ -1719,6 +1885,7 @@ function applyHit(en, type, result, atk, inCombo){
   } else {
     dmg = atk + rnd(0,3);
     player.flash = 1;
+    SFX.play('hurt');
     addFloat(player, '-' + dmg, '#f87171', true);
     log(en.name + ' acertou em cheio! ' + dmg + ' de dano.');
     fieldFx('bad'); shakeApp();
