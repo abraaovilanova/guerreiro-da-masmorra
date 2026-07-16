@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<!--ARTIFACT-A-->
+<title>Guerreiro da Masmorra</title>
+<style>
+  /* ============ TOKENS — dark mode: cinza escuro + roxo/azul meia-noite ============ */
+  :root{
+    --bg:#0f1117;
+    --panel:#1a1d2e;
+    --panel-2:#232742;
+    --border:#3a3f5e;
+    --ink:#e7e9f4;
+    --ink-dim:#8b90ad;
+    --accent:#a78bfa;
+    --accent-deep:#6d4fd6;
+    --gold:#fbbf24;
+    --hp:#4ade80;
+    --danger:#f87171;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--bg);color:var(--ink);font-family:var(--sans);
+    overflow:hidden;-webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #app{
+    height:100dvh;max-width:520px;margin:0 auto;position:relative;
+    display:flex;flex-direction:column;
+    background:radial-gradient(ellipse 130% 55% at 50% -12%, #241d45 0%, transparent 60%), var(--bg);
+  }
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;padding:16px;gap:12px}
+  .hidden{display:none!important}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px}
+  .label{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-dim)}
+  .num{font-variant-numeric:tabular-nums}
+  button{
+    font-family:var(--sans);color:var(--ink);cursor:pointer;
+    background:var(--panel-2);border:1px solid var(--border);border-radius:12px;
+    font-size:15px;padding:12px 14px;transition:transform .06s, filter .1s;
+  }
+  button:active{transform:scale(.97);filter:brightness(1.2)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button:disabled{opacity:.35;cursor:default}
+
+  /* ============ TELA INICIAL ============ */
+  #menu{justify-content:flex-start;gap:12px;overflow-y:auto}
+  #menu > :first-child{margin-top:auto}
+  #menu > :last-child{margin-bottom:auto}
+  h1{font-size:clamp(22px,6vw,30px);text-align:center;letter-spacing:-.01em;text-wrap:balance;line-height:1.15}
+  h1 em{font-style:normal;color:var(--accent)}
+  #goldbar{display:flex;justify-content:center;align-items:center;gap:8px;font-size:19px;color:var(--gold);font-weight:700}
+  .uprow{display:flex;align-items:center;gap:12px;padding:9px 0}
+  .uprow + .uprow{border-top:1px solid var(--border)}
+  .uprow .ico{font-size:21px;width:30px;text-align:center}
+  .uprow .info{flex:1;min-width:0}
+  .uprow .val{font-size:16px;font-weight:600}
+  .uprow .desc{font-size:11px;color:var(--ink-dim)}
+  .upbtn,.shopbtn{
+    flex:none;min-width:92px;text-align:center;font-weight:600;font-size:13px;padding:9px 10px;
+    background:linear-gradient(180deg,var(--accent-deep),#53389e);border-color:var(--accent);
+  }
+  .upbtn small,.shopbtn small{display:block;font-weight:400;font-size:11px;color:#d8ccff}
+  #enter{
+    text-align:center;font-size:17px;font-weight:700;padding:15px;letter-spacing:.02em;
+    background:linear-gradient(180deg,#7c3aed,#5b21b6);border-color:#a78bfa;
+    box-shadow:0 4px 24px rgba(124,58,237,.35);
+  }
+  #bestTag{text-align:center;font-size:12px;color:var(--ink-dim)}
+  #reset{background:none;border:none;color:var(--ink-dim);font-size:11px;text-decoration:underline;padding:2px}
+
+  /* ============ BATALHA ============ */
+  #battle{padding:10px;gap:8px}
+  #logwin{padding:9px 13px;font-size:14px;min-height:42px;display:flex;align-items:center;line-height:1.35}
+  #field{
+    flex:1;position:relative;touch-action:none;overflow:hidden;
+    border:1px solid var(--border);border-radius:14px;
+    background:
+      radial-gradient(ellipse 90% 60% at 50% 20%, #221c40 0%, transparent 70%),
+      linear-gradient(180deg,#141628 0%,#181430 60%,#100f22 100%);
+  }
+  #cv{display:block;width:100%;height:100%}
+  #wavechip{
+    position:absolute;top:8px;left:50%;translate:-50% 0;z-index:3;
+    font-size:11px;letter-spacing:.1em;color:var(--ink-dim);
+    background:rgba(26,29,46,.85);border:1px solid var(--border);border-radius:99px;padding:4px 12px;
+    white-space:nowrap;
+  }
+  .side{
+    position:absolute;top:50%;translate:0 -50%;z-index:3;
+    width:42px;height:60px;font-size:19px;padding:0;text-align:center;
+    background:rgba(35,39,66,.8);border-radius:10px;
+  }
+  #arrL{left:6px} #arrR{right:6px}
+  #swipehint{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:11px;color:var(--ink-dim);z-index:2}
+
+  /* efeitos de tela: falha (vermelho) e defesa (verde/azul) */
+  #field.fx-bad::after,#field.fx-good::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:13px;
+  }
+  #field.fx-bad::after{animation:fxbad .45s ease}
+  #field.fx-good::after{animation:fxgood .5s ease}
+  @keyframes fxbad{0%{box-shadow:inset 0 0 0 999px rgba(248,113,113,.35)}100%{box-shadow:inset 0 0 0 999px rgba(248,113,113,0)}}
+  @keyframes fxgood{0%{box-shadow:inset 0 0 60px 12px rgba(96,214,255,.55), inset 0 0 0 4px rgba(74,222,128,.8)}100%{box-shadow:inset 0 0 0 0 rgba(96,214,255,0)}}
+
+  /* ---- QTE: círculo que encolhe ---- */
+  #qte{
+    position:absolute;inset:0;z-index:5;visibility:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+    background:rgba(248,113,113,.07);
+  }
+  #qte.on{visibility:visible}
+  #qte .zone{position:relative;width:150px;height:150px}
+  #qte .target{
+    position:absolute;inset:25px;border:3px solid var(--ink);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:36px;
+    background:rgba(15,17,23,.55);
+  }
+  #qte .shrink{position:absolute;inset:25px;border:4px solid var(--danger);border-radius:50%;transform:scale(2.1)}
+  #qte.on .shrink{animation:qteshrink linear forwards}
+  #qte .tip{font-size:14px;font-weight:700;letter-spacing:.08em;color:#fecaca;text-shadow:0 2px 6px #000}
+  #qte.perfect .shrink{border-color:var(--gold);animation-play-state:paused}
+  #qte.perfect .tip{color:var(--gold)}
+  #qte.blocked .shrink{border-color:var(--accent);animation-play-state:paused}
+  #qte.blocked .tip{color:var(--accent)}
+  #qte.jump{background:rgba(251,191,36,.08)}
+  #qte.jump .shrink{border-color:var(--gold)}
+  #qte.jump .tip{color:#fde68a}
+  #qte.dodged .shrink{border-color:var(--hp);animation-play-state:paused}
+  #qte.dodged .tip{color:var(--hp)}
+  @keyframes qteshrink{from{transform:scale(2.1)}to{transform:scale(1)}}
+
+  /* ordem do turno */
+  #turnbar{display:flex;align-items:center;gap:10px;padding:7px 12px}
+  #turnbar .label{flex:none}
+  #turnlist{display:flex;gap:6px;flex:1;overflow-x:auto;align-items:center;scrollbar-width:none}
+  #turnlist::-webkit-scrollbar{display:none}
+  .tchip{
+    width:38px;height:38px;flex:none;border:2px solid var(--border);border-radius:9px;
+    background:#0c0e18;display:flex;align-items:center;justify-content:center;
+    opacity:.5;transition:transform .15s, opacity .15s, border-color .15s;
+  }
+  .tchip.act{border-color:var(--gold);opacity:1;transform:scale(1.12);box-shadow:0 0 10px rgba(251,191,36,.45)}
+  .tchip canvas,.tchip img{width:30px;height:30px;image-rendering:pixelated}
+
+  /* painel inferior: herói + comandos estilo Final Fantasy */
+  #bottom{display:grid;grid-template-columns:1.1fr 1fr;gap:8px}
+  #hero .nm{font-size:13px;font-weight:700;letter-spacing:.04em}
+  #hero .hpbar{height:12px;background:#0c0e18;border:1px solid var(--border);border-radius:6px;margin:7px 0 5px;overflow:hidden}
+  #hero .hpbar i{display:block;height:100%;background:var(--hp);transition:width .25s}
+  #hero .hpbar.low i{background:var(--danger)}
+  #hero .furybar{height:9px;background:#0c0e18;border:1px solid var(--border);border-radius:6px;margin:0 0 5px;overflow:hidden}
+  #hero .furybar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f59e0b,#ef4444);transition:width .25s}
+  #hero .furybar.full i{animation:furypulse .5s ease-in-out infinite alternate}
+  @keyframes furypulse{from{filter:brightness(1)}to{filter:brightness(1.8)}}
+  #hero .nums{font-size:12px;color:var(--ink-dim)}
+  #cmds{display:flex;flex-direction:column;gap:5px;padding:10px}
+  #cmds button{font-size:14px;padding:7px 10px;background:none;border:none;text-align:left}
+  #cmds button:not(:disabled):active{color:var(--accent)}
+  #cmds .cur{color:var(--accent);margin-right:6px}
+
+  /* overlay de fim de masmorra */
+  #overlay{
+    position:absolute;inset:0;z-index:10;background:rgba(8,9,15,.85);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  #overlay .card{width:100%;max-width:360px;text-align:center;display:flex;flex-direction:column;gap:12px;padding:22px}
+  #ovTitle{font-size:24px;font-weight:800}
+  #ovMsg{font-size:14px;line-height:1.55;color:var(--ink-dim)}
+  #ovMsg b{color:var(--gold)}
+  .shake{animation:shake .35s ease}
+  @keyframes shake{20%{transform:translate(-8px,2px)}40%{transform:translate(7px,-3px)}60%{transform:translate(-5px,-2px)}80%{transform:translate(4px,2px)}}
+
+  /* ============ SKIN TINY SWORDS (ativa quando os assets de UI carregam) ============ */
+  .icn{width:22px;height:22px;image-rendering:pixelated;vertical-align:-5px}
+  .icn-s{width:15px;height:15px;image-rendering:pixelated;vertical-align:-3px}
+  .ava{width:34px;height:34px;image-rendering:pixelated;vertical-align:-11px}
+  #herocard{display:flex;align-items:center;gap:10px;padding:8px 14px}
+  #heroCv{width:128px;height:96px;flex:none}
+  #herocard .hname{font-size:17px;font-weight:800;letter-spacing:.03em}
+  #herocard .hsub{font-size:11px;color:var(--ink-dim);margin-top:2px}
+  .skinned .card{
+    background:none;border-radius:0;border:13px solid transparent;
+    border-image:var(--ui-paper) 44 54 43 54 fill stretch;
+    image-rendering:pixelated;padding:5px 8px;
+  }
+  .skinned .upbtn,.skinned .shopbtn,.skinned #ovBack,.skinned .side{
+    background:none;border-radius:0;border:10px solid transparent;
+    border-image:var(--ui-btn-blue) 47 45 47 45 fill stretch;
+    image-rendering:pixelated;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55);
+  }
+  .skinned .upbtn small,.skinned .shopbtn small{color:#eaf6ff}
+  .skinned #enter{
+    background:none;border-radius:0;border:12px solid transparent;
+    border-image:var(--ui-btn-red) 47 45 47 45 fill stretch;
+    image-rendering:pixelated;box-shadow:none;text-shadow:0 1px 2px rgba(0,0,0,.55);
+  }
+  .ribboned{
+    border-style:solid;border-color:transparent;border-width:0 46px;
+    image-rendering:pixelated;padding:14px 4px 20px;
+    color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.45);
+  }
+  .ribboned em{color:#ffe9a8}
+  .skinned #hero .hpbar{
+    height:19px;background:none;border-radius:0;border:6px solid transparent;
+    border-image:var(--ui-bar) 18 24 18 24 fill stretch;
+    image-rendering:pixelated;margin:6px 0 5px;
+  }
+  .skinned #hero .hpbar i{
+    background:transparent;background-image:var(--ui-barfill);
+    background-size:auto 100%;background-repeat:repeat-x;border-radius:0;
+  }
+  .skinned #hero .hpbar.low i{animation:lowblink .7s infinite alternate}
+  @keyframes lowblink{to{filter:brightness(1.9)}}
+  @media (prefers-reduced-motion:reduce){
+    .shake{animation:none!important}
+    #field.fx-bad::after,#field.fx-good::after{animation-duration:.01s!important}
+  }
+</style>
+<!--/ARTIFACT-A-->
+</head>
+<body>
+<!--ARTIFACT-B-->
+<script>/*EMBED-SLOT*/</script>
+<div id="app">
+
+  <!-- ================= TELA INICIAL: UPGRADES + LOJA ================= -->
+  <div class="screen" id="menu">
+    <h1>⚔ Guerreiro da <em>Masmorra</em></h1>
+    <div id="goldbar"><img class="icn" data-ico="icoCoin" alt="ouro"> <span class="num" id="gold">0</span></div>
+
+    <div class="card" id="herocard">
+      <canvas id="heroCv" width="160" height="120"></canvas>
+      <div>
+        <div class="label">Seu herói</div>
+        <div class="hname"><img id="menuAva" class="ava" alt=""> GUERREIRO</div>
+        <div class="hsub">Cavaleiro azul do acampamento</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label" style="margin-bottom:2px">Atributos</div>
+      <div class="uprow">
+        <div class="ico"><img class="icn" data-ico="icoMeat" alt="vida"></div>
+        <div class="info"><div class="label">Vida máxima</div><div class="val num" id="mVida">60</div></div>
+        <button class="upbtn" data-up="vida">+20 vida<small>🪙 <span class="num">50</span></small></button>
+      </div>
+      <div class="uprow">
+        <div class="ico"><img class="icn" data-ico="icoSword" alt="ataque"></div>
+        <div class="info"><div class="label">Ataque</div><div class="val num" id="mAtk">10</div></div>
+        <button class="upbtn" data-up="atk">+3 ataque<small>🪙 <span class="num">60</span></small></button>
+      </div>
+      <div class="uprow">
+        <div class="ico"><img class="icn" data-ico="icoShield" alt="defesa"></div>
+        <div class="info"><div class="label">Defesa</div><div class="val num" id="mDef">3</div></div>
+        <button class="upbtn" data-up="def">+2 defesa<small>🪙 <span class="num">60</span></small></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label" style="margin-bottom:2px">Loja</div>
+      <div class="uprow">
+        <div class="ico">🔥</div>
+        <div class="info">
+          <div class="label">Tocha — <span class="num" id="nTocha">0</span></div>
+          <div class="desc">Ilumina a masmorra: o círculo de defesa encolhe 40% mais devagar (1 por entrada)</div>
+        </div>
+        <button class="shopbtn" data-buy="tocha">Comprar<small>🪙 40</small></button>
+      </div>
+      <div class="uprow">
+        <div class="ico">🗺️</div>
+        <div class="info">
+          <div class="label">Mapa — <span class="num" id="nMapa">0</span></div>
+          <div class="desc">Permite Fugir da masmorra levando todo o ouro coletado (consome 1)</div>
+        </div>
+        <button class="shopbtn" data-buy="mapa">Comprar<small>🪙 30</small></button>
+      </div>
+    </div>
+
+    <button id="enter">🏰 Entrar na Masmorra (Nv. <span class="num" id="dgLv">1</span>)</button>
+    <div id="bestTag">Masmorras conquistadas: 0</div>
+    <button id="reset">zerar progresso</button>
+  </div>
+
+  <!-- ================= BATALHA ================= -->
+  <div class="screen hidden" id="battle">
+    <div class="card" id="logwin">…</div>
+
+    <div id="field">
+      <canvas id="cv"></canvas>
+      <div id="wavechip">MASMORRA NV. 1 · ONDA 1/3</div>
+      <button class="side" id="arrL" aria-label="Alvo anterior">◀</button>
+      <button class="side" id="arrR" aria-label="Próximo alvo">▶</button>
+      <div id="swipehint">arraste, toque no monstro ou use as setas para mirar</div>
+      <div id="qte">
+        <div class="zone"><div class="target">🛡️</div><div class="shrink"></div></div>
+        <div class="tip">TOQUE QUANDO O CÍRCULO FECHAR!</div>
+      </div>
+    </div>
+
+    <div id="bottom">
+      <div class="card" id="hero">
+        <div class="nm"><img id="heroAva" class="ava" style="width:26px;height:26px;vertical-align:-8px" alt=""> GUERREIRO <span id="torchTag"></span></div>
+        <div class="hpbar"><i id="hpfill" style="width:100%"></i></div>
+        <div class="furybar" title="Fúria"><i id="furyfill"></i></div>
+        <div class="nums">HP <span class="num" id="hpnum">60/60</span> · ⚡<span class="num" id="furyN">0%</span> · <img class="icn-s" data-ico="icoCoin" alt="ouro"> <span class="num" id="goldB">0</span></div>
+      </div>
+      <div class="card" id="cmds">
+        <button id="cAtk"><span class="cur">▶</span>Atacar</button>
+        <button id="cFury"><span class="cur">▶</span>⚡ Fúria <span class="num" id="furyM">(25%+)</span></button>
+        <button id="cPot"><span class="cur">▶</span>Poção <span class="num" id="potN">×3</span></button>
+        <button id="cRun"><span class="cur">▶</span>Fugir 🗺️<span class="num" id="mapN">×0</span></button>
+      </div>
+    </div>
+
+    <div class="card" id="turnbar">
+      <span class="label">Turnos</span>
+      <div id="turnlist"></div>
+    </div>
+  </div>
+
+  <!-- ================= FIM DE MASMORRA ================= -->
+  <div id="overlay" class="hidden">
+    <div class="card">
+      <div id="ovTitle">VITÓRIA!</div>
+      <div id="ovMsg"></div>
+      <button id="ovBack">Voltar ao acampamento</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ================================================================
+   GUERREIRO DA MASMORRA v3 — sprites Tiny Swords (Pixel Frog)
+   Canvas 2D com spritesheets em linha única; nº de frames é
+   calculado por largura ÷ tamanho do frame (192px ou 320px).
+   Masmorra = 3 ondas: 3 comuns → 3 comuns fortes → Boss.
+   ================================================================ */
+const $ = s => document.querySelector(s);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const rnd = (a,b) => a + Math.floor(Math.random()*(b-a+1));
+const lerp = (a,b,k) => a + (b-a)*k;
+
+/* ---------- catálogo de sprites (caminhos do Free Pack) ---------- */
+const BASE = 'Tiny Swords (Free Pack)/Units/';
+const UNITS = {
+  warrior:{ fs:192, dir:'Blue Units/Warrior/',  fall:'🗡️',
+            anims:{ idle:'Warrior_Idle.png', run:'Warrior_Run.png', attack:'Warrior_Attack1.png', guard:'Warrior_Guard.png' } },
+  pawn:   { fs:192, dir:'Red Units/Pawn/',      fall:'👺',
+            anims:{ idle:'Pawn_Idle Knife.png', run:'Pawn_Run Knife.png', attack:'Pawn_Interact Knife.png' } },
+  archer: { fs:192, dir:'Red Units/Archer/',    fall:'🏹',
+            anims:{ idle:'Archer_Idle.png', run:'Archer_Run.png', attack:'Archer_Shoot.png' } },
+  lancer: { fs:320, dir:'Red Units/Lancer/',    fall:'🔱',
+            anims:{ idle:'Lancer_Idle.png', run:'Lancer_Run.png', attack:'Lancer_Right_Attack.png' } },
+  boss:   { fs:192, dir:'Black Units/Warrior/', fall:'👹',
+            anims:{ idle:'Warrior_Idle.png', run:'Warrior_Run.png', attack:'Warrior_Attack1.png' } },
+};
+
+/* pré-carrega todos os sheets; usa data-URI embutido se existir (Artifact) */
+const IMGS = {};
+const loadPromise = Promise.allSettled(Object.entries(UNITS).flatMap(([u, cfg]) =>
+  Object.entries(cfg.anims).map(([anim, file]) => new Promise((res, rej) => {
+    const img = new Image();
+    const key = u + '.' + anim;
+    img.onload = () => { IMGS[key] = img; res(); };
+    img.onerror = () => { IMGS[key] = null; rej(key); };   // sem sprite → fallback emoji
+    img.src = (window.EMBED && window.EMBED[key]) || (BASE + cfg.dir + file);
+  }))
+));
+
+/* ---------- assets de UI (Tiny Swords / UI Elements) ---------- */
+const UIBASE = 'Tiny Swords (Free Pack)/UI Elements/UI Elements/';
+const UIA = {
+  paper:   'Papers/SpecialPaper.png',            // painel escuro 9-slice
+  btnBlue: 'Buttons/BigBlueButton_Regular.png',
+  btnRed:  'Buttons/BigRedButton_Regular.png',
+  barBase: 'Bars/BigBar_Base.png',
+  barFill: 'Bars/BigBar_Fill.png',
+  ribbons: 'Ribbons/SmallRibbons.png',           // 5 fitas de 320×128
+  brackets:'Cursors/Cursor_04.png',              // colchetes de seleção
+  avaHero: 'Human Avatars/Avatars_01.png',
+  icoCoin: 'Icons/Icon_03.png',
+  icoMeat: 'Icons/Icon_04.png',
+  icoSword:'Icons/Icon_05.png',
+  icoShield:'Icons/Icon_06.png',
+};
+const UIIMG = {};
+const uiPromise = Promise.allSettled(Object.entries(UIA).map(([k, f]) => new Promise((res, rej) => {
+  const img = new Image();
+  img.onload = () => { UIIMG[k] = img; res(); };
+  img.onerror = () => rej(k);
+  img.src = (window.EMBED && window.EMBED['ui.' + k]) || (UIBASE + f);
+})));
+
+/* geometria dos 9-slices (os sheets têm os pedaços espaçados na grade) */
+const NINE = {
+  paper: { cols:[[10,54],[128,64],[256,54]], rows:[[20,44],[128,64],[256,43]] },
+  btn:   { cols:[[19,45],[128,64],[256,45]], rows:[[17,47],[128,64],[256,47]] },
+  bar:   { cols:[[40,24],[128,64],[256,24]], rows:[[9,51]] },
+  ribbon:{ cols:[[2,62],[128,64],[256,62]], rows:[[4,55]] },   // fita azul (1ª do sheet)
+};
+/* recompõe os pedaços em uma imagem contígua e devolve url() p/ border-image */
+function nineURL(img, g){
+  const c = document.createElement('canvas');
+  c.width = g.cols.reduce((a,b) => a+b[1], 0);
+  c.height = g.rows.reduce((a,b) => a+b[1], 0);
+  const x = c.getContext('2d');
+  x.imageSmoothingEnabled = false;
+  let dy = 0;
+  for (const [sy, sh] of g.rows){
+    let dx = 0;
+    for (const [sx, sw] of g.cols){ x.drawImage(img, sx, sy, sw, sh, dx, dy, sw, sh); dx += sw; }
+    dy += sh;
+  }
+  return 'url(' + c.toDataURL() + ')';
+}
+function cropURL(img, sx, sy, sw, sh){
+  const c = document.createElement('canvas');
+  c.width = sw; c.height = sh;
+  const x = c.getContext('2d');
+  x.imageSmoothingEnabled = false;
+  x.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  return 'url(' + c.toDataURL() + ')';
+}
+/* aplica a skin quando os assets chegam (sem eles o CSS padrão continua) */
+(async function applySkin(){
+  await uiPromise;
+  /* parte 1 — ícones, avatar e fita: <img>/CSS puros, funcionam até em file:// */
+  document.querySelectorAll('img[data-ico]').forEach(im => {
+    const k = im.dataset.ico;
+    if (UIIMG[k]) im.src = UIIMG[k].src; else im.style.display = 'none';
+  });
+  if (UIIMG.avaHero){ $('#heroAva').src = UIIMG.avaHero.src; $('#menuAva').src = UIIMG.avaHero.src; }
+  else { $('#heroAva').style.display = 'none'; $('#menuAva').style.display = 'none'; }
+  /* parte 2 — 9-slices via canvas: em file:// o canvas fica "tainted" e
+     toDataURL falha; nesse caso mantemos o visual CSS escuro dos painéis */
+  try {
+    const R = document.documentElement.style;
+    if (UIIMG.paper)   R.setProperty('--ui-paper',   nineURL(UIIMG.paper, NINE.paper));
+    if (UIIMG.btnBlue) R.setProperty('--ui-btn-blue', nineURL(UIIMG.btnBlue, NINE.btn));
+    if (UIIMG.btnRed)  R.setProperty('--ui-btn-red',  nineURL(UIIMG.btnRed, NINE.btn));
+    if (UIIMG.barBase) R.setProperty('--ui-bar',      nineURL(UIIMG.barBase, NINE.bar));
+    if (UIIMG.barFill) R.setProperty('--ui-barfill',  cropURL(UIIMG.barFill, 0, 20, 64, 24));
+    if (UIIMG.ribbons){
+      const h1 = document.querySelector('h1');
+      h1.style.borderImage = nineURL(UIIMG.ribbons, NINE.ribbon) + ' 0 62 0 62 fill stretch';
+      h1.classList.add('ribboned');
+    }
+    if (UIIMG.paper && UIIMG.btnBlue) document.body.classList.add('skinned');
+  } catch(err){
+    console.warn('Skin parcial: abra via servidor http (ou no Artifact) para os painéis 9-slice.', err);
+  }
+})();
+
+/* ---------- estado persistente ---------- */
+const SAVE_KEY = 'rpg-guerreiro-v3';
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:0, mapas:1, dgLv:1, wins:0 };
+let S = structuredClone(DEFAULTS);
+try { const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d && d.maxhp) S = Object.assign(structuredClone(DEFAULTS), d); } catch(e){}
+const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch(e){} };
+
+/* ---------- estado da run ---------- */
+let hp = S.maxhp, wave = 1, potions = 3, torchOn = false;
+let fury = 0;                       // 0–100: enche ao sofrer dano, gasta no golpe especial
+let enemies = [], player = null, targetIdx = 0;
+let phase = 'menu';                 // menu | player | busy | qte
+let qteStart = 0, qteResult = null, qteType = 'parry';   // parry (toque) | jump (arrastar ↑)
+let QTE_MS = 900;                   // com tocha: 1260
+
+/* ---------- upgrades e loja ---------- */
+const UPS = {
+  vida:{ base:50, apply(){ S.maxhp += 20; } },
+  atk: { base:60, apply(){ S.atk  += 3;  } },
+  def: { base:60, apply(){ S.def  += 2;  } },
+};
+const upCost = k => Math.round(UPS[k].base * Math.pow(1.55, S.lv[k]));
+const SHOP = { tocha:{cost:40}, mapa:{cost:30} };
+
+/* ---------- monstros: 3 comuns, 3 comuns+fortes, Boss ---------- */
+const COMMONS = [
+  { unit:'pawn',   name:'Servo',    hp:30, atk:9,  def:2 },
+  { unit:'archer', name:'Arqueiro', hp:24, atk:12, def:1 },
+  { unit:'lancer', name:'Lanceiro', hp:40, atk:11, def:4 },
+];
+const BOSS_DEF = { unit:'boss', name:'Cavaleiro Negro', hp:160, atk:20, def:6 };
+
+function makeWave(w){
+  const L = S.dgLv;
+  const mult = (1 + (L-1)*0.25) * (w === 2 ? 1.3 : 1);
+  const mk = (base, i, n) => ({
+    ...base,
+    hp:Math.round(base.hp*mult), maxhp:Math.round(base.hp*mult),
+    atk:Math.round(base.atk*mult), def:Math.round(base.def*mult),
+    gold:Math.round((12 + 4*L) * (w === 2 ? 1.25 : 1)),
+    // estado de render (canvas)
+    x:0, y:0, homeX:0, homeY:0, size:0, flip:true, alpha:1, flash:0, warn:false,
+    anim:'idle', frame:rnd(0,5), acc:0, dead:false, tween:null, once:null,
+    name: base.name + (n > 1 ? ' ' + 'ABC'[i] : ''),
+  });
+  if (w === 3) return [mk(BOSS_DEF, 0, 1)];
+  return [0,1,2].map(i => mk(COMMONS[rnd(0, COMMONS.length-1)], i, 3));
+}
+
+/* ================================================================
+   MOTOR DE SPRITES (Canvas 2D)
+   ================================================================ */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let W = 0, H = 0, floats = [];
+
+function resizeCanvas(){
+  const r = $('#field').getBoundingClientRect();
+  if (!r.width) return;
+  const dpr = window.devicePixelRatio || 1;
+  W = r.width; H = r.height;
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.imageSmoothingEnabled = false;   // pixel art nítida
+  layoutActors();
+}
+window.addEventListener('resize', resizeCanvas);
+
+/* posições em "slots" estilo Final Fantasy: herói à esquerda, inimigos à direita */
+function layoutActors(){
+  if (!player) return;
+  const base = Math.min(H*0.36, W*0.32);
+  player.size = base*1.1;
+  player.homeX = W*0.20; player.homeY = H*0.58;
+  const slots = enemies.length === 1
+    ? [{x:W*0.70, y:H*0.52}]
+    : [{x:W*0.66, y:H*0.26}, {x:W*0.78, y:H*0.52}, {x:W*0.62, y:H*0.76}];
+  enemies.forEach((en, i) => {
+    en.size = en.unit === 'boss' ? base*1.9 : base;
+    en.homeX = slots[i % slots.length].x;
+    en.homeY = slots[i % slots.length].y;
+  });
+  [player, ...enemies].forEach(a => { if (!a.tween){ a.x = a.homeX; a.y = a.homeY; } });
+}
+
+function makePlayer(){
+  return { unit:'warrior', name:'GUERREIRO', x:0, y:0, homeX:0, homeY:0, size:0,
+           flip:false, alpha:1, flash:0, warn:false, anim:'idle', frame:0, acc:0,
+           dead:false, tween:null, once:null };
+}
+
+/* animação "tocar uma vez" (ataque/defesa) — resolve ao terminar */
+const playOnce = (a, anim) => new Promise(res => { a.anim = anim; a.frame = 0; a.acc = 0; a.once = res; });
+/* deslocamento suave até (tx,ty) — baseado no relógio para não travar
+   se o requestAnimationFrame perder frames (aba em segundo plano etc.) */
+const tween = (a, tx, ty, ms, anim) => new Promise(res => {
+  if (anim){ a.anim = anim; a.frame = 0; a.acc = 0; }
+  a.tween = { sx:a.x, sy:a.y, tx, ty, ms, t0:performance.now(), res };
+});
+
+function frameCount(a){
+  const img = IMGS[a.unit + '.' + a.anim];
+  return (img && img.naturalWidth) ? Math.max(1, Math.floor(img.width / UNITS[a.unit].fs)) : 4;
+}
+
+function updateActor(a, dt){
+  if (a.tween){
+    const t = a.tween;
+    const k = Math.min(1, (performance.now() - t.t0)/t.ms);
+    a.x = lerp(t.sx, t.tx, k); a.y = lerp(t.sy, t.ty, k);
+    if (k >= 1){ a.tween = null; t.res(); }
+  }
+  a.acc += dt;
+  const spd = a.anim === 'attack' ? 90 : 110;   // ms por frame
+  while (a.acc >= spd){
+    a.acc -= spd;
+    if (a.frame + 1 >= frameCount(a)){
+      if (a.once){ const r = a.once; a.once = null; a.anim = 'idle'; a.frame = 0; r(); }
+      else a.frame = 0;
+    } else a.frame++;
+  }
+  a.flash = Math.max(0, a.flash - dt/300);
+}
+
+function drawActor(a, t){
+  const cfg = UNITS[a.unit];
+  const img = IMGS[a.unit + '.' + a.anim];
+  // sombra no chão
+  ctx.save();
+  ctx.globalAlpha = 0.3 * a.alpha;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(a.x, a.y + a.size*0.30, a.size*0.26, a.size*0.06, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  // sprite
+  ctx.save();
+  ctx.globalAlpha = a.dead ? 0.25 : a.alpha;
+  try {
+    if (a.dead) ctx.filter = 'grayscale(1)';
+    else if (a.flash > 0) ctx.filter = 'brightness(' + (1 + a.flash*1.6).toFixed(2) + ')';
+  } catch(e){}
+  if (img && img.naturalWidth){
+    const f = Math.min(a.frame, frameCount(a)-1);
+    const ds = a.size * (cfg.fs/192) * 1.55;   // sheets 320px têm mais margem — compensa
+    ctx.translate(a.x, a.y);
+    if (a.flip) ctx.scale(-1,1);
+    ctx.drawImage(img, f*cfg.fs, 0, cfg.fs, cfg.fs, -ds/2, -ds/2, ds, ds);
+  } else {
+    ctx.font = Math.round(a.size*0.5) + 'px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(cfg.fall, a.x, a.y);
+  }
+  ctx.restore();
+
+  /* nome + barra de vida */
+  const bw = Math.max(56, a.size*0.6), bx = a.x - bw/2, by = a.y - a.size*0.42;
+  ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillStyle = a.dead ? '#f87171' : '#c9cde4';
+  ctx.fillText(a.dead ? 'K.O.' : a.name, a.x, by - 4);
+  if (!a.dead){
+    const pct = Math.max(0, (a === player ? hp/S.maxhp : a.hp/a.maxhp));
+    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by-1, bw+2, 7);
+    ctx.fillStyle = pct <= .3 ? '#f87171' : '#4ade80';
+    ctx.fillRect(bx, by, bw*pct, 5);
+  }
+  /* aviso de ataque ⚠ */
+  if (a.warn && Math.floor(t/280) % 2 === 0){
+    ctx.font = '20px sans-serif';
+    ctx.fillText('⚠️', a.x, by - 18);
+  }
+  /* marcador de alvo: colchetes do kit de UI (ou seta, sem assets) */
+  if (phase === 'player' && !a.dead && enemies[targetIdx] === a){
+    if (UIIMG.brackets){
+      const bs = a.size*0.95 + Math.sin(t/180)*6;
+      ctx.drawImage(UIIMG.brackets, a.x - bs/2, a.y - bs/2 - a.size*0.06, bs, bs);
+    } else {
+      const yy = by - 22 + Math.sin(t/180)*4;
+      ctx.fillStyle = '#a78bfa';
+      ctx.beginPath();
+      ctx.moveTo(a.x-9, yy-10); ctx.lineTo(a.x+9, yy-10); ctx.lineTo(a.x, yy);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+}
+
+function draw(t){
+  ctx.clearRect(0,0,W,H);
+  [...enemies, player].filter(Boolean)
+    .sort((a,b) => a.y - b.y)
+    .forEach(a => drawActor(a, t));
+  /* números flutuantes de dano/cura/ouro */
+  floats = floats.filter(f => f.el < 900);
+  for (const f of floats){
+    const k = f.el/900;
+    ctx.globalAlpha = 1-k;
+    ctx.font = '800 ' + (f.big ? 26 : 20) + 'px ' + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
+    ctx.strokeText(f.txt, f.x, f.y - k*46);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.txt, f.x, f.y - k*46);
+    ctx.globalAlpha = 1;
+  }
+}
+const addFloat = (a, txt, color, big) =>
+  floats.push({ x:a.x, y:a.y - a.size*0.5, txt, color, big:!!big, el:0 });
+
+/* herói animado (idle) na tela de equipamento */
+const heroCv = $('#heroCv'), heroCtx = heroCv.getContext('2d');
+let menuAcc = 0, menuFrame = 0;
+function drawMenuHero(dt){
+  menuAcc += dt;
+  while (menuAcc >= 140){ menuAcc -= 140; menuFrame++; }
+  heroCtx.imageSmoothingEnabled = false;
+  heroCtx.clearRect(0, 0, heroCv.width, heroCv.height);
+  heroCtx.fillStyle = 'rgba(0,0,0,.3)';
+  heroCtx.beginPath();
+  heroCtx.ellipse(80, 102, 40, 9, 0, 0, Math.PI*2);
+  heroCtx.fill();
+  const img = IMGS['warrior.idle'];
+  if (img && img.naturalWidth){
+    const n = Math.max(1, Math.floor(img.width/192));
+    heroCtx.drawImage(img, (menuFrame % n)*192, 0, 192, 192, -20, -40, 200, 200);
+  }
+}
+
+let last = 0;
+function loop(t){
+  const dt = Math.min(50, t - last); last = t;
+  if (!$('#battle').classList.contains('hidden') && W > 0){
+    [player, ...enemies].filter(Boolean).forEach(a => updateActor(a, dt));
+    floats.forEach(f => f.el += dt);
+    draw(t);
+  } else if (!$('#menu').classList.contains('hidden')){
+    drawMenuHero(dt);
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ================================================================
+   TELA INICIAL
+   ================================================================ */
+function renderMenu(){
+  $('#gold').textContent = S.gold;
+  $('#mVida').textContent = S.maxhp;
+  $('#mAtk').textContent = S.atk;
+  $('#mDef').textContent = S.def;
+  $('#nTocha').textContent = S.tochas;
+  $('#nMapa').textContent = S.mapas;
+  $('#dgLv').textContent = S.dgLv;
+  $('#bestTag').textContent = 'Masmorras conquistadas: ' + S.wins;
+  document.querySelectorAll('.upbtn').forEach(b => {
+    b.querySelector('small .num').textContent = upCost(b.dataset.up);
+    b.disabled = S.gold < upCost(b.dataset.up);
+  });
+  document.querySelectorAll('.shopbtn').forEach(b => {
+    b.disabled = S.gold < SHOP[b.dataset.buy].cost;
+  });
+}
+document.querySelectorAll('.upbtn').forEach(b => b.addEventListener('click', () => {
+  const k = b.dataset.up;
+  if (S.gold < upCost(k)) return;
+  S.gold -= upCost(k); UPS[k].apply(); S.lv[k]++;
+  save(); renderMenu();
+}));
+document.querySelectorAll('.shopbtn').forEach(b => b.addEventListener('click', () => {
+  const k = b.dataset.buy;
+  if (S.gold < SHOP[k].cost) return;
+  S.gold -= SHOP[k].cost;
+  if (k === 'tocha') S.tochas++; else S.mapas++;
+  save(); renderMenu();
+}));
+$('#reset').addEventListener('click', () => {
+  if (!confirm('Apagar todo o progresso?')) return;
+  S = structuredClone(DEFAULTS);
+  save(); renderMenu();
+});
+
+/* ================================================================
+   BATALHA
+   ================================================================ */
+const log = m => { $('#logwin').textContent = m; };
+function renderHUD(){
+  const pct = Math.max(0, hp/S.maxhp*100);
+  $('#hpfill').style.width = pct + '%';
+  $('#hpnum').textContent = hp + '/' + S.maxhp;
+  $('#hero .hpbar').classList.toggle('low', pct <= 30);
+  $('#potN').textContent = '×' + potions;
+  $('#mapN').textContent = '×' + S.mapas;
+  $('#goldB').textContent = S.gold;
+  $('#torchTag').textContent = torchOn ? '· 🔥' : '';
+  $('#furyfill').style.width = fury + '%';
+  $('#furyN').textContent = fury + '%';
+  $('#hero .furybar').classList.toggle('full', fury >= 100);
+  $('#wavechip').textContent = 'MASMORRA NV. ' + S.dgLv + ' · ONDA ' + wave + '/3' + (wave === 3 ? ' · BOSS' : '');
+}
+/* multiplicador do golpe especial conforme a fúria acumulada */
+function specialInfo(){
+  if (fury >= 100) return { m:1.5, aoe:true,  tag:'×1.5 TODOS' };
+  if (fury >= 50)  return { m:1.5, aoe:false, tag:'×1.5' };
+  if (fury > 25)   return { m:1.2, aoe:false, tag:'×1.2' };
+  if (fury >= 25)  return { m:1.1, aoe:false, tag:'×1.1' };
+  return null;
+}
+function gainFury(n){ fury = Math.min(100, fury + n); renderHUD(); }
+function shakeApp(){ $('#app').classList.add('shake'); setTimeout(() => $('#app').classList.remove('shake'), 400); }
+function setCmds(on){
+  $('#cAtk').disabled = !on;
+  $('#cFury').disabled = !on || fury < 25;
+  $('#cPot').disabled = !on || potions <= 0 || hp >= S.maxhp;
+  $('#cRun').disabled = !on || S.mapas <= 0;
+  const sp = specialInfo();
+  $('#furyM').textContent = sp ? sp.tag : '(25%+)';
+}
+
+/* ---- ordem do turno: herói + inimigos vivos, destaque em quem age ---- */
+let turnActive = null;   // 'player' | objeto do inimigo | null
+function drawMini(c, unit){
+  const x = c.getContext('2d');
+  x.imageSmoothingEnabled = false;
+  const img = IMGS[unit + '.idle'], fs = UNITS[unit].fs;
+  if (!img || !img.naturalWidth){
+    x.font = '22px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(UNITS[unit].fall, 20, 22);
+    return;
+  }
+  /* recorta o miolo do frame 0, espelhado p/ inimigos olharem à esquerda */
+  const crop = fs*0.5, off = fs*0.25;
+  if (unit !== 'warrior'){ x.translate(40, 0); x.scale(-1, 1); }
+  x.drawImage(img, off, off*0.9, crop, crop, 0, 0, 40, 40);
+}
+function renderTurnbar(){
+  const list = $('#turnlist');
+  list.innerHTML = '';
+  const seq = [{ ref:'player' }, ...enemies.filter(e => !e.dead)];
+  for (const it of seq){
+    const chip = document.createElement('div');
+    const active = it.ref === 'player' ? turnActive === 'player' : turnActive === it;
+    chip.className = 'tchip' + (active ? ' act' : '');
+    if (it.ref === 'player' && UIIMG.avaHero){
+      const im = document.createElement('img');
+      im.src = UIIMG.avaHero.src; im.alt = 'Guerreiro';
+      chip.appendChild(im);
+    } else {
+      const c = document.createElement('canvas');
+      c.width = 40; c.height = 40;
+      drawMini(c, it.ref === 'player' ? 'warrior' : it.unit);
+      chip.appendChild(c);
+    }
+    list.appendChild(chip);
+  }
+}
+function setTurn(who){ turnActive = who; renderTurnbar(); }
+const aliveIdx = () => enemies.map((e,i) => e.dead ? -1 : i).filter(i => i >= 0);
+function cycleTarget(dir){
+  const alive = aliveIdx();
+  if (!alive.length || phase !== 'player') return;
+  let pos = alive.indexOf(targetIdx);
+  pos = pos < 0 ? 0 : (pos + dir + alive.length) % alive.length;
+  targetIdx = alive[pos];
+}
+
+async function startRun(){
+  hp = S.maxhp; wave = 1; potions = 3; fury = 0;
+  torchOn = S.tochas > 0;
+  if (torchOn){ S.tochas--; save(); }
+  QTE_MS = torchOn ? 1260 : 900;
+  player = makePlayer();
+  enemies = [];
+  $('#menu').classList.add('hidden');
+  $('#battle').classList.remove('hidden');
+  resizeCanvas();
+  setCmds(false);
+  log('Descendo à masmorra…');
+  await loadPromise;
+  startWave();
+}
+
+async function startWave(){
+  phase = 'busy'; setCmds(false);
+  enemies = makeWave(wave);
+  targetIdx = 0;
+  layoutActors();
+  renderHUD();
+  /* inimigos entram correndo pela direita */
+  enemies.forEach((en, i) => { en.x = W + 60 + i*70; en.y = en.homeY; });
+  log(wave === 3 ? '⚔ O ' + BOSS_DEF.name + ' surge das sombras!' : 'Onda ' + wave + '/3 — monstros à vista!');
+  setTurn(null);
+  await Promise.all(enemies.map(en => tween(en, en.homeX, en.homeY, 700, 'run')));
+  enemies.forEach(en => { en.anim = 'idle'; en.frame = 0; });
+  beginPlayerTurn();
+}
+
+function beginPlayerTurn(){
+  phase = 'player';
+  const alive = aliveIdx();
+  if (!alive.includes(targetIdx)) targetIdx = alive[0];
+  setCmds(true);
+  setTurn('player');
+}
+
+async function playerAttack(){
+  if (phase !== 'player') return;
+  phase = 'busy'; setCmds(false);
+  const en = enemies[targetIdx];
+  /* corre até o alvo, golpeia, volta */
+  await tween(player, en.x - en.size*0.55, en.y, 340, 'run');
+  const hit = playOnce(player, 'attack');
+  await wait(200);                                   // impacto no meio do golpe
+  const crit = Math.random() < 0.15;
+  let dmg = Math.max(1, S.atk - en.def + rnd(-2,3));
+  if (crit) dmg *= 2;
+  en.hp = Math.max(0, en.hp - dmg);
+  en.flash = 1;
+  addFloat(en, dmg, crit ? '#fbbf24' : '#fff', crit);
+  log(crit ? 'CRÍTICO! ' + dmg + ' de dano em ' + en.name + '!' : dmg + ' de dano em ' + en.name + '.');
+  await hit;
+  if (en.hp <= 0){
+    en.dead = true;
+    S.gold += en.gold; save();                       // ouro do abate é seu mesmo morrendo depois
+    addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
+    log(en.name + ' caiu! +' + en.gold + ' de ouro.');
+    renderHUD(); renderTurnbar();
+  }
+  await playerReturn();
+  if (await waveCleared()) return;
+  enemyPhase();
+}
+
+async function playerReturn(){
+  player.flip = true;                                // volta olhando para trás
+  await tween(player, player.homeX, player.homeY, 340, 'run');
+  player.flip = false; player.anim = 'idle';
+  await wait(150);
+}
+async function waveCleared(){
+  if (aliveIdx().length > 0) return false;
+  if (wave < 3){ wave++; log('Onda vencida! Prepare-se…'); await wait(900); startWave(); }
+  else victory();
+  return true;
+}
+
+/* ---- golpe especial: consome toda a fúria acumulada ---- */
+async function playerSpecial(){
+  if (phase !== 'player' || fury < 25) return;
+  const sp = specialInfo();
+  phase = 'busy'; setCmds(false);
+  fury = 0;
+  const targets = sp.aoe ? enemies.filter(e => !e.dead) : [enemies[targetIdx]];
+  const tx = sp.aoe ? W*0.50 : targets[0].x - targets[0].size*0.55;
+  const ty = sp.aoe ? H*0.55 : targets[0].y;
+  log(sp.aoe ? '⚡ FÚRIA TOTAL! Golpe giratório em TODOS!' : '⚡ Golpe de fúria (×' + sp.m + ')!');
+  await tween(player, tx, ty, 320, 'run');
+  const hit = playOnce(player, 'attack');
+  await wait(200);
+  shakeApp();
+  for (const en of targets){
+    const dmg = Math.max(1, Math.round(S.atk * sp.m) - en.def + rnd(-1,3));
+    en.hp = Math.max(0, en.hp - dmg);
+    en.flash = 1;
+    addFloat(en, dmg, '#fbbf24', true);
+    if (en.hp <= 0){
+      en.dead = true;
+      S.gold += en.gold;
+      addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
+    }
+  }
+  save();
+  renderHUD(); renderTurnbar();
+  await hit;
+  await playerReturn();
+  if (await waveCleared()) return;
+  enemyPhase();
+}
+
+async function usePotion(){
+  if (phase !== 'player' || potions <= 0 || hp >= S.maxhp) return;
+  phase = 'busy'; setCmds(false);
+  potions--;
+  const heal = Math.round(S.maxhp * 0.4);
+  hp = Math.min(S.maxhp, hp + heal);
+  addFloat(player, '+' + heal, '#4ade80');
+  log('Poção! +' + heal + ' de HP.');
+  renderHUD();
+  await wait(650);
+  enemyPhase();
+}
+
+function flee(){
+  if (phase !== 'player' || S.mapas <= 0) return;
+  phase = 'menu';
+  S.mapas--; save();
+  showOverlay('🗺️ FUGA!', 'Você usou um mapa e escapou pelo túnel secreto.<br>Todo o ouro coletado foi mantido.');
+}
+
+async function enemyPhase(){
+  phase = 'busy';
+  for (const en of enemies){
+    if (en.dead) continue;
+    if (hp <= 0) break;
+    setTurn(en);
+    await enemyAttack(en);
+    await wait(250);
+  }
+  if (hp <= 0) return defeat();
+  if (aliveIdx().length === 0) return void waveCleared();   // contra-ataque limpou a onda
+  beginPlayerTurn();
+}
+
+/* ---- combos: inimigos fortes desferem 2–3 golpes seguidos ----
+   Cada golpe exige uma reação: 'parry' (tocar) ou 'jump' (arrastar ↑) */
+function comboFor(en){
+  const n = en.unit === 'boss'   ? rnd(2,3)
+          : en.unit === 'lancer' ? 2
+          : (S.dgLv >= 3 && Math.random() < 0.35 ? 2 : 1);
+  return Array.from({length:n}, () => {
+    if (en.unit === 'boss' || en.unit === 'lancer') return Math.random() < 0.45 ? 'jump' : 'parry';
+    return S.dgLv >= 2 && Math.random() < 0.30 ? 'jump' : 'parry';
+  });
+}
+
+/* ---- turno do monstro: avança → combo de QTEs → golpes ---- */
+async function enemyAttack(en){
+  const ranged = en.unit === 'archer';               // arqueiro atira de longe
+  const combo = comboFor(en);
+  en.warn = true;
+  log(combo.length > 1
+    ? '⚠ ' + en.name + ' prepara um COMBO de ' + combo.length + ' golpes!'
+    : en.name + ' vai atacar!');
+  if (!ranged) await tween(en, player.x + player.size*0.55, player.y, 380, 'run');
+  else await wait(380);
+  en.anim = 'idle'; en.frame = 0;
+  await wait(220);
+
+  for (let i = 0; i < combo.length; i++){
+    if (hp <= 0) break;
+    const type = combo[i];
+    const result = await runQte(type, combo.length > 1 ? (i+1) + '/' + combo.length : '');
+    const swing = playOnce(en, 'attack');
+    await wait(180);
+    const hitAtk = combo.length > 1 ? Math.round(en.atk * 0.65) : en.atk;   // combo divide a força
+    applyHit(en, type, result, hitAtk);
+    await swing;
+    /* parry perfeito no meio de um combo → contra-ataque imediato */
+    if (result === 'perfect' && combo.length > 1 && hp > 0){
+      await counterAttack(en);
+      if (en.dead) break;                            // contra-ataque fatal cancela o combo
+    }
+    if (i < combo.length - 1) await wait(260);
+  }
+  en.warn = false;
+  if (!ranged && !en.dead){
+    en.flip = false;                                 // volta olhando para trás
+    await tween(en, en.homeX, en.homeY, 380, 'run');
+    en.flip = true; en.anim = 'idle';
+  }
+}
+
+/* contra-ataque: devolve 60% do ataque no agressor (à distância, reflete a flecha) */
+async function counterAttack(en){
+  await wait(150);
+  const swing = playOnce(player, 'attack');
+  await wait(180);
+  const dmg = Math.max(1, Math.round(S.atk * 0.6) - en.def + rnd(0,2));
+  en.hp = Math.max(0, en.hp - dmg);
+  en.flash = 1;
+  addFloat(en, dmg, '#fbbf24', true);
+  log('↩ CONTRA-ATAQUE! Você devolveu ' + dmg + ' de dano em ' + en.name + '!');
+  if (en.hp <= 0){
+    en.dead = true;
+    S.gold += en.gold; save();
+    addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
+    log('↩ CONTRA-ATAQUE fatal! ' + en.name + ' caiu no meio do combo!');
+    renderHUD(); renderTurnbar();
+  }
+  await swing;
+}
+
+/* QTE: círculo encolhe por QTE_MS; a cor/ícone indicam a reação exigida */
+async function runQte(type, tag){
+  phase = 'qte'; qteType = type; qteResult = null; qteStart = performance.now();
+  const qte = $('#qte'), ring = qte.querySelector('.shrink');
+  qte.classList.remove('perfect','blocked','dodged','jump');
+  if (type === 'jump') qte.classList.add('jump');
+  qte.querySelector('.target').textContent = type === 'jump' ? '⬆️' : '🛡️';
+  qte.querySelector('.tip').textContent = (tag ? 'GOLPE ' + tag + ' · ' : '') +
+    (type === 'jump' ? 'ARRASTE PARA CIMA — PULE!' : 'TOQUE QUANDO O CÍRCULO FECHAR!');
+  ring.style.animation = 'none'; void ring.offsetWidth; ring.style.animation = '';
+  ring.style.animationDuration = QTE_MS + 'ms';
+  qte.classList.add('on');
+  await wait(QTE_MS);
+  qte.classList.remove('on');
+  phase = 'busy';
+  return qteResult;
+}
+
+/* aplica o dano de um golpe conforme a reação do jogador */
+function applyHit(en, type, result, atk){
+  let dmg;
+  if (type === 'jump'){
+    if (result === 'dodge'){
+      dmg = 0;
+      addFloat(player, 'ESQUIVOU!', '#4ade80', true);
+      log('🦘 Você saltou sobre o golpe rasteiro de ' + en.name + '!');
+      fieldFx('good');
+    } else {
+      dmg = atk + rnd(0,3);
+      player.flash = 1;
+      addFloat(player, '-' + dmg, '#f87171', true);
+      log('O golpe rasteiro de ' + en.name + ' varreu suas pernas! ' + dmg + ' de dano.');
+      fieldFx('bad'); shakeApp();
+    }
+  } else if (result === 'perfect'){
+    dmg = 0;
+    playOnce(player, 'guard');
+    addFloat(player, 'PARRY!', '#fbbf24', true);
+    gainFury(10);                                    // parry perfeito também dá fúria
+    log('✨ PERFEITO! Aparou o golpe de ' + en.name + ' (+10 de fúria)!');
+    fieldFx('good');
+  } else if (result === 'block'){
+    dmg = Math.max(0, atk - S.def);
+    playOnce(player, 'guard');
+    addFloat(player, '-' + dmg, '#a78bfa');
+    log('🛡️ Bloqueado! A defesa absorveu: ' + dmg + ' de dano.');
+    fieldFx('good');
+  } else {
+    dmg = atk + rnd(0,3);
+    player.flash = 1;
+    addFloat(player, '-' + dmg, '#f87171', true);
+    log(en.name + ' acertou em cheio! ' + dmg + ' de dano.');
+    fieldFx('bad'); shakeApp();
+  }
+  if (dmg > 0) gainFury(Math.max(6, Math.round(dmg * 160 / S.maxhp)));   // dano sofrido vira fúria
+  hp = Math.max(0, hp - dmg);
+  renderHUD();
+}
+
+function fieldFx(kind){
+  const f = $('#field');
+  f.classList.remove('fx-good','fx-bad'); void f.offsetWidth;
+  f.classList.add(kind === 'good' ? 'fx-good' : 'fx-bad');
+  setTimeout(() => f.classList.remove('fx-good','fx-bad'), 550);
+}
+
+function tryParry(){
+  if (phase !== 'qte' || qteType !== 'parry' || qteResult) return;
+  const t = performance.now() - qteStart;
+  qteResult = t >= QTE_MS*0.68 ? 'perfect' : 'block';
+  const qte = $('#qte');
+  qte.classList.add(qteResult === 'perfect' ? 'perfect' : 'blocked');
+  qte.querySelector('.tip').textContent = qteResult === 'perfect' ? '✨ PERFEITO!' : '🛡️ BLOQUEADO';
+}
+function tryJump(){
+  if (phase !== 'qte' || qteType !== 'jump' || qteResult) return;
+  qteResult = 'dodge';
+  const qte = $('#qte');
+  qte.classList.add('dodged');
+  qte.querySelector('.tip').textContent = '🦘 ESQUIVA!';
+  (async () => {                                     // animação: salto rápido
+    await tween(player, player.x, player.homeY - player.size*0.55, 150, 'run');
+    await tween(player, player.x, player.homeY, 180, 'run');
+    player.anim = 'idle';
+  })();
+}
+
+/* ---------- fim de masmorra ---------- */
+function victory(){
+  phase = 'menu';
+  const bonus = 150 + 60*(S.dgLv-1);
+  S.gold += bonus; S.wins++; S.dgLv++;
+  save();
+  showOverlay('🏆 MASMORRA CONQUISTADA!',
+    'As 3 ondas caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
+    'A próxima masmorra (Nv. ' + S.dgLv + ') será mais perigosa…');
+}
+function defeat(){
+  phase = 'menu';
+  player.dead = true;
+  showOverlay('☠ DERROTA…',
+    'O guerreiro caiu na onda ' + wave + '.<br>' +
+    'O ouro coletado (<b>🪙 ' + S.gold + '</b> no total) foi mantido.<br>Fortaleça-se e tente de novo!');
+}
+function showOverlay(title, msg){
+  $('#ovTitle').textContent = title;
+  $('#ovMsg').innerHTML = msg;
+  $('#overlay').classList.remove('hidden');
+}
+$('#ovBack').addEventListener('click', () => {
+  $('#overlay').classList.add('hidden');
+  $('#battle').classList.add('hidden');
+  $('#menu').classList.remove('hidden');
+  renderMenu();
+});
+
+/* ================================================================
+   ENTRADAS: toque, swipe, setas, teclado
+   ================================================================ */
+$('#enter').addEventListener('click', startRun);
+$('#cAtk').addEventListener('click', playerAttack);
+$('#cFury').addEventListener('click', playerSpecial);
+$('#cPot').addEventListener('click', usePotion);
+$('#cRun').addEventListener('click', flee);
+$('#arrL').addEventListener('click', e => { e.stopPropagation(); cycleTarget(-1); });
+$('#arrR').addEventListener('click', e => { e.stopPropagation(); cycleTarget(1); });
+
+/* QTE de parry: qualquer toque · QTE de pulo: arrastar para cima */
+let gY = null;
+$('#battle').addEventListener('pointerdown', e => {
+  gY = e.clientY;
+  if (phase === 'qte' && qteType === 'parry') tryParry();
+});
+$('#battle').addEventListener('pointerup', e => {
+  if (gY !== null && phase === 'qte' && qteType === 'jump' && (gY - e.clientY) > 50) tryJump();
+  gY = null;
+});
+
+/* no campo: swipe troca alvo; toque curto seleciona o monstro tocado */
+let swipeX = null, swipeY = null;
+$('#field').addEventListener('pointerdown', e => { swipeX = e.clientX; swipeY = e.clientY; });
+$('#field').addEventListener('pointerup', e => {
+  if (swipeX === null) return;
+  const dx = e.clientX - swipeX;
+  const r = cv.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  swipeX = null;
+  if (phase !== 'player') return;
+  if (Math.abs(dx) > 40) return cycleTarget(dx > 0 ? 1 : -1);
+  /* toque: mira no inimigo sob o dedo */
+  enemies.forEach((en, i) => {
+    if (!en.dead && Math.abs(mx-en.x) < en.size*0.5 && Math.abs(my-en.y) < en.size*0.55) targetIdx = i;
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft')  cycleTarget(-1);
+  if (e.key === 'ArrowRight') cycleTarget(1);
+  if (e.key === 'ArrowUp' && phase === 'qte'){ tryJump(); e.preventDefault(); }
+  if ((e.key === ' ' || e.key === 'Enter') && phase === 'qte'){ tryParry(); e.preventDefault(); }
+});
+
+renderMenu();
+if (location.hash === '#batalha') startRun();   // atalho para testes
+</script>
+<!--/ARTIFACT-B-->
+</body>
+</html>
