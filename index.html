@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<!-- AdSense H5 Games Ads (Ad Placement API) — versão web.
+     Dica de desenvolvimento: para ver anúncios de TESTE antes da aprovação
+     do site, adicione data-adbreak-test="on" nesta tag (e remova ao publicar). -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6316768481413982"
+     crossorigin="anonymous"></script>
 <!--ARTIFACT-A-->
 <title>Guerreiro da Masmorra</title>
 <style>
@@ -123,6 +128,20 @@
     opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;
   }
   #movename.on{opacity:1}
+
+  /* ---- caixa do tutorial (Campo de Treinamento) ---- */
+  #tutbox{
+    position:absolute;left:50%;top:24%;translate:-50% 0;z-index:8;
+    width:88%;max-width:330px;text-align:center;
+    background:rgba(15,17,23,.95);border:2px solid var(--gold);border-radius:14px;
+    padding:14px 16px;font-size:14px;line-height:1.5;
+    box-shadow:0 10px 40px rgba(0,0,0,.6);
+  }
+  #tutbox b{color:var(--gold)}
+  #tutbox .tap{margin-top:9px;font-size:11px;letter-spacing:.08em;color:var(--gold);animation:tappulse 1s ease-in-out infinite alternate}
+  @keyframes tappulse{from{opacity:.5}to{opacity:1}}
+  #tutbox.hint{pointer-events:none;top:5%;padding:9px 12px;font-size:13px}
+  #tutbox.hint .tap{display:none}
 
   /* ---- QTE: círculo que encolhe ---- */
   #qte{
@@ -391,6 +410,10 @@
       <button class="side" id="arrR" aria-label="Próximo alvo">▶</button>
       <div id="swipehint">setas/toque para mirar · arraste do herói para jogar uma 🪨</div>
       <div id="movename"></div>
+      <div id="tutbox" class="hidden">
+        <div id="tutTxt"></div>
+        <div class="tap">toque para continuar ▸</div>
+      </div>
       <div id="qte">
         <div class="zone"><div class="target">🛡️</div><div class="shrink"></div></div>
         <div class="tip">TOQUE QUANDO O CÍRCULO FECHAR!</div>
@@ -592,8 +615,10 @@ function cropURL(img, sx, sy, sw, sh){
 })();
 
 /* ================================================================
-   ANÚNCIOS — AdMob (plugin @capacitor-community/admob) no app;
-   simulação de vídeo no navegador para testar o fluxo.
+   ANÚNCIOS — três caminhos, detectados em cascata:
+   1. APP (Capacitor): AdMob via plugin @capacitor-community/admob;
+   2. WEB: AdSense H5 Games Ads (Ad Placement API — script no <head>);
+   3. Fallback: simulação de vídeo para desenvolver/testar offline.
 
    App ID do AdMob (identifica o APP; usa "~"):
      ca-app-pub-6316768481413982~8589552985
@@ -613,6 +638,7 @@ const ADS = {
   rewardedId:     'ca-app-pub-6316768481413982/6127041172',   // bloco premiado "reward" (PRODUÇÃO)
   interstitialId: 'ca-app-pub-3940256099942544/1033173712',   // TROQUE: bloco intersticial (ainda é o de teste)
   plugin: null,
+  h5ready: false,                                    // AdSense H5 Games Ads (web) pronto
   async init(){
     try {
       if (window.Capacitor && Capacitor.isPluginAvailable && Capacitor.isPluginAvailable('AdMob')){
@@ -620,6 +646,19 @@ const ADS = {
         await this.plugin.initialize({});
       }
     } catch(e){ console.warn('AdMob indisponível:', e); this.plugin = null; }
+    if (!this.plugin) this.initWeb();
+  },
+  /* web: AdSense H5 Games Ads via Ad Placement API (adBreak/adConfig) */
+  initWeb(){
+    try {
+      window.adsbygoogle = window.adsbygoogle || [];
+      window.adBreak = window.adConfig = function(o){ window.adsbygoogle.push(o); };
+      adConfig({
+        preloadAdBreaks: 'on',
+        sound: 'on',
+        onReady: () => { ADS.h5ready = true; },
+      });
+    } catch(e){ console.warn('AdSense H5 indisponível:', e); }
   },
   /* vídeo premiado: resolve true se o usuário assistiu e ganhou a recompensa */
   async showRewarded(){
@@ -638,6 +677,21 @@ const ADS = {
         return got;
       } catch(e){ console.warn('rewarded falhou:', e); return null; }   // null = indisponível
     }
+    if (this.h5ready){                               // web: rewarded do AdSense
+      return new Promise(resolve => {
+        let granted = false, done = false;
+        const finish = v => { if (!done){ done = true; resolve(v); } };
+        const guard = setTimeout(() => finish(null), 12000);   // segurança: nunca travar o jogo
+        adBreak({
+          type: 'reward',
+          name: 'dobrar_premio',
+          beforeReward: showAdFn => showAdFn(),
+          adViewed: () => { granted = true; },
+          adDismissed: () => { granted = false; },
+          adBreakDone: () => { clearTimeout(guard); finish(granted ? true : null); },
+        });
+      });
+    }
     return simAd(true);
   },
   /* intersticial: mostrado a cada 5 entradas na masmorra */
@@ -652,6 +706,19 @@ const ADS = {
         await this.plugin.showInterstitial();
         await done;
       } catch(e){ console.warn('intersticial falhou:', e); }
+      return;
+    }
+    if (this.h5ready){                               // web: intersticial do AdSense
+      await new Promise(resolve => {
+        let done = false;
+        const finish = () => { if (!done){ done = true; resolve(); } };
+        const guard = setTimeout(finish, 10000);     // segurança: nunca travar a entrada
+        adBreak({
+          type: 'next',
+          name: 'entrada_masmorra',
+          adBreakDone: () => { clearTimeout(guard); finish(); },
+        });
+      });
       return;
     }
     await simAd(false);
@@ -758,13 +825,14 @@ document.addEventListener('pointerdown', () => SFX.ensure(), { once:true });
 
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
-const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true };
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false };
 let S = structuredClone(DEFAULTS);
 try {
   const d = JSON.parse(localStorage.getItem(SAVE_KEY));
   if (d && d.maxhp){
     S = Object.assign(structuredClone(DEFAULTS), d);
     if (d.torchT === undefined) S.tochas = 20;   // migração: saves antigos ganham a carga cheia
+    if (d.tutDone === undefined) S.tutDone = (d.entries || 0) > 0;   // veterano pula o treino
   }
 } catch(e){}
 if (!DG_COLORS[S.dgColor]) S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];
@@ -802,6 +870,17 @@ let fireFury = false;               // 🔥 Fúria do Fogo: ataques ×1.2 + fúr
 let rockUsed = false;               // 🪨 pedrada: 1 por rodada, arrastando do herói
 let rockDrag = null, rockFly = null;
 const atkMul = () => fireFury ? 1.2 : 1;
+
+/* ---------- tutorial (Campo de Treinamento) ---------- */
+let TUT = null;                     // ativo: {waitFor, resolve} — orquestra os passos
+function tutEvent(name){
+  if (TUT && TUT.waitFor && TUT.waitFor.includes(name)){
+    const r = TUT.resolve;
+    TUT.waitFor = null; TUT.resolve = null;
+    r(name);
+  }
+}
+const tutWait = names => new Promise(res => { TUT.waitFor = names; TUT.resolve = res; });
 let curse = null;                   // encantamento do Monge: {type:'dot'|'nofury', turns, power}
 let enemies = [], player = null, targetIdx = 0;
 let enemySide = 'right';            // canto dos inimigos ('left'|'right'), sorteado a cada onda
@@ -1224,11 +1303,14 @@ function renderMenu(){
   if (!DG_COLORS[S.dgColor]) S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];
   regenTorches();
   const cfg = DG_COLORS[S.dgColor];
-  $('#enter').innerHTML = S.tochas > 0
-    ? '🏰 Entrar na Masmorra <b style="color:' + cfg.hex + '">' + cfg.nome + '</b> (Nv. ' + S.dgLv + ') · 🔥1'
-    : '🏰 Sem tochas — aguarde a recarga';
-  $('#enter').disabled = S.tochas <= 0;
-  $('#enter').style.boxShadow = S.tochas > 0 ? '0 4px 24px ' + cfg.hex + '66' : 'none';
+  $('#enter').innerHTML = !S.tutDone
+    ? '🎓 Campo de Treinamento (aprenda a lutar!)'
+    : S.tochas > 0
+      ? '🏰 Entrar na Masmorra <b style="color:' + cfg.hex + '">' + cfg.nome + '</b> (Nv. ' + S.dgLv + ') · 🔥1'
+      : '🏰 Sem tochas — aguarde a recarga';
+  $('#enter').disabled = S.tutDone && S.tochas <= 0;
+  $('#enter').style.boxShadow = !S.tutDone ? '0 4px 24px #fbbf2466'
+    : S.tochas > 0 ? '0 4px 24px ' + cfg.hex + '66' : 'none';
   $('#torchN').textContent = S.tochas;
   $('#torchTimer').textContent = (S.tochas < TORCH_MAX && S.torchT)
     ? (() => { const s = Math.max(0, Math.ceil((S.torchT + TORCH_REGEN_MS - Date.now())/1000));
@@ -1312,8 +1394,10 @@ const log = m => { $('#logwin').textContent = m; };
 function renderHUD(){
   $('#potN').textContent = '×' + potions;
   $('#mapN').textContent = '×' + S.mapas;
-  $('#wavechip').textContent = 'MASMORRA NV. ' + S.dgLv + ' · ONDA ' + wave + '/3' +
-    (wave === 3 ? ' · BOSS' : '') + ' · 🪙 ' + S.gold;
+  $('#wavechip').textContent = TUT
+    ? '🎓 CAMPO DE TREINAMENTO'
+    : 'MASMORRA NV. ' + S.dgLv + ' · ONDA ' + wave + '/3' +
+      (wave === 3 ? ' · BOSS' : '') + ' · 🪙 ' + S.gold;
 }
 /* multiplicador do golpe especial conforme a fúria acumulada */
 function specialInfo(){
@@ -1465,7 +1549,152 @@ function cycleTarget(dir){
   targetIdx = alive[pos];
 }
 
+/* ================================================================
+   🎓 CAMPO DE TREINAMENTO — tutorial guiado da primeira batalha
+   ================================================================ */
+function tutMsg(html){
+  return new Promise(res => {
+    const b = $('#tutbox');
+    b.classList.remove('hidden', 'hint');
+    $('#tutTxt').innerHTML = html;
+    const done = e => {
+      e.stopPropagation();
+      b.classList.add('hidden');
+      b.removeEventListener('pointerdown', done);
+      res();
+    };
+    setTimeout(() => b.addEventListener('pointerdown', done), 300);
+  });
+}
+function tutHint(html){
+  const b = $('#tutbox');
+  b.classList.remove('hidden');
+  b.classList.add('hint');
+  $('#tutTxt').innerHTML = html;
+}
+function tutHide(){ $('#tutbox').classList.add('hidden'); }
+/* libera só alguns comandos durante um passo */
+function tutCmds(allow){
+  setCmds(true);
+  ['cAtk','cSpec','cHab','cPot','cRun'].forEach(id => {
+    if (!allow.includes(id)) $('#' + id).disabled = true;
+  });
+}
+/* golpe do boneco em câmera lenta (1.4s) para praticar a defesa */
+async function tutDummyAttack(type){
+  const en = enemies[0];
+  phase = 'busy'; setCmds(false);
+  hp = Math.max(hp, Math.round(S.maxhp * 0.8));      // sem risco de morrer no treino
+  renderHUD();
+  en.warn = true;
+  showMoveName(type === 'jump' ? '⚔ Rasteira de Treino' : '⚔ Golpe de Treino');
+  await tween(en, frontOfHero(), player.y, 380, 'run');
+  en.anim = 'idle'; en.frame = 0;
+  await wait(250);
+  const r = await runQte(type, '', 1400);
+  const swing = playOnce(en, 'attack');
+  await wait(180);
+  applyHit(en, type, r, 5);
+  await swing;
+  en.warn = false;
+  en.flip = !eFlip();
+  await tween(en, en.homeX, en.homeY, 380, 'run');
+  en.flip = eFlip(); en.anim = 'idle';
+  return r;
+}
+
+async function startTutorial(){
+  hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
+  stagger = 0; guardBroken = false; fireFury = false;
+  rockUsed = true; rockDrag = null; rockFly = null;
+  player = makePlayer();
+  enemies = [];
+  $('#menu').classList.add('hidden');
+  $('#battle').classList.remove('hidden');
+  resizeCanvas();
+  setCmds(false);
+  log('🎓 Campo de Treinamento');
+  await loadPromise;
+  TUT = { waitFor: null, resolve: null };
+  phase = 'busy';
+  enemySide = 'right';
+  buildScenery();
+  enemies = makeWave(1).slice(0, 1);
+  Object.assign(enemies[0], { name:'Boneco de Treino', hp:60, maxhp:60, atk:5, def:0, gold:0, shield:0, stagger:0 });
+  targetIdx = 0;
+  layoutActors();
+  renderHUD();
+  enemies[0].x = W + 60; enemies[0].y = enemies[0].homeY;
+  setTurn(null);
+  await tween(enemies[0], enemies[0].homeX, enemies[0].homeY, 700, 'run');
+  enemies[0].anim = 'idle';
+
+  await tutMsg('🎓 <b>Campo de Treinamento</b><br>Vamos aprender a lutar contra o Boneco de Treino!');
+
+  /* 1 — pedrada */
+  tutHint('🪨 Toque no <b>GUERREIRO</b> e arraste até o boneco para jogar uma pedra!');
+  phase = 'player'; setTurn('player'); rockUsed = false;
+  await tutWait(['rockHit']);
+  tutHide();
+  await tutMsg('🎯 Boa pedrada! Ela é <b>grátis 1× por rodada</b>: causa 20% do seu ataque e sempre quebra 1 escudo.');
+
+  /* 2 — ataque */
+  tutHint('⚔ Agora <b>SEGURE</b> o botão "Atacar" até a barra encher!');
+  phase = 'player'; tutCmds(['cAtk']); setTurn('player');
+  await tutWait(['playerActed', 'cleared']);
+  tutHide();
+  await tutMsg('💪 Golpe certeiro! De vez em quando sai um <b>CRÍTICO</b> com dano dobrado.');
+
+  /* 3 — parry */
+  await tutMsg('🛡️ Hora de <b>DEFENDER</b>!<br>Quando o círculo fechar sobre o escudo, <b>TOQUE</b> na tela.<br>No momento exato (ouça a moeda 🪙) é um <b>PARRY</b>: dano zero, +fúria e cansa o inimigo!');
+  let r = null;
+  while (r !== 'perfect'){
+    r = await tutDummyAttack('parry');
+    if (r !== 'perfect') await tutMsg('Quase! Espere o círculo chegar no <b>final</b> (depois do som da moeda 🪙) e toque. Vamos de novo!');
+  }
+  await tutMsg('✨ <b>PARRY PERFEITO!</b> Nenhum dano, +10 de fúria e o boneco se cansou.');
+
+  /* 4 — pulo */
+  await tutMsg('🦘 Golpes <b>rasteiros</b> (círculo amarelo ⬆️) não podem ser aparados:<br><b>ARRASTE PARA CIMA</b> para saltar sobre eles!');
+  r = null;
+  while (r !== 'dodge'){
+    r = await tutDummyAttack('jump');
+    if (r !== 'dodge') await tutMsg('Ai! Arraste o dedo <b>para cima</b> enquanto o círculo fecha. Tente de novo!');
+  }
+  await tutMsg('🦘 Esquiva perfeita! Defender bem também enche sua <b>fúria</b>.');
+
+  /* 5 — ataque especial */
+  fury = Math.max(fury, 60); renderHUD();
+  await tutMsg('⚡ Sua barra de <b>FÚRIA</b> (laranja) encheu!<br>Abra "✨ Ataque especial" e use um golpe — quanto mais fúria, mais forte ele sai.');
+  tutHint('✨ Abra "Ataque especial" e SEGURE um golpe!');
+  phase = 'player'; tutCmds(['cSpec']); setTurn('player');
+  await tutWait(['playerActed', 'cleared']);
+  tutHide();
+  exhausted = false;                                 // sem punição no treino
+
+  /* 6 — finalizar */
+  if (aliveIdx().length){
+    await tutMsg('☄️ Especiais gastam a fúria e deixam você <b>exausto</b> por 1 rodada (no treino, deixamos passar 😉).');
+    tutHint('💥 Termine o serviço: derrote o Boneco de Treino!');
+    while (aliveIdx().length){
+      phase = 'player'; rockUsed = false; setCmds(true); setTurn('player');
+      await tutWait(['playerActed', 'cleared']);
+      exhausted = false;
+    }
+    tutHide();
+  }
+  await wait(900);
+  TUT = null;
+  S.tutDone = true; S.gold += 100; save();
+  phase = 'menu';
+  showOverlay('🎓 TREINAMENTO CONCLUÍDO!',
+    'Você dominou o básico do combate!<br>Bônus de formatura: <b>🪙 100</b><br><br>' +
+    'Lembre-se: parry e esquiva gastam o inimigo e enchem sua fúria,<br>' +
+    'a 🪨 pedrada é grátis toda rodada — e monstros exaustos perdem a vez.<br>Boa sorte na masmorra!');
+}
+
 async function startRun(){
+  if (!S.tutDone) return startTutorial();            // primeira vez: Campo de Treinamento
   if (!spendTorch()){ renderMenu(); return; }        // sem tocha não entra
   /* a cada 5 entradas na masmorra, um vídeo de propaganda */
   S.entries = (S.entries || 0) + 1; save();
@@ -1605,6 +1834,7 @@ async function playerReturn(){
 }
 async function waveCleared(){
   if (aliveIdx().length > 0) return false;
+  if (TUT){ tutEvent('cleared'); return true; }      // treino: sem onda seguinte
   if (wave < 3){ wave++; log('Onda vencida! Prepare-se…'); await wait(900); startWave(); }
   else victory();
   return true;
@@ -1839,6 +2069,7 @@ function flee(){
 }
 
 async function enemyPhase(){
+  if (TUT){ tutEvent('playerActed'); return; }       // no treino, o tutorial controla os turnos
   phase = 'busy';
   for (const en of enemies){
     if (en.dead) continue;
@@ -2309,12 +2540,14 @@ async function throwRock(tp){
   if (!tgt){
     addFloat({ x: tp.x, y: tp.y, size: 40 }, 'ERROU! 🪨', '#8b90ad');
     log('🪨 A pedra passou longe…');
+    if (TUT) rockUsed = false;                       // no treino pode tentar de novo
     return;
   }
   tgt.flash = 1;
   if (tgt.shield > 0){
     breakShield(tgt, 1, false);
     log('🪨 A pedrada quebrou um escudo de ' + tgt.name + '! Restam ' + tgt.shield + '.');
+    tutEvent('rockHit');
     return;
   }
   const dmg = Math.max(1, Math.round(S.atk * 0.2 * atkMul()));
@@ -2327,6 +2560,7 @@ async function throwRock(tp){
     log('💥 ' + tgt.name + ' caiu com uma pedrada! +' + tgt.gold + ' de ouro.');
     await waveCleared();
   }
+  tutEvent('rockHit');
 }
 
 /* no campo: swipe troca alvo; toque curto seleciona; arrastar do herói mira a pedra */
