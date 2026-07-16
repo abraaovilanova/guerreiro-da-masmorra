@@ -132,6 +132,9 @@
   #qte.jump .tip{color:#fde68a}
   #qte.dodged .shrink{border-color:var(--hp);animation-play-state:paused}
   #qte.dodged .tip{color:var(--hp)}
+  #qte.atk{background:rgba(167,139,250,.08)}
+  #qte.atk .shrink{border-color:var(--accent)}
+  #qte.atk .tip{color:#d8ccff}
   @keyframes qteshrink{from{transform:scale(2.1)}to{transform:scale(1)}}
 
   /* ---- Sequência Mortal: barra de potência oscilante ---- */
@@ -332,6 +335,7 @@
         <div id="cmdSpec" class="hidden">
           <button id="cFury"><span class="cur">▶</span>⚡ Fúria <span class="num" id="furyM">(25%+)</span></button>
           <button id="cSeq"><span class="cur">▶</span>☠ Seq. Mortal <span class="num">(50%+)</span></button>
+          <button id="cCombo"><span class="cur">▶</span>🗡 Combo <span class="num" id="comboM">(25%+)</span></button>
           <button id="cBack"><span class="cur">▶</span>↩ Voltar</button>
         </div>
       </div>
@@ -377,6 +381,8 @@ const UNITS = {
             anims:{ idle:'Archer_Idle.png', run:'Archer_Run.png', attack:'Archer_Shoot.png' } },
   lancer: { fs:320, dir:'Red Units/Lancer/',    fall:'🔱',
             anims:{ idle:'Lancer_Idle.png', run:'Lancer_Run.png', attack:'Lancer_Right_Attack.png' } },
+  monk:   { fs:192, dir:'Red Units/Monk/',      fall:'📿',
+            anims:{ idle:'Idle.png', run:'Run.png', attack:'Heal.png' } },
   boss:   { fs:192, dir:'Black Units/Warrior/', fall:'👹',
             anims:{ idle:'Warrior_Idle.png', run:'Warrior_Run.png', attack:'Warrior_Attack1.png' } },
 };
@@ -488,6 +494,8 @@ const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } 
 let hp = S.maxhp, wave = 1, potions = 3, torchOn = false;
 let fury = 0;                       // 0–100: enche ao sofrer dano, gasta no golpe especial
 let exhausted = false;              // após um especial, o herói perde a próxima rodada
+let stagger = 0;                    // 0–100 exaustão do herói: enche ao sofrer dano
+let curse = null;                   // encantamento do Monge: {type:'dot'|'nofury', turns, power}
 let enemies = [], player = null, targetIdx = 0;
 let enemySide = 'right';            // canto dos inimigos ('left'|'right'), sorteado a cada onda
 let phase = 'menu';                 // menu | player | busy | qte
@@ -508,6 +516,7 @@ const COMMONS = [
   { unit:'pawn',   name:'Servo',    hp:30, atk:9,  def:2 },
   { unit:'archer', name:'Arqueiro', hp:24, atk:12, def:1 },
   { unit:'lancer', name:'Lanceiro', hp:40, atk:11, def:4 },
+  { unit:'monk',   name:'Monge',    hp:26, atk:10, def:2 },
 ];
 const BOSS_DEF = { unit:'boss', name:'Cavaleiro Negro', hp:160, atk:20, def:6 };
 
@@ -519,6 +528,7 @@ function makeWave(w){
     hp:Math.round(base.hp*mult), maxhp:Math.round(base.hp*mult),
     atk:Math.round(base.atk*mult), def:Math.round(base.def*mult),
     shield:0,                    // escudos arcanos (boss Nv.5+): quebram antes do HP
+    stagger:0,                   // 0–100 exaustão: enche a cada golpe especial sofrido
     gold:Math.round((12 + 4*L) * (w === 2 ? 1.25 : 1)),
     // estado de render (canvas)
     x:0, y:0, homeX:0, homeY:0, size:0, flip:true, alpha:1, flash:0, warn:false,
@@ -648,7 +658,7 @@ function drawActor(a, t){
   ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
   ctx.fillStyle = a.dead ? '#f87171' : '#c9cde4';
-  ctx.fillText(a.dead ? 'K.O.' : (a === player ? a.name + ' ' + hp + '/' + S.maxhp : a.name), a.x, by - 4);
+  ctx.fillText(a.dead ? 'K.O.' : (a === player ? a.name + ' ' + hp + '/' + S.maxhp + ' ⚡' + fury + '%' : a.name), a.x, by - 4);
   if (!a.dead){
     const pct = Math.max(0, (a === player ? hp/S.maxhp : a.hp/a.maxhp));
     ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by-1, bw+2, 7);
@@ -663,6 +673,23 @@ function drawActor(a, t){
     ctx.fillStyle = 'rgba(10,12,20,.85)';
     ctx.fillRect(bx + bw*0.25, by+8, 1, 4);
     ctx.fillRect(bx + bw*0.50, by+8, 1, 4);
+    /* exaustão do herói: cheia + dano de combo = rodada perdida */
+    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by+14, bw+2, 6);
+    ctx.fillStyle = stagger >= 100 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
+    ctx.fillRect(bx, by+15, bw*stagger/100, 4);
+    /* encantamento ativo do Monge */
+    if (curse){
+      ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
+      ctx.fillStyle = '#c084fc';
+      ctx.fillText(curse.type === 'dot' ? '☠ maldição ×' + curse.turns : '⚡🚫 selada ×' + curse.turns, a.x, by + 32);
+    }
+  }
+  /* exaustão dos monstros: enche a cada golpe especial sofrido */
+  if (a !== player && !a.dead){
+    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by+7, bw+2, 6);
+    ctx.fillStyle = a.stagger >= 100 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
+    ctx.fillRect(bx, by+8, bw*(a.stagger || 0)/100, 4);
+    if (a.exhausted){ ctx.font = '13px sans-serif'; ctx.fillText('💫', a.x, by + 28); }
   }
   /* escudos arcanos do boss */
   const shieldY = by - 18;
@@ -805,7 +832,32 @@ function specialInfo(){
   if (fury >= 25)  return { m:1.1, aoe:false, tag:'×1.1' };
   return null;
 }
-function gainFury(n){ fury = Math.min(100, fury + n); renderHUD(); }
+function gainFury(n){
+  if (curse && curse.type === 'nofury') return;      // fúria selada pelo Monge
+  fury = Math.min(100, fury + n); renderHUD();
+}
+/* ---- exaustão: barra que enche e derruba quem estourar por uma rodada ----
+   Inimigo: +25% a cada golpe ESPECIAL sofrido; cheia + golpe ×1.5+ → perde a rodada.
+   Herói: enche ao sofrer dano; cheia + dano de um COMBO inimigo → perde a rodada. */
+function enemyStagger(en, mult){
+  if (en.dead) return;
+  if (en.stagger >= 100 && mult >= 1.5){
+    en.stagger = 0; en.exhausted = true;
+    addFloat(en, 'EXAUSTO!', '#60d6ff', true);
+    log('💫 ' + en.name + ' ficou exausto e perderá a próxima rodada!');
+    return;
+  }
+  en.stagger = Math.min(100, en.stagger + 25);
+}
+function heroStagger(dmg, inCombo){
+  if (stagger >= 100 && inCombo){
+    stagger = 0; exhausted = true;
+    addFloat(player, 'EXAUSTO!', '#60d6ff', true);
+    log('💫 O combo esmagou sua guarda — você perderá a próxima rodada!');
+    return;
+  }
+  stagger = Math.min(100, stagger + Math.max(6, Math.round(dmg * 140 / S.maxhp)));
+}
 function shakeApp(){ $('#app').classList.add('shake'); setTimeout(() => $('#app').classList.remove('shake'), 400); }
 /* ancora o menu flutuante ao lado do herói, voltado para o centro do campo */
 function placeCmds(){
@@ -829,8 +881,10 @@ function setCmds(on){
   $('#cRun').disabled = !on || S.mapas <= 0;
   $('#cFury').disabled = !on || fury < 25;
   $('#cSeq').disabled = !on || fury < 50;
+  $('#cCombo').disabled = !on || fury < 25;
   const sp = specialInfo();
   $('#furyM').textContent = sp ? sp.tag : '(25%+)';
+  $('#comboM').textContent = fury >= 75 ? '4 golpes' : fury >= 50 ? '3 golpes' : fury >= 25 ? '2 golpes' : '(25%+)';
 }
 /* submenu de ataques especiais (troca o conteúdo da caixa de comandos) */
 function openSpec(){
@@ -891,7 +945,7 @@ function cycleTarget(dir){
 }
 
 async function startRun(){
-  hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false;
+  hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null; stagger = 0;
   torchOn = S.tochas > 0;
   if (torchOn){ S.tochas--; save(); }
   QTE_MS = torchOn ? 1260 : 900;
@@ -930,6 +984,21 @@ async function startWave(){
 }
 
 function beginPlayerTurn(){
+  /* encantamentos do Monge agem no início do turno do herói */
+  if (curse){
+    if (curse.type === 'dot'){
+      hp = Math.max(0, hp - curse.power);
+      player.flash = 1;
+      addFloat(player, '-' + curse.power + ' ☠', '#c084fc', true);
+      log('☠ A maldição drena ' + curse.power + ' de HP!');
+      renderHUD();
+      if (hp <= 0) return defeat();
+    }
+    if (--curse.turns <= 0){
+      curse = null;
+      addFloat(player, 'encanto dissipado ✨', '#8b90ad');
+    }
+  }
   /* rodada perdida após usar um ataque especial */
   if (exhausted){
     exhausted = false;
@@ -1019,6 +1088,7 @@ async function playerSpecial(){
   await wait(200);
   shakeApp();
   for (const en of targets){
+    enemyStagger(en, sp.m);
     if (en.shield > 0){ breakShield(en, 2, true); continue; }   // golpe forte quebra 2 escudos
     const dmg = Math.max(1, Math.round(S.atk * sp.m) - en.def + rnd(-1,3));
     en.hp = Math.max(0, en.hp - dmg);
@@ -1100,6 +1170,7 @@ async function playerSeq(){
   const hit = playOnce(player, 'attack');
   await wait(200);
   if (mult >= 1.5) shakeApp();
+  enemyStagger(en, mult);
   if (en.shield > 0){
     const broke = breakShield(en, mult >= 2 ? 3 : mult >= 1.5 ? 2 : 1, mult >= 1.5);
     log('☠ Sequência Mortal ×' + mult + '! Estilhaçou ' + broke +
@@ -1119,6 +1190,88 @@ async function playerSeq(){
     log(en.name + ' caiu! +' + en.gold + ' de ouro.');
     renderHUD(); renderTurnbar();
   }
+  await playerReturn();
+  if (await waveCleared()) return;
+  enemyPhase();
+}
+
+/* ---- COMBO: 2–4 golpes conforme a fúria (25/50/75%+), dano crescente.
+   Cada golpe tem um ciclo de tempo igual ao parry: toque quando o círculo
+   fechar para o golpe conectar; errar o tempo perde só aquele golpe. ---- */
+let comboTap = null;   // função de acerto, ativa durante o ciclo do combo
+function comboQte(tag){
+  return new Promise(resolve => {
+    phase = 'combo';
+    const qte = $('#qte'), ring = qte.querySelector('.shrink');
+    const t0 = performance.now();
+    let result = null;
+    qte.classList.remove('perfect','blocked','dodged','jump');
+    qte.classList.add('atk');
+    qte.querySelector('.target').textContent = '⚔️';
+    qte.querySelector('.tip').textContent = 'GOLPE ' + tag + ' · TOQUE QUANDO FECHAR!';
+    ring.style.animation = 'none'; void ring.offsetWidth; ring.style.animation = '';
+    ring.style.animationDuration = QTE_MS + 'ms';
+    qte.classList.add('on');
+    comboTap = () => {
+      if (result) return;
+      result = (performance.now() - t0) >= QTE_MS*0.68 ? 'perfect' : 'early';
+      qte.classList.add(result === 'perfect' ? 'perfect' : 'blocked');
+      qte.querySelector('.tip').textContent = result === 'perfect' ? '✨ ACERTOU!' : '⏱ CEDO DEMAIS!';
+    };
+    setTimeout(() => {
+      comboTap = null;
+      qte.classList.remove('on','atk');
+      phase = 'busy';
+      resolve(result || 'miss');
+    }, QTE_MS);
+  });
+}
+
+async function playerCombo(){
+  if (phase !== 'player' || fury < 25) return;
+  const n = fury >= 75 ? 4 : fury >= 50 ? 3 : 2;
+  const MULTS = [1.2, 1.4, 1.8, 2];
+  phase = 'busy'; closeSpec(); setCmds(false); setTurn('player');
+  fury = 0; exhausted = true;                        // custo: perde a próxima rodada
+  renderHUD();
+  const en = enemies[targetIdx];
+  log('🗡 COMBO de ' + n + ' golpes em ' + en.name + '! Acerte o tempo de cada um!');
+  await tween(player, frontOfEnemy(en), en.y, 320, 'run');
+  let landed = 0;
+  for (let i = 0; i < n && !en.dead; i++){
+    const r = await comboQte((i+1) + '/' + n);
+    const swing = playOnce(player, 'attack');
+    await wait(180);
+    if (r === 'perfect'){
+      landed++;
+      enemyStagger(en, MULTS[i]);
+      if (en.shield > 0){
+        breakShield(en, 1, true);
+        log('🗡 Golpe ' + (i+1) + '/' + n + ' quebrou um escudo! Restam ' + en.shield + '.');
+      } else {
+        const dmg = Math.max(1, Math.round(S.atk * MULTS[i]) - en.def + rnd(-1,2));
+        en.hp = Math.max(0, en.hp - dmg);
+        en.flash = 1;
+        addFloat(en, dmg, i >= 2 ? '#fbbf24' : '#fff', i >= 2);
+        log('🗡 Golpe ' + (i+1) + '/' + n + ' (×' + MULTS[i] + ')! ' + dmg + ' de dano.');
+        if (i >= 2) shakeApp();
+      }
+    } else {
+      addFloat(player, r === 'early' ? 'CEDO!' : 'ERROU!', '#8b90ad');
+      log('💨 Golpe ' + (i+1) + '/' + n + ' errou o tempo!');
+    }
+    await swing;
+    if (en.hp <= 0){
+      en.dead = true;
+      S.gold += en.gold; save();
+      addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
+      log(en.name + ' caiu no combo! +' + en.gold + ' de ouro.');
+      renderHUD(); renderTurnbar();
+      break;
+    }
+    if (i < n - 1) await wait(200);
+  }
+  if (landed === n && !en.dead) log('✨ COMBO PERFEITO! Todos os ' + n + ' golpes conectaram!');
   await playerReturn();
   if (await waveCleared()) return;
   enemyPhase();
@@ -1150,6 +1303,13 @@ async function enemyPhase(){
     if (en.dead) continue;
     if (hp <= 0) break;
     setTurn(en);
+    if (en.exhausted){                               // derrubado pela exaustão: perde a rodada
+      en.exhausted = false;
+      addFloat(en, 'EXAUSTO…', '#60d6ff', true);
+      log('💫 ' + en.name + ' está exausto e não consegue agir!');
+      await wait(900);
+      continue;
+    }
     await enemyAttack(en);
     await wait(250);
   }
@@ -1187,11 +1347,67 @@ async function bossShield(en){
   await wait(650);
 }
 
+/* ---- MONGE: unidade de suporte — cura aliados, lança feitiço no herói
+   ou encanta o herói (maldição que drena HP ou selo que trava a fúria) ---- */
+async function monkTurn(en){
+  const hurt = enemies.filter(e => !e.dead && e.hp < e.maxhp)
+                      .sort((a,b) => a.hp/a.maxhp - b.hp/b.maxhp);
+  if (hurt.length && Math.random() < 0.5) return monkHeal(en, hurt[0]);
+  if (!curse && Math.random() < 0.45) return monkCurse(en);
+  return monkBolt(en);
+}
+
+async function monkHeal(en, tgt){
+  en.warn = true;
+  log('📿 ' + en.name + ' entoa uma prece de cura…');
+  const cast = playOnce(en, 'attack');
+  await wait(450);
+  const heal = Math.round(tgt.maxhp * 0.3);
+  tgt.hp = Math.min(tgt.maxhp, tgt.hp + heal);
+  tgt.flash = 1;
+  addFloat(tgt, '+' + heal, '#4ade80', true);
+  log('📿 ' + en.name + ' curou ' + tgt.name + ' em ' + heal + ' de HP!');
+  await cast;
+  en.warn = false;
+  await wait(300);
+}
+
+async function monkCurse(en){
+  const type = Math.random() < 0.5 ? 'dot' : 'nofury';
+  const turns = rnd(2, 3);
+  en.warn = true;
+  log('🕯 ' + en.name + ' entoa um encantamento sombrio…');
+  const cast = playOnce(en, 'attack');
+  await wait(450);
+  curse = { type, turns, power: Math.max(3, Math.round(en.atk * 0.5)) };
+  player.flash = 1; fieldFx('bad'); shakeApp();
+  addFloat(player, type === 'dot' ? '☠ MALDIÇÃO!' : '⚡ FÚRIA SELADA!', '#c084fc', true);
+  log(type === 'dot'
+    ? '☠ Maldição! Você perderá ' + curse.power + ' de HP no início dos próximos ' + turns + ' turnos!'
+    : '⚡ Fúria selada! Sua barra de fúria não enche pelos próximos ' + turns + ' turnos!');
+  await cast;
+  en.warn = false;
+  await wait(400);
+}
+
+async function monkBolt(en){
+  en.warn = true;
+  log('🔮 ' + en.name + ' dispara um feitiço contra você!');
+  await wait(380);
+  const result = await runQte('parry', '');
+  const swing = playOnce(en, 'attack');
+  await wait(180);
+  applyHit(en, 'parry', result, en.atk);
+  await swing;
+  en.warn = false;
+}
+
 /* ---- turno do monstro: avança → combo de QTEs → golpes ---- */
 async function enemyAttack(en){
   if (en.unit === 'boss' && S.dgLv >= 5 && en.shield < SHIELD_MAX && Math.random() < 0.45){
     return bossShield(en);                           // gasta o turno se protegendo
   }
+  if (en.unit === 'monk') return monkTurn(en);       // o Monge conjura de longe
   const ranged = en.unit === 'archer';               // arqueiro atira de longe
   const combo = comboFor(en);
   en.warn = true;
@@ -1213,7 +1429,7 @@ async function enemyAttack(en){
     const swing = playOnce(en, 'attack');
     await wait(180);
     const hitAtk = combo.length > 1 ? Math.round(en.atk * 0.65) : en.atk;   // combo divide a força
-    applyHit(en, type, result, hitAtk);
+    applyHit(en, type, result, hitAtk, combo.length > 1);
     await swing;
     const ok = (type === 'jump' && result === 'dodge') || (type === 'parry' && result === 'perfect');
     if (!ok) allDefended = false;
@@ -1280,13 +1496,14 @@ async function runQte(type, tag){
 }
 
 /* aplica o dano de um golpe conforme a reação do jogador */
-function applyHit(en, type, result, atk){
+function applyHit(en, type, result, atk, inCombo){
   let dmg;
   if (type === 'jump'){
     if (result === 'dodge'){
       dmg = 0;
       addFloat(player, 'ESQUIVOU!', '#4ade80', true);
-      log('🦘 Você saltou sobre o golpe rasteiro de ' + en.name + '!');
+      gainFury(8);                                   // esquiva também gera fúria
+      log('🦘 Você saltou sobre o golpe rasteiro de ' + en.name + ' (+8 de fúria)!');
       fieldFx('good');
     } else {
       dmg = atk + rnd(0,3);
@@ -1306,7 +1523,8 @@ function applyHit(en, type, result, atk){
     dmg = Math.max(0, atk - S.def);
     playOnce(player, 'guard');
     addFloat(player, '-' + dmg, '#a78bfa');
-    log('🛡️ Bloqueado! A defesa absorveu: ' + dmg + ' de dano.');
+    gainFury(6);                                     // bloqueio também gera fúria
+    log('🛡️ Bloqueado! A defesa absorveu: ' + dmg + ' de dano (+6 de fúria).');
     fieldFx('good');
   } else {
     dmg = atk + rnd(0,3);
@@ -1316,6 +1534,7 @@ function applyHit(en, type, result, atk){
     fieldFx('bad'); shakeApp();
   }
   if (dmg > 0) gainFury(Math.max(6, Math.round(dmg * 160 / S.maxhp)));   // dano sofrido vira fúria
+  if (dmg > 0) heroStagger(dmg, inCombo);                                // e também exaustão
   hp = Math.max(0, hp - dmg);
   renderHUD();
 }
@@ -1386,6 +1605,7 @@ $('#cSpec').addEventListener('click', openSpec);
 $('#cBack').addEventListener('click', closeSpec);
 $('#cFury').addEventListener('click', playerSpecial);
 $('#cSeq').addEventListener('click', playerSeq);
+$('#cCombo').addEventListener('click', playerCombo);
 $('#cPot').addEventListener('click', usePotion);
 $('#cRun').addEventListener('click', flee);
 $('#arrL').addEventListener('click', e => { e.stopPropagation(); cycleTarget(-1); });
@@ -1397,6 +1617,7 @@ $('#battle').addEventListener('pointerdown', e => {
   gY = e.clientY;
   if (phase === 'qte' && qteType === 'parry') tryParry();
   if (phase === 'seq' && seqStop) seqStop();
+  if (phase === 'combo' && comboTap) comboTap();
 });
 $('#battle').addEventListener('pointerup', e => {
   if (gY !== null && phase === 'qte' && qteType === 'jump' && (gY - e.clientY) > 50) tryJump();
@@ -1430,6 +1651,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowUp' && phase === 'qte'){ tryJump(); e.preventDefault(); }
   if ((e.key === ' ' || e.key === 'Enter') && phase === 'qte'){ tryParry(); e.preventDefault(); }
   if ((e.key === ' ' || e.key === 'Enter') && phase === 'seq' && seqStop){ seqStop(); e.preventDefault(); }
+  if ((e.key === ' ' || e.key === 'Enter') && phase === 'combo' && comboTap){ comboTap(); e.preventDefault(); }
 });
 
 renderMenu();
