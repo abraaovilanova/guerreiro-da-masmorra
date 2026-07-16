@@ -1,6 +1,6 @@
 prompt.md
-node_modules/
+node_modules/*
 www/
 android/
-.claud/
+.claude/
 
