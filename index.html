@@ -186,9 +186,19 @@
     box-shadow:0 10px 30px rgba(0,0,0,.5);
   }
   #cmdMain,#cmdSpec{display:flex;flex-direction:column;gap:5px}
-  #cmds button{font-size:14px;padding:7px 10px;background:none;border:none;text-align:left}
+  #cmds button{
+    font-size:14px;padding:7px 10px;background:none;border:none;text-align:left;
+    position:relative;overflow:hidden;border-radius:8px;
+  }
   #cmds button:not(:disabled):active{color:var(--accent)}
   #cmds .cur{color:var(--accent);margin-right:6px}
+  /* barra de carga: segure o comando para ativar */
+  #cmds button.hold::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg,rgba(167,139,250,.18),rgba(167,139,250,.42));
+    transform:scaleX(0);transform-origin:left;
+  }
+  #cmds button.hold.holding::after{transform:scaleX(1);transition:transform .9s linear}
 
   /* overlay de fim de masmorra */
   #overlay{
@@ -681,6 +691,8 @@ const SFX = {
               this.tone({freq:500, end:1000, type:'sine', dur:0.12, vol:0.45, delay:0.1}); },
     stun(){   this.tone({freq:320, end:70, type:'sawtooth', dur:0.45, vol:0.6});
               this.tone({freq:480, end:110, type:'triangle', dur:0.45, vol:0.4, delay:0.04}); },
+    coin(){   this.tone({freq:988,  end:988,  type:'square', dur:0.09, vol:0.35});          // si5
+              this.tone({freq:1319, end:1319, type:'square', dur:0.22, vol:0.35, delay:0.08}); },  // mi6
   },
 };
 /* desbloqueia o áudio no primeiro toque do jogador */
@@ -1550,6 +1562,8 @@ function comboQte(tag){
     ring.style.animation = 'none'; void ring.offsetWidth; ring.style.animation = '';
     ring.style.animationDuration = QTE_MS + 'ms';
     qte.classList.add('on');
+    /* 🪙 aviso sonoro no início da janela perfeita (se ainda não travou) */
+    const cue = setTimeout(() => { if (!result) SFX.play('coin'); }, QTE_MS * 0.68);
     comboTap = () => {
       if (result) return;
       result = (performance.now() - t0) >= QTE_MS*0.68 ? 'perfect' : 'early';
@@ -1557,6 +1571,7 @@ function comboQte(tag){
       qte.querySelector('.tip').textContent = result === 'perfect' ? '✨ ACERTOU!' : '⏱ CEDO DEMAIS!';
     };
     setTimeout(() => {
+      clearTimeout(cue);
       comboTap = null;
       qte.classList.remove('on','atk');
       phase = 'busy';
@@ -1840,7 +1855,10 @@ async function runQte(type, tag){
   ring.style.animation = 'none'; void ring.offsetWidth; ring.style.animation = '';
   ring.style.animationDuration = QTE_MS + 'ms';
   qte.classList.add('on');
+  /* 🪙 aviso sonoro no início da janela perfeita (se ainda não reagiu) */
+  const cue = setTimeout(() => { if (!qteResult) SFX.play('coin'); }, QTE_MS * 0.68);
   await wait(QTE_MS);
+  clearTimeout(cue);
   qte.classList.remove('on');
   phase = 'busy';
   return qteResult;
@@ -1980,14 +1998,39 @@ $('#ovBack').addEventListener('click', () => {
    ENTRADAS: toque, swipe, setas, teclado
    ================================================================ */
 $('#enter').addEventListener('click', startRun);
-$('#cAtk').addEventListener('click', playerAttack);
-$('#cSpec').addEventListener('click', openSpec);
+
+/* comandos de ação exigem SEGURAR o botão (barra carrega); soltar cancela */
+const HOLD_MS = 900;
+function bindHold(id, action){
+  const b = $('#' + id);
+  b.classList.add('hold');
+  let timer = null;
+  b.addEventListener('pointerdown', e => {
+    if (b.disabled) return;
+    e.preventDefault();
+    b.classList.add('holding');
+    timer = setTimeout(() => {
+      timer = null;
+      b.classList.remove('holding');
+      action();
+    }, HOLD_MS);
+  });
+  const cancel = () => {
+    if (timer){ clearTimeout(timer); timer = null; }
+    b.classList.remove('holding');
+  };
+  b.addEventListener('pointerup', cancel);
+  b.addEventListener('pointerleave', cancel);
+  b.addEventListener('pointercancel', cancel);
+}
+bindHold('cAtk', playerAttack);
+bindHold('cFury', playerSpecial);
+bindHold('cSeq', playerSeq);
+bindHold('cCombo', playerCombo);
+bindHold('cPot', usePotion);
+bindHold('cRun', flee);
+$('#cSpec').addEventListener('click', openSpec);     // navegação: toque simples
 $('#cBack').addEventListener('click', closeSpec);
-$('#cFury').addEventListener('click', playerSpecial);
-$('#cSeq').addEventListener('click', playerSeq);
-$('#cCombo').addEventListener('click', playerCombo);
-$('#cPot').addEventListener('click', usePotion);
-$('#cRun').addEventListener('click', flee);
 $('#arrL').addEventListener('click', e => { e.stopPropagation(); cycleTarget(-1); });
 $('#arrR').addEventListener('click', e => { e.stopPropagation(); cycleTarget(1); });
 
