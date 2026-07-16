@@ -134,6 +134,35 @@
   #qte.dodged .tip{color:var(--hp)}
   @keyframes qteshrink{from{transform:scale(2.1)}to{transform:scale(1)}}
 
+  /* ---- Sequência Mortal: barra de potência oscilante ---- */
+  #seq{
+    position:absolute;inset:0;z-index:5;visibility:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    background:rgba(251,191,36,.07);
+  }
+  #seq.on{visibility:visible}
+  #seq .tip{font-size:14px;font-weight:700;letter-spacing:.08em;color:#fde68a;text-shadow:0 2px 6px #000}
+  #seq .sub{font-size:11px;letter-spacing:.1em;color:var(--ink-dim)}
+  #seq .track{
+    position:relative;width:82%;max-width:340px;height:30px;display:flex;
+    border:2px solid #cfd3ea;border-radius:9px;overflow:hidden;background:#0c0e18;
+    box-shadow:0 0 0 3px #0a0c18, 0 4px 18px rgba(0,0,0,.5);
+  }
+  #seq .z{
+    height:100%;display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:800;color:rgba(255,255,255,.75);text-shadow:0 1px 2px #000;
+  }
+  #seq .zw{width:60%;background:#39406b}
+  #seq .zs{width:30%;background:#b45309}
+  #seq .zv{width:10%;background:#dc2626}
+  #seqCur{
+    position:absolute;top:0;bottom:0;left:0;width:5px;margin-left:-2px;
+    background:#fff;border-radius:3px;
+    animation:curpulse .4s ease-in-out infinite alternate;
+  }
+  #seqCur.lock{background:var(--gold);animation:none;box-shadow:0 0 16px var(--gold)}
+  @keyframes curpulse{from{box-shadow:0 0 5px #fff}to{box-shadow:0 0 18px #fff}}
+
   /* ordem do turno */
   #turnbar{display:flex;align-items:center;gap:10px;padding:7px 12px}
   #turnbar .label{flex:none}
@@ -158,7 +187,8 @@
   #hero .furybar.full i{animation:furypulse .5s ease-in-out infinite alternate}
   @keyframes furypulse{from{filter:brightness(1)}to{filter:brightness(1.8)}}
   #hero .nums{font-size:12px;color:var(--ink-dim)}
-  #cmds{display:flex;flex-direction:column;gap:5px;padding:10px}
+  #cmds{padding:10px}
+  #cmdMain,#cmdSpec{display:flex;flex-direction:column;gap:5px}
   #cmds button{font-size:14px;padding:7px 10px;background:none;border:none;text-align:left}
   #cmds button:not(:disabled):active{color:var(--accent)}
   #cmds .cur{color:var(--accent);margin-right:6px}
@@ -300,6 +330,14 @@
         <div class="zone"><div class="target">🛡️</div><div class="shrink"></div></div>
         <div class="tip">TOQUE QUANDO O CÍRCULO FECHAR!</div>
       </div>
+      <div id="seq">
+        <div class="tip">TOQUE PARA TRAVAR A POTÊNCIA!</div>
+        <div class="track">
+          <div class="z zw">×1.1</div><div class="z zs">×1.5</div><div class="z zv">×2</div>
+          <div id="seqCur"></div>
+        </div>
+        <div class="sub" id="seqTrips">3 idas e voltas</div>
+      </div>
     </div>
 
     <div id="bottom">
@@ -310,10 +348,17 @@
         <div class="nums">HP <span class="num" id="hpnum">60/60</span> · ⚡<span class="num" id="furyN">0%</span> · <img class="icn-s" data-ico="icoCoin" alt="ouro"> <span class="num" id="goldB">0</span></div>
       </div>
       <div class="card" id="cmds">
-        <button id="cAtk"><span class="cur">▶</span>Atacar</button>
-        <button id="cFury"><span class="cur">▶</span>⚡ Fúria <span class="num" id="furyM">(25%+)</span></button>
-        <button id="cPot"><span class="cur">▶</span>Poção <span class="num" id="potN">×3</span></button>
-        <button id="cRun"><span class="cur">▶</span>Fugir 🗺️<span class="num" id="mapN">×0</span></button>
+        <div id="cmdMain">
+          <button id="cAtk"><span class="cur">▶</span>Atacar</button>
+          <button id="cSpec"><span class="cur">▶</span>✨ Ataque especial</button>
+          <button id="cPot"><span class="cur">▶</span>Poção <span class="num" id="potN">×3</span></button>
+          <button id="cRun"><span class="cur">▶</span>Fugir 🗺️<span class="num" id="mapN">×0</span></button>
+        </div>
+        <div id="cmdSpec" class="hidden">
+          <button id="cFury"><span class="cur">▶</span>⚡ Fúria <span class="num" id="furyM">(25%+)</span></button>
+          <button id="cSeq"><span class="cur">▶</span>☠ Seq. Mortal <span class="num">(50%+)</span></button>
+          <button id="cBack"><span class="cur">▶</span>↩ Voltar</button>
+        </div>
       </div>
     </div>
 
@@ -467,6 +512,7 @@ const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } 
 /* ---------- estado da run ---------- */
 let hp = S.maxhp, wave = 1, potions = 3, torchOn = false;
 let fury = 0;                       // 0–100: enche ao sofrer dano, gasta no golpe especial
+let exhausted = false;              // após um especial, o herói perde a próxima rodada
 let enemies = [], player = null, targetIdx = 0;
 let phase = 'menu';                 // menu | player | busy | qte
 let qteStart = 0, qteResult = null, qteType = 'parry';   // parry (toque) | jump (arrastar ↑)
@@ -767,11 +813,23 @@ function gainFury(n){ fury = Math.min(100, fury + n); renderHUD(); }
 function shakeApp(){ $('#app').classList.add('shake'); setTimeout(() => $('#app').classList.remove('shake'), 400); }
 function setCmds(on){
   $('#cAtk').disabled = !on;
-  $('#cFury').disabled = !on || fury < 25;
+  $('#cSpec').disabled = !on || fury < 25;    // habilita se algum especial está disponível
   $('#cPot').disabled = !on || potions <= 0 || hp >= S.maxhp;
   $('#cRun').disabled = !on || S.mapas <= 0;
+  $('#cFury').disabled = !on || fury < 25;
+  $('#cSeq').disabled = !on || fury < 50;
   const sp = specialInfo();
   $('#furyM').textContent = sp ? sp.tag : '(25%+)';
+}
+/* submenu de ataques especiais (troca o conteúdo da caixa de comandos) */
+function openSpec(){
+  if (phase !== 'player') return;
+  $('#cmdMain').classList.add('hidden');
+  $('#cmdSpec').classList.remove('hidden');
+}
+function closeSpec(){
+  $('#cmdSpec').classList.add('hidden');
+  $('#cmdMain').classList.remove('hidden');
 }
 
 /* ---- ordem do turno: herói + inimigos vivos, destaque em quem age ---- */
@@ -822,7 +880,7 @@ function cycleTarget(dir){
 }
 
 async function startRun(){
-  hp = S.maxhp; wave = 1; potions = 3; fury = 0;
+  hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false;
   torchOn = S.tochas > 0;
   if (torchOn){ S.tochas--; save(); }
   QTE_MS = torchOn ? 1260 : 900;
@@ -853,9 +911,19 @@ async function startWave(){
 }
 
 function beginPlayerTurn(){
+  /* rodada perdida após usar um ataque especial */
+  if (exhausted){
+    exhausted = false;
+    phase = 'busy'; setCmds(false); setTurn('player');
+    log('😮‍💨 Exausto pelo golpe especial, o guerreiro não consegue agir!');
+    addFloat(player, 'EXAUSTO…', '#8b90ad', true);
+    setTimeout(() => { if (aliveIdx().length && hp > 0) enemyPhase(); }, 1100);
+    return;
+  }
   phase = 'player';
   const alive = aliveIdx();
   if (!alive.includes(targetIdx)) targetIdx = alive[0];
+  closeSpec();
   setCmds(true);
   setTurn('player');
 }
@@ -901,12 +969,12 @@ async function waveCleared(){
   return true;
 }
 
-/* ---- golpe especial: consome toda a fúria acumulada ---- */
+/* ---- golpe especial FÚRIA: consome toda a fúria acumulada ---- */
 async function playerSpecial(){
   if (phase !== 'player' || fury < 25) return;
   const sp = specialInfo();
-  phase = 'busy'; setCmds(false);
-  fury = 0;
+  phase = 'busy'; closeSpec(); setCmds(false);
+  fury = 0; exhausted = true;                        // custo: perde a próxima rodada
   const targets = sp.aoe ? enemies.filter(e => !e.dead) : [enemies[targetIdx]];
   const tx = sp.aoe ? W*0.50 : targets[0].x - targets[0].size*0.55;
   const ty = sp.aoe ? H*0.55 : targets[0].y;
@@ -929,6 +997,86 @@ async function playerSpecial(){
   save();
   renderHUD(); renderTurnbar();
   await hit;
+  await playerReturn();
+  if (await waveCleared()) return;
+  enemyPhase();
+}
+
+/* ---- SEQUÊNCIA MORTAL: barra oscilante define a potência ----
+   Zonas: fraca 60% (×1.1) · forte 30% (×1.5) · muito forte 10% (×2).
+   O cursor acelera a cada zona e faz 3 idas e voltas; sem toque = falha. */
+let seqStop = null;   // função de travar, ativa durante a barra
+function runSeqBar(){
+  return new Promise(resolve => {
+    const seq = $('#seq'), cur = $('#seqCur'), tip = seq.querySelector('.tip');
+    tip.textContent = 'TOQUE PARA TRAVAR A POTÊNCIA!';
+    cur.classList.remove('lock');
+    seq.classList.add('on');
+    const SPEED = [0.55, 1.05, 1.9];                 // fração da barra/seg por zona
+    const zone = x => x < 0.6 ? 0 : x < 0.9 ? 1 : 2;
+    let p = 0, dir = 1, trips = 0, lastT = performance.now(), raf = 0, done = false;
+    function finish(val, z){
+      if (done) return;
+      done = true; seqStop = null;
+      cancelAnimationFrame(raf);
+      if (z !== undefined){
+        cur.classList.add('lock');
+        tip.textContent = ['FRACO ×1.1', 'FORTE ×1.5', '💀 MUITO FORTE ×2!'][z];
+      } else tip.textContent = '💨 O ATAQUE FALHOU!';
+      setTimeout(() => { seq.classList.remove('on'); resolve(val); }, 650);
+    }
+    seqStop = () => finish([1.1, 1.5, 2][zone(p)], zone(p));
+    function step(t){
+      if (done) return;
+      const dt = Math.min(80, t - lastT); lastT = t;
+      p += dir * SPEED[zone(p)] * dt/1000;
+      if (p >= 1){ p = 1; dir = -1; }
+      else if (p <= 0){
+        p = 0; dir = 1; trips++;
+        $('#seqTrips').textContent = (3-trips) + (3-trips === 1 ? ' ida e volta' : ' idas e voltas');
+        if (trips >= 3) return finish(null);
+      }
+      cur.style.left = (p*100) + '%';
+      raf = requestAnimationFrame(step);
+    }
+    $('#seqTrips').textContent = '3 idas e voltas';
+    raf = requestAnimationFrame(step);
+  });
+}
+
+async function playerSeq(){
+  if (phase !== 'player' || fury < 50) return;
+  phase = 'seq'; closeSpec(); setCmds(false); setTurn('player');
+  fury = 0; exhausted = true;                        // custo: perde a próxima rodada
+  renderHUD();
+  log('☠ SEQUÊNCIA MORTAL! Trave o cursor na zona vermelha!');
+  const mult = await runSeqBar();
+  phase = 'busy';
+  if (mult === null){
+    log('💨 O ataque falhou! O guerreiro hesitou…');
+    addFloat(player, 'FALHOU!', '#8b90ad', true);
+    await wait(600);
+    enemyPhase();
+    return;
+  }
+  const en = enemies[targetIdx];
+  await tween(player, en.x - en.size*0.55, en.y, 300, 'run');
+  const hit = playOnce(player, 'attack');
+  await wait(200);
+  if (mult >= 1.5) shakeApp();
+  const dmg = Math.max(1, Math.round(S.atk * mult) - en.def + rnd(-1,3));
+  en.hp = Math.max(0, en.hp - dmg);
+  en.flash = 1;
+  addFloat(en, dmg, mult >= 2 ? '#fbbf24' : '#fff', mult >= 1.5);
+  log('☠ Sequência Mortal ×' + mult + '! ' + dmg + ' de dano em ' + en.name + '.');
+  await hit;
+  if (en.hp <= 0){
+    en.dead = true;
+    S.gold += en.gold; save();
+    addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
+    log(en.name + ' caiu! +' + en.gold + ' de ouro.');
+    renderHUD(); renderTurnbar();
+  }
   await playerReturn();
   if (await waveCleared()) return;
   enemyPhase();
@@ -993,6 +1141,9 @@ async function enemyAttack(en){
   en.anim = 'idle'; en.frame = 0;
   await wait(220);
 
+  /* o contragolpe exige defender o combo INTEIRO:
+     parry PERFEITO nos golpes de toque e esquiva nos rasteiros */
+  let allDefended = combo.length > 1;
   for (let i = 0; i < combo.length; i++){
     if (hp <= 0) break;
     const type = combo[i];
@@ -1002,12 +1153,15 @@ async function enemyAttack(en){
     const hitAtk = combo.length > 1 ? Math.round(en.atk * 0.65) : en.atk;   // combo divide a força
     applyHit(en, type, result, hitAtk);
     await swing;
-    /* parry perfeito no meio de um combo → contra-ataque imediato */
-    if (result === 'perfect' && combo.length > 1 && hp > 0){
-      await counterAttack(en);
-      if (en.dead) break;                            // contra-ataque fatal cancela o combo
-    }
+    const ok = (type === 'jump' && result === 'dodge') || (type === 'parry' && result === 'perfect');
+    if (!ok) allDefended = false;
     if (i < combo.length - 1) await wait(260);
+  }
+  /* sequência inteira defendida → contra-ataque no fim do combo */
+  if (allDefended && hp > 0 && !en.dead){
+    log('✨ Combo inteiro defendido!');
+    await wait(350);
+    await counterAttack(en);
   }
   en.warn = false;
   if (!ranged && !en.dead){
@@ -1017,21 +1171,22 @@ async function enemyAttack(en){
   }
 }
 
-/* contra-ataque: devolve 60% do ataque no agressor (à distância, reflete a flecha) */
+/* contra-ataque (defendeu o combo inteiro): 1.5×–2× do ataque do herói */
 async function counterAttack(en){
-  await wait(150);
+  const m = 1.5 + Math.random()*0.5;
   const swing = playOnce(player, 'attack');
   await wait(180);
-  const dmg = Math.max(1, Math.round(S.atk * 0.6) - en.def + rnd(0,2));
+  shakeApp();
+  const dmg = Math.max(1, Math.round(S.atk * m) - en.def);
   en.hp = Math.max(0, en.hp - dmg);
   en.flash = 1;
   addFloat(en, dmg, '#fbbf24', true);
-  log('↩ CONTRA-ATAQUE! Você devolveu ' + dmg + ' de dano em ' + en.name + '!');
+  log('↩ CONTRA-ATAQUE ×' + m.toFixed(1) + '! Você devolveu ' + dmg + ' de dano em ' + en.name + '!');
   if (en.hp <= 0){
     en.dead = true;
     S.gold += en.gold; save();
     addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
-    log('↩ CONTRA-ATAQUE fatal! ' + en.name + ' caiu no meio do combo!');
+    log('↩ CONTRA-ATAQUE fatal! ' + en.name + ' não sobreviveu à resposta!');
     renderHUD(); renderTurnbar();
   }
   await swing;
@@ -1158,7 +1313,10 @@ $('#ovBack').addEventListener('click', () => {
    ================================================================ */
 $('#enter').addEventListener('click', startRun);
 $('#cAtk').addEventListener('click', playerAttack);
+$('#cSpec').addEventListener('click', openSpec);
+$('#cBack').addEventListener('click', closeSpec);
 $('#cFury').addEventListener('click', playerSpecial);
+$('#cSeq').addEventListener('click', playerSeq);
 $('#cPot').addEventListener('click', usePotion);
 $('#cRun').addEventListener('click', flee);
 $('#arrL').addEventListener('click', e => { e.stopPropagation(); cycleTarget(-1); });
@@ -1169,6 +1327,7 @@ let gY = null;
 $('#battle').addEventListener('pointerdown', e => {
   gY = e.clientY;
   if (phase === 'qte' && qteType === 'parry') tryParry();
+  if (phase === 'seq' && seqStop) seqStop();
 });
 $('#battle').addEventListener('pointerup', e => {
   if (gY !== null && phase === 'qte' && qteType === 'jump' && (gY - e.clientY) > 50) tryJump();
@@ -1197,6 +1356,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') cycleTarget(1);
   if (e.key === 'ArrowUp' && phase === 'qte'){ tryJump(); e.preventDefault(); }
   if ((e.key === ' ' || e.key === 'Enter') && phase === 'qte'){ tryParry(); e.preventDefault(); }
+  if ((e.key === ' ' || e.key === 'Enter') && phase === 'seq' && seqStop){ seqStop(); e.preventDefault(); }
 });
 
 renderMenu();
