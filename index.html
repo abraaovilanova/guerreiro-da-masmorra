@@ -199,6 +199,21 @@
   #ovTitle{font-size:24px;font-weight:800}
   #ovMsg{font-size:14px;line-height:1.55;color:var(--ink-dim)}
   #ovMsg b{color:var(--gold)}
+  #ovAd{background:linear-gradient(180deg,#16a34a,#15803d);border-color:#4ade80;font-weight:700}
+
+  /* ---- anúncio simulado (só no navegador; no app entra o AdMob real) ---- */
+  #adSim{
+    position:absolute;inset:0;z-index:30;background:rgba(0,0,0,.92);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  #adSim .adcard{
+    background:#101014;border:1px solid #333;border-radius:14px;
+    width:100%;max-width:340px;padding:20px;text-align:center;
+    display:flex;flex-direction:column;gap:12px;
+  }
+  #adVideo{font-size:56px;padding:34px 0;background:#000;border-radius:10px}
+  #adCount{font-size:14px;color:var(--ink-dim)}
+
   .shake{animation:shake .35s ease}
   @keyframes shake{20%{transform:translate(-8px,2px)}40%{transform:translate(7px,-3px)}60%{transform:translate(-5px,-2px)}80%{transform:translate(4px,2px)}}
 
@@ -206,10 +221,13 @@
   .icn{width:22px;height:22px;image-rendering:pixelated;vertical-align:-5px}
   .icn-s{width:15px;height:15px;image-rendering:pixelated;vertical-align:-3px}
   .ava{width:34px;height:34px;image-rendering:pixelated;vertical-align:-11px}
-  #herocard{display:flex;align-items:center;gap:10px;padding:8px 14px}
-  #heroCv{width:128px;height:96px;flex:none}
-  #herocard .hname{font-size:17px;font-weight:800;letter-spacing:.03em}
+  #herocard{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 14px}
+  #heroCv{width:220px;height:140px;flex:none}
+  #herocard .hname{font-size:19px;font-weight:800;letter-spacing:.03em}
   #herocard .hsub{font-size:11px;color:var(--ink-dim);margin-top:2px}
+  #shopToggle{text-align:left;font-weight:700;font-size:15px;padding:13px 14px}
+  #shopToggle #shopArrow{float:right;color:var(--ink-dim);transition:transform .15s}
+  #shopToggle.open #shopArrow{transform:rotate(180deg)}
   .skinned .card{
     background:none;border-radius:0;border:13px solid transparent;
     border-image:var(--ui-paper) 44 54 43 54 fill stretch;
@@ -250,12 +268,9 @@
     <div id="goldbar"><img class="icn" data-ico="icoCoin" alt="ouro"> <span class="num" id="gold">0</span></div>
 
     <div class="card" id="herocard">
-      <canvas id="heroCv" width="160" height="120"></canvas>
-      <div>
-        <div class="label">Seu herói</div>
-        <div class="hname"><img id="menuAva" class="ava" alt=""> GUERREIRO</div>
-        <div class="hsub">Cavaleiro azul do acampamento</div>
-      </div>
+      <canvas id="heroCv" width="220" height="140"></canvas>
+      <div class="hname"><img id="menuAva" class="ava" alt=""> GUERREIRO</div>
+      <div class="hsub">Cavaleiro azul do acampamento</div>
     </div>
 
     <div class="card">
@@ -277,8 +292,8 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="label" style="margin-bottom:2px">Loja</div>
+    <button id="shopToggle">🛒 Mercado <span id="shopArrow">▾</span></button>
+    <div class="card hidden" id="shopCard">
       <div class="uprow">
         <div class="ico">🔥</div>
         <div class="info">
@@ -297,7 +312,7 @@
       </div>
     </div>
 
-    <button id="enter">🏰 Entrar na Masmorra (Nv. <span class="num" id="dgLv">1</span>)</button>
+    <button id="enter">🏰 Entrar na Masmorra</button>
     <div id="bestTag">Masmorras conquistadas: 0</div>
     <button id="reset">zerar progresso</button>
   </div>
@@ -352,7 +367,18 @@
     <div class="card">
       <div id="ovTitle">VITÓRIA!</div>
       <div id="ovMsg"></div>
+      <button id="ovAd" class="hidden">🎬 Dobrar o prêmio</button>
       <button id="ovBack">Voltar ao acampamento</button>
+    </div>
+  </div>
+
+  <!-- ================= ANÚNCIO SIMULADO (teste no navegador) ================= -->
+  <div id="adSim" class="hidden">
+    <div class="adcard">
+      <div class="label">Anúncio</div>
+      <div id="adVideo">🎬</div>
+      <div id="adCount">…</div>
+      <button id="adClose" disabled>Fechar</button>
     </div>
   </div>
 </div>
@@ -370,22 +396,35 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 const rnd = (a,b) => a + Math.floor(Math.random()*(b-a+1));
 const lerp = (a,b,k) => a + (b-a)*k;
 
+/* ---------- cores de masmorra: cada uma usa as unidades da sua cor ---------- */
+const DG_COLORS = {
+  red:    { dir:'Red Units/',    bdir:'Red Buildings/',    nome:'Vermelha', hex:'#f87171', boss:'Cavaleiro Vermelho' },
+  black:  { dir:'Black Units/',  bdir:'Black Buildings/',  nome:'Negra',    hex:'#8b90ad', boss:'Cavaleiro Negro' },
+  blue:   { dir:'Blue Units/',   bdir:'Blue Buildings/',   nome:'Azul',     hex:'#38bdf8', boss:'Cavaleiro Azul' },
+  purple: { dir:'Purple Units/', bdir:'Purple Buildings/', nome:'Púrpura',  hex:'#a78bfa', boss:'Cavaleiro Púrpura' },
+  yellow: { dir:'Yellow Units/', bdir:'Yellow Buildings/', nome:'Dourada',  hex:'#fbbf24', boss:'Cavaleiro Dourado' },
+};
+const COLOR_KEYS = Object.keys(DG_COLORS);
+
 /* ---------- catálogo de sprites (caminhos do Free Pack) ---------- */
 const BASE = 'Tiny Swords (Free Pack)/Units/';
 const UNITS = {
   warrior:{ fs:192, dir:'Blue Units/Warrior/',  fall:'🗡️',
             anims:{ idle:'Warrior_Idle.png', run:'Warrior_Run.png', attack:'Warrior_Attack1.png', guard:'Warrior_Guard.png' } },
-  pawn:   { fs:192, dir:'Red Units/Pawn/',      fall:'👺',
-            anims:{ idle:'Pawn_Idle Knife.png', run:'Pawn_Run Knife.png', attack:'Pawn_Interact Knife.png' } },
-  archer: { fs:192, dir:'Red Units/Archer/',    fall:'🏹',
-            anims:{ idle:'Archer_Idle.png', run:'Archer_Run.png', attack:'Archer_Shoot.png' } },
-  lancer: { fs:320, dir:'Red Units/Lancer/',    fall:'🔱',
-            anims:{ idle:'Lancer_Idle.png', run:'Lancer_Run.png', attack:'Lancer_Right_Attack.png' } },
-  monk:   { fs:192, dir:'Red Units/Monk/',      fall:'📿',
-            anims:{ idle:'Idle.png', run:'Run.png', attack:'Heal.png' } },
-  boss:   { fs:192, dir:'Black Units/Warrior/', fall:'👹',
-            anims:{ idle:'Warrior_Idle.png', run:'Warrior_Run.png', attack:'Warrior_Attack1.png' } },
 };
+/* gera pawn/archer/lancer/monk/boss para cada cor: chaves tipo 'red_pawn' */
+for (const [c, cfg] of Object.entries(DG_COLORS)){
+  UNITS[c + '_pawn']   = { fs:192, dir:cfg.dir + 'Pawn/',    fall:'👺',
+    anims:{ idle:'Pawn_Idle Knife.png', run:'Pawn_Run Knife.png', attack:'Pawn_Interact Knife.png' } };
+  UNITS[c + '_archer'] = { fs:192, dir:cfg.dir + 'Archer/',  fall:'🏹',
+    anims:{ idle:'Archer_Idle.png', run:'Archer_Run.png', attack:'Archer_Shoot.png' } };
+  UNITS[c + '_lancer'] = { fs:320, dir:cfg.dir + 'Lancer/',  fall:'🔱',
+    anims:{ idle:'Lancer_Idle.png', run:'Lancer_Run.png', attack:'Lancer_Right_Attack.png' } };
+  UNITS[c + '_monk']   = { fs:192, dir:cfg.dir + 'Monk/',    fall:'📿',
+    anims:{ idle:'Idle.png', run:'Run.png', attack:'Heal.png' } };
+  UNITS[c + '_boss']   = { fs:192, dir:cfg.dir + 'Warrior/', fall:'👹',
+    anims:{ idle:'Warrior_Idle.png', run:'Warrior_Run.png', attack:'Warrior_Attack1.png' } };
+}
 
 /* pré-carrega todos os sheets; usa data-URI embutido se existir (Artifact) */
 const IMGS = {};
@@ -483,11 +522,87 @@ function cropURL(img, sx, sy, sw, sh){
   }
 })();
 
+/* ================================================================
+   ANÚNCIOS — AdMob (plugin @capacitor-community/admob) no app;
+   simulação de vídeo no navegador para testar o fluxo.
+   Troque os IDs de teste do Google pelos IDs reais da sua conta AdMob.
+   ================================================================ */
+const ADS = {
+  rewardedId:     'ca-app-pub-3940256099942544/5224354917',   // ID de TESTE do Google
+  interstitialId: 'ca-app-pub-3940256099942544/1033173712',   // ID de TESTE do Google
+  plugin: null,
+  async init(){
+    try {
+      if (window.Capacitor && Capacitor.isPluginAvailable && Capacitor.isPluginAvailable('AdMob')){
+        this.plugin = Capacitor.Plugins.AdMob;
+        await this.plugin.initialize({});
+      }
+    } catch(e){ console.warn('AdMob indisponível:', e); this.plugin = null; }
+  },
+  /* vídeo premiado: resolve true se o usuário assistiu e ganhou a recompensa */
+  async showRewarded(){
+    if (this.plugin){
+      try {
+        let got = false;
+        const sub = await this.plugin.addListener('onRewardedVideoAdReward', () => { got = true; });
+        const done = new Promise(r => {
+          this.plugin.addListener('onRewardedVideoAdDismissed', () => r());
+          this.plugin.addListener('onRewardedVideoAdFailedToShow', () => r());
+        });
+        await this.plugin.prepareRewardVideoAd({ adId: this.rewardedId });
+        await this.plugin.showRewardVideoAd();
+        await done;
+        if (sub && sub.remove) sub.remove();
+        return got;
+      } catch(e){ console.warn('rewarded falhou:', e); return null; }   // null = indisponível
+    }
+    return simAd(true);
+  },
+  /* intersticial: mostrado a cada 5 entradas na masmorra */
+  async showInterstitial(){
+    if (this.plugin){
+      try {
+        const done = new Promise(r => {
+          this.plugin.addListener('onInterstitialAdDismissed', () => r());
+          this.plugin.addListener('onInterstitialAdFailedToShow', () => r());
+        });
+        await this.plugin.prepareInterstitial({ adId: this.interstitialId });
+        await this.plugin.showInterstitial();
+        await done;
+      } catch(e){ console.warn('intersticial falhou:', e); }
+      return;
+    }
+    await simAd(false);
+  },
+};
+/* anúncio falso para testar no navegador: rewarded exige 5s, intersticial 3s */
+function simAd(rewarded){
+  return new Promise(res => {
+    const box = $('#adSim'), btn = $('#adClose'), cnt = $('#adCount');
+    let t = rewarded ? 5 : 3;
+    box.classList.remove('hidden');
+    btn.disabled = true;
+    btn.textContent = rewarded ? '🎁 Resgatar recompensa' : 'Fechar';
+    cnt.textContent = 'Propaganda… ' + t + 's';
+    const iv = setInterval(() => {
+      t--;
+      if (t <= 0){
+        clearInterval(iv);
+        btn.disabled = false;
+        cnt.textContent = rewarded ? 'Recompensa liberada!' : 'Pode fechar';
+      } else cnt.textContent = 'Propaganda… ' + t + 's';
+    }, 1000);
+    btn.onclick = () => { box.classList.add('hidden'); res(true); };
+  });
+}
+ADS.init();
+
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
-const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:0, mapas:1, dgLv:1, wins:0 };
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null };
 let S = structuredClone(DEFAULTS);
 try { const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d && d.maxhp) S = Object.assign(structuredClone(DEFAULTS), d); } catch(e){}
+if (!DG_COLORS[S.dgColor]) S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];
 const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch(e){} };
 
 /* ---------- estado da run ---------- */
@@ -519,13 +634,15 @@ const COMMONS = [
   { unit:'lancer', name:'Lanceiro', hp:40, atk:11, def:4 },
   { unit:'monk',   name:'Monge',    hp:26, atk:10, def:2 },
 ];
-const BOSS_DEF = { unit:'boss', name:'Cavaleiro Negro', hp:160, atk:20, def:6 };
+const BOSS_DEF = { unit:'boss', name:'Chefe', hp:160, atk:20, def:6 };
 
 function makeWave(w){
   const L = S.dgLv;
   const mult = (1 + (L-1)*0.25) * (w === 2 ? 1.3 : 1);
   const mk = (base, i, n) => ({
     ...base,
+    kind: base.unit,                       // tipo lógico (pawn/archer/lancer/monk/boss)
+    unit: S.dgColor + '_' + base.unit,     // sprite da cor da masmorra
     hp:Math.round(base.hp*mult), maxhp:Math.round(base.hp*mult),
     atk:Math.round(base.atk*mult), def:Math.round(base.def*mult),
     shield:0,                    // escudos arcanos (boss Nv.5+): quebram antes do HP
@@ -536,7 +653,11 @@ function makeWave(w){
     anim:'idle', frame:rnd(0,5), acc:0, dead:false, tween:null, once:null,
     name: base.name + (n > 1 ? ' ' + 'ABC'[i] : ''),
   });
-  if (w === 3) return [mk(BOSS_DEF, 0, 1)];
+  if (w === 3){
+    const b = mk(BOSS_DEF, 0, 1);
+    b.name = DG_COLORS[S.dgColor].boss;
+    return [b];
+  }
   return [0,1,2].map(i => mk(COMMONS[rnd(0, COMMONS.length-1)], i, 3));
 }
 
@@ -545,6 +666,41 @@ function makeWave(w){
    ================================================================ */
 const cv = $('#cv'), ctx = cv.getContext('2d');
 let W = 0, H = 0, floats = [];
+
+/* ---------- cenário: buildings da cor da masmorra + decorações ---------- */
+const DECOR_IMGS = {};
+function loadDecor(path){
+  if (DECOR_IMGS[path] !== undefined) return;
+  DECOR_IMGS[path] = null;
+  const img = new Image();
+  img.onload = () => { DECOR_IMGS[path] = img; };
+  img.src = (window.EMBED && window.EMBED[path]) || path;
+}
+let scenery = [];
+function buildScenery(){
+  const cfg = DG_COLORS[S.dgColor];
+  const B = 'Tiny Swords (Free Pack)/Buildings/' + cfg.bdir;
+  const D = 'Tiny Swords (Free Pack)/Terrain/Decorations/';
+  scenery = [   // x/y em fração do campo; mirror acompanha o lado dos inimigos
+    { src:B + 'Castle.png',                    x:0.76, y:0.14, w:0.52, alpha:0.35, mirror:true },
+    { src:B + 'Tower.png',                     x:0.16, y:0.22, w:0.16, alpha:0.30, mirror:true },
+    { src:D + 'Rocks/Rock' + rnd(1,4) + '.png',  x:0.10, y:0.56, w:0.14, alpha:0.55 },
+    { src:D + 'Bushes/Bushe' + rnd(1,4) + '.png',x:0.90, y:0.66, w:0.16, alpha:0.55 },
+    { src:D + 'Rocks/Rock' + rnd(1,4) + '.png',  x:0.46, y:0.90, w:0.13, alpha:0.45 },
+  ];
+  scenery.forEach(s => loadDecor(s.src));
+}
+function drawScenery(){
+  for (const s of scenery){
+    const img = DECOR_IMGS[s.src];
+    if (!img) continue;
+    const w = W * s.w, h = w * img.height / img.width;
+    const x = (s.mirror ? mirrorX(W * s.x) : W * s.x) - w/2;
+    ctx.globalAlpha = s.alpha;
+    ctx.drawImage(img, x, H * s.y - h/2, w, h);
+    ctx.globalAlpha = 1;
+  }
+}
 
 function resizeCanvas(){
   const r = $('#field').getBoundingClientRect();
@@ -575,7 +731,7 @@ function layoutActors(){
     ? [{x:W*0.70, y:H*0.30}]
     : [{x:W*0.66, y:H*0.25}, {x:W*0.83, y:H*0.38}, {x:W*0.56, y:H*0.46}];
   enemies.forEach((en, i) => {
-    en.size = en.unit === 'boss' ? base*1.7 : base;
+    en.size = en.kind === 'boss' ? base*1.7 : base;
     en.homeX = mirrorX(slots[i % slots.length].x);
     en.homeY = slots[i % slots.length].y;
     en.flip = eFlip();
@@ -729,6 +885,7 @@ function drawActor(a, t){
 
 function draw(t){
   ctx.clearRect(0,0,W,H);
+  drawScenery();
   [...enemies, player].filter(Boolean)
     .sort((a,b) => a.y - b.y)
     .forEach(a => drawActor(a, t));
@@ -759,12 +916,12 @@ function drawMenuHero(dt){
   heroCtx.clearRect(0, 0, heroCv.width, heroCv.height);
   heroCtx.fillStyle = 'rgba(0,0,0,.3)';
   heroCtx.beginPath();
-  heroCtx.ellipse(80, 102, 40, 9, 0, 0, Math.PI*2);
+  heroCtx.ellipse(110, 118, 46, 10, 0, 0, Math.PI*2);
   heroCtx.fill();
   const img = IMGS['warrior.idle'];
   if (img && img.naturalWidth){
     const n = Math.max(1, Math.floor(img.width/192));
-    heroCtx.drawImage(img, (menuFrame % n)*192, 0, 192, 192, -20, -40, 200, 200);
+    heroCtx.drawImage(img, (menuFrame % n)*192, 0, 192, 192, -5, -38, 230, 230);
   }
 }
 
@@ -786,13 +943,16 @@ requestAnimationFrame(loop);
    TELA INICIAL
    ================================================================ */
 function renderMenu(){
+  if (!DG_COLORS[S.dgColor]) S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];
+  const cfg = DG_COLORS[S.dgColor];
+  $('#enter').innerHTML = '🏰 Entrar na Masmorra <b style="color:' + cfg.hex + '">' + cfg.nome + '</b> (Nv. ' + S.dgLv + ')';
+  $('#enter').style.boxShadow = '0 4px 24px ' + cfg.hex + '66';
   $('#gold').textContent = S.gold;
   $('#mVida').textContent = S.maxhp;
   $('#mAtk').textContent = S.atk;
   $('#mDef').textContent = S.def;
   $('#nTocha').textContent = S.tochas;
   $('#nMapa').textContent = S.mapas;
-  $('#dgLv').textContent = S.dgLv;
   $('#bestTag').textContent = 'Masmorras conquistadas: ' + S.wins;
   document.querySelectorAll('.upbtn').forEach(b => {
     b.querySelector('small .num').textContent = upCost(b.dataset.up);
@@ -815,6 +975,10 @@ document.querySelectorAll('.shopbtn').forEach(b => b.addEventListener('click', (
   if (k === 'tocha') S.tochas++; else S.mapas++;
   save(); renderMenu();
 }));
+$('#shopToggle').addEventListener('click', () => {
+  const open = $('#shopCard').classList.toggle('hidden');
+  $('#shopToggle').classList.toggle('open', !open);
+});
 $('#reset').addEventListener('click', () => {
   if (!confirm('Apagar todo o progresso?')) return;
   S = structuredClone(DEFAULTS);
@@ -952,6 +1116,9 @@ function cycleTarget(dir){
 }
 
 async function startRun(){
+  /* a cada 5 entradas na masmorra, um vídeo de propaganda */
+  S.entries = (S.entries || 0) + 1; save();
+  if (S.entries % 5 === 0) await ADS.showInterstitial();
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
   stagger = 0; guardBroken = false;
   torchOn = S.tochas > 0;
@@ -971,6 +1138,7 @@ async function startRun(){
 async function startWave(){
   phase = 'busy'; setCmds(false);
   enemySide = rnd(0,1) ? 'right' : 'left';           // sorteia o canto dos inimigos
+  buildScenery();                                    // cenário da cor da masmorra
   const px = player.x, py = player.y;
   enemies = makeWave(wave);
   targetIdx = 0;
@@ -979,7 +1147,7 @@ async function startWave(){
   renderHUD();
   /* inimigos entram correndo pelo lado sorteado */
   enemies.forEach((en, i) => { en.x = enemySide === 'right' ? W + 60 + i*70 : -60 - i*70; en.y = en.homeY; });
-  log(wave === 3 ? '⚔ O ' + BOSS_DEF.name + ' surge das sombras!' : 'Onda ' + wave + '/3 — monstros à vista!');
+  log(wave === 3 ? '⚔ O ' + enemies[0].name + ' surge das sombras!' : 'Onda ' + wave + '/3 — monstros à vista!');
   setTurn(null);
   player.flip = player.homeX < player.x;             // olha na direção da corrida
   await Promise.all([
@@ -1330,11 +1498,11 @@ async function enemyPhase(){
 /* ---- combos: inimigos fortes desferem 2–3 golpes seguidos ----
    Cada golpe exige uma reação: 'parry' (tocar) ou 'jump' (arrastar ↑) */
 function comboFor(en){
-  const n = en.unit === 'boss'   ? rnd(2,3)
-          : en.unit === 'lancer' ? 2
+  const n = en.kind === 'boss'   ? rnd(2,3)
+          : en.kind === 'lancer' ? 2
           : (S.dgLv >= 3 && Math.random() < 0.35 ? 2 : 1);
   return Array.from({length:n}, () => {
-    if (en.unit === 'boss' || en.unit === 'lancer') return Math.random() < 0.45 ? 'jump' : 'parry';
+    if (en.kind === 'boss' || en.kind === 'lancer') return Math.random() < 0.45 ? 'jump' : 'parry';
     return S.dgLv >= 2 && Math.random() < 0.30 ? 'jump' : 'parry';
   });
 }
@@ -1419,11 +1587,11 @@ async function monkBolt(en){
 
 /* ---- turno do monstro: avança → combo de QTEs → golpes ---- */
 async function enemyAttack(en){
-  if (en.unit === 'boss' && S.dgLv >= 5 && en.shield < SHIELD_MAX && Math.random() < 0.45){
+  if (en.kind === 'boss' && S.dgLv >= 5 && en.shield < SHIELD_MAX && Math.random() < 0.45){
     return bossShield(en);                           // gasta o turno se protegendo
   }
-  if (en.unit === 'monk') return monkTurn(en);       // o Monge conjura de longe
-  const ranged = en.unit === 'archer';               // arqueiro atira de longe
+  if (en.kind === 'monk') return monkTurn(en);       // o Monge conjura de longe
+  const ranged = en.kind === 'archer';               // arqueiro atira de longe
   const combo = comboFor(en);
   en.warn = true;
   log(combo.length > 1
@@ -1594,10 +1762,32 @@ function victory(){
   phase = 'menu';
   const bonus = 150 + 60*(S.dgLv-1);
   S.gold += bonus; S.wins++; S.dgLv++;
+  S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];   // sorteia a cor da próxima
   save();
+  const nx = DG_COLORS[S.dgColor];
   showOverlay('🏆 MASMORRA CONQUISTADA!',
     'As 3 ondas caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
-    'A próxima masmorra (Nv. ' + S.dgLv + ') será mais perigosa…');
+    'A próxima é a Masmorra <b style="color:' + nx.hex + '">' + nx.nome + '</b> (Nv. ' + S.dgLv + ')…');
+  offerDoubleReward(bonus);
+}
+/* vídeo premiado: dobra o bônus da masmorra conquistada */
+function offerDoubleReward(bonus){
+  const b = $('#ovAd');
+  b.textContent = '🎬 Assistir vídeo e DOBRAR o bônus (+' + bonus + ' 🪙)';
+  b.disabled = false;
+  b.classList.remove('hidden');
+  b.onclick = async () => {
+    b.disabled = true;
+    const ok = await ADS.showRewarded();
+    if (ok){
+      S.gold += bonus; save();
+      b.classList.add('hidden');
+      $('#ovMsg').innerHTML += '<br>🎬 Bônus dobrado: <b>+' + bonus + ' 🪙</b>!';
+    } else {
+      b.disabled = false;
+      b.textContent = '🎬 Vídeo indisponível — tentar de novo';
+    }
+  };
 }
 function defeat(){
   phase = 'menu';
@@ -1609,6 +1799,7 @@ function defeat(){
 function showOverlay(title, msg){
   $('#ovTitle').textContent = title;
   $('#ovMsg').innerHTML = msg;
+  $('#ovAd').classList.add('hidden');               // só a vitória oferece o vídeo
   $('#overlay').classList.remove('hidden');
 }
 $('#ovBack').addEventListener('click', () => {
