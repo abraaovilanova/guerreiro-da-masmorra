@@ -495,6 +495,7 @@ let hp = S.maxhp, wave = 1, potions = 3, torchOn = false;
 let fury = 0;                       // 0–100: enche ao sofrer dano, gasta no golpe especial
 let exhausted = false;              // após um especial, o herói perde a próxima rodada
 let stagger = 0;                    // 0–100 exaustão do herói: enche ao sofrer dano
+let guardBroken = false;            // exaustão estourada: sem parry/pulo até agir de novo
 let curse = null;                   // encantamento do Monge: {type:'dot'|'nofury', turns, power}
 let enemies = [], player = null, targetIdx = 0;
 let enemySide = 'right';            // canto dos inimigos ('left'|'right'), sorteado a cada onda
@@ -683,6 +684,12 @@ function drawActor(a, t){
       ctx.fillStyle = '#c084fc';
       ctx.fillText(curse.type === 'dot' ? '☠ maldição ×' + curse.turns : '⚡🚫 selada ×' + curse.turns, a.x, by + 32);
     }
+    /* guarda quebrada pela exaustão */
+    if (guardBroken){
+      ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
+      ctx.fillStyle = '#60d6ff';
+      ctx.fillText('💫 sem defesa!', a.x, by + (curse ? 43 : 32));
+    }
   }
   /* exaustão dos monstros: enche a cada golpe especial sofrido */
   if (a !== player && !a.dead){
@@ -839,7 +846,7 @@ function gainFury(n){
 /* ---- exaustão: barra que enche e derruba quem estourar por uma rodada ----
    Inimigo: +25% a cada golpe ESPECIAL sofrido; cheia + golpe ×1.5+ → perde a rodada.
    Herói: enche ao sofrer dano; cheia + dano de um COMBO inimigo → perde a rodada. */
-function enemyStagger(en, mult){
+function enemyStagger(en, mult, amt = 25){
   if (en.dead) return;
   if (en.stagger >= 100 && mult >= 1.5){
     en.stagger = 0; en.exhausted = true;
@@ -847,13 +854,13 @@ function enemyStagger(en, mult){
     log('💫 ' + en.name + ' ficou exausto e perderá a próxima rodada!');
     return;
   }
-  en.stagger = Math.min(100, en.stagger + 25);
+  en.stagger = Math.min(100, en.stagger + amt);
 }
 function heroStagger(dmg, inCombo){
   if (stagger >= 100 && inCombo){
-    stagger = 0; exhausted = true;
+    stagger = 0; exhausted = true; guardBroken = true;
     addFloat(player, 'EXAUSTO!', '#60d6ff', true);
-    log('💫 O combo esmagou sua guarda — você perderá a próxima rodada!');
+    log('💫 O combo esmagou sua guarda — sem ação nem defesa até se recuperar!');
     return;
   }
   stagger = Math.min(100, stagger + Math.max(6, Math.round(dmg * 140 / S.maxhp)));
@@ -945,7 +952,8 @@ function cycleTarget(dir){
 }
 
 async function startRun(){
-  hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null; stagger = 0;
+  hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
+  stagger = 0; guardBroken = false;
   torchOn = S.tochas > 0;
   if (torchOn){ S.tochas--; save(); }
   QTE_MS = torchOn ? 1260 : 900;
@@ -1009,6 +1017,7 @@ function beginPlayerTurn(){
     return;
   }
   phase = 'player';
+  guardBroken = false;                               // recuperou a guarda ao voltar a agir
   const alive = aliveIdx();
   if (!alive.includes(targetIdx)) targetIdx = alive[0];
   closeSpec();
@@ -1394,7 +1403,13 @@ async function monkBolt(en){
   en.warn = true;
   log('🔮 ' + en.name + ' dispara um feitiço contra você!');
   await wait(380);
-  const result = await runQte('parry', '');
+  let result = null;
+  if (guardBroken){                                  // guarda quebrada: sem defesa
+    log('💫 Exausto, você não consegue reagir ao feitiço!');
+    await wait(550);
+  } else {
+    result = await runQte('parry', '');
+  }
   const swing = playOnce(en, 'attack');
   await wait(180);
   applyHit(en, 'parry', result, en.atk);
@@ -1425,7 +1440,13 @@ async function enemyAttack(en){
   for (let i = 0; i < combo.length; i++){
     if (hp <= 0) break;
     const type = combo[i];
-    const result = await runQte(type, combo.length > 1 ? (i+1) + '/' + combo.length : '');
+    let result = null;
+    if (guardBroken){                                // guarda quebrada: sem parry nem pulo
+      log('💫 Exausto, você não consegue reagir ao golpe!');
+      await wait(550);
+    } else {
+      result = await runQte(type, combo.length > 1 ? (i+1) + '/' + combo.length : '');
+    }
     const swing = playOnce(en, 'attack');
     await wait(180);
     const hitAtk = combo.length > 1 ? Math.round(en.atk * 0.65) : en.atk;   // combo divide a força
@@ -1517,6 +1538,7 @@ function applyHit(en, type, result, atk, inCombo){
     playOnce(player, 'guard');
     addFloat(player, 'PARRY!', '#fbbf24', true);
     gainFury(10);                                    // parry perfeito também dá fúria
+    enemyStagger(en, 1, 15);                         // e cansa o atacante (+15 de exaustão)
     log('✨ PERFEITO! Aparou o golpe de ' + en.name + ' (+10 de fúria)!');
     fieldFx('good');
   } else if (result === 'block'){
