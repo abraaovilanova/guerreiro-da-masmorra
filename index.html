@@ -1326,6 +1326,8 @@ function placeCmds(){
 }
 function setCmds(on){
   $('#cmds').classList.toggle('hidden', !on);   // menu de ataque só na vez do herói
+  $('#arrL').classList.toggle('hidden', !on);   // setas de alvo idem
+  $('#arrR').classList.toggle('hidden', !on);
   if (on) placeCmds();
   $('#cAtk').disabled = !on;
   $('#cSpec').disabled = !on || fury < 25;    // habilita se algum especial está disponível
