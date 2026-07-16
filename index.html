@@ -176,19 +176,12 @@
   .tchip.act{border-color:var(--gold);opacity:1;transform:scale(1.12);box-shadow:0 0 10px rgba(251,191,36,.45)}
   .tchip canvas,.tchip img{width:30px;height:30px;image-rendering:pixelated}
 
-  /* painel inferior: herói + comandos estilo Final Fantasy */
-  #bottom{display:grid;grid-template-columns:1.1fr 1fr;gap:8px}
-  #bottom:has(#cmds.hidden){grid-template-columns:1fr}
-  #hero .nm{font-size:13px;font-weight:700;letter-spacing:.04em}
-  #hero .hpbar{height:12px;background:#0c0e18;border:1px solid var(--border);border-radius:6px;margin:7px 0 5px;overflow:hidden}
-  #hero .hpbar i{display:block;height:100%;background:var(--hp);transition:width .25s}
-  #hero .hpbar.low i{background:var(--danger)}
-  #hero .furybar{height:9px;background:#0c0e18;border:1px solid var(--border);border-radius:6px;margin:0 0 5px;overflow:hidden}
-  #hero .furybar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f59e0b,#ef4444);transition:width .25s}
-  #hero .furybar.full i{animation:furypulse .5s ease-in-out infinite alternate}
-  @keyframes furypulse{from{filter:brightness(1)}to{filter:brightness(1.8)}}
-  #hero .nums{font-size:12px;color:var(--ink-dim)}
-  #cmds{padding:10px}
+  /* menu flutuante ao lado do herói, estilo Clair Obscur / Metaphor */
+  #cmds{
+    position:absolute;z-index:4;min-width:150px;max-width:190px;padding:9px 12px;
+    background:rgba(22,25,44,.92);backdrop-filter:blur(3px);
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
   #cmdMain,#cmdSpec{display:flex;flex-direction:column;gap:5px}
   #cmds button{font-size:14px;padding:7px 10px;background:none;border:none;text-align:left}
   #cmds button:not(:disabled):active{color:var(--accent)}
@@ -236,17 +229,6 @@
     color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.45);
   }
   .ribboned em{color:#ffe9a8}
-  .skinned #hero .hpbar{
-    height:19px;background:none;border-radius:0;border:6px solid transparent;
-    border-image:var(--ui-bar) 18 24 18 24 fill stretch;
-    image-rendering:pixelated;margin:6px 0 5px;
-  }
-  .skinned #hero .hpbar i{
-    background:transparent;background-image:var(--ui-barfill);
-    background-size:auto 100%;background-repeat:repeat-x;border-radius:0;
-  }
-  .skinned #hero .hpbar.low i{animation:lowblink .7s infinite alternate}
-  @keyframes lowblink{to{filter:brightness(1.9)}}
   @media (prefers-reduced-motion:reduce){
     .shake{animation:none!important}
     #field.fx-bad::after,#field.fx-good::after{animation-duration:.01s!important}
@@ -339,15 +321,7 @@
         </div>
         <div class="sub" id="seqTrips">3 idas e voltas</div>
       </div>
-    </div>
 
-    <div id="bottom">
-      <div class="card" id="hero">
-        <div class="nm"><img id="heroAva" class="ava" style="width:26px;height:26px;vertical-align:-8px" alt=""> GUERREIRO <span id="torchTag"></span></div>
-        <div class="hpbar"><i id="hpfill" style="width:100%"></i></div>
-        <div class="furybar" title="Fúria"><i id="furyfill"></i></div>
-        <div class="nums">HP <span class="num" id="hpnum">60/60</span> · ⚡<span class="num" id="furyN">0%</span> · <img class="icn-s" data-ico="icoCoin" alt="ouro"> <span class="num" id="goldB">0</span></div>
-      </div>
       <div class="card" id="cmds">
         <div id="cmdMain">
           <button id="cAtk"><span class="cur">▶</span>Atacar</button>
@@ -481,8 +455,8 @@ function cropURL(img, sx, sy, sw, sh){
     const k = im.dataset.ico;
     if (UIIMG[k]) im.src = UIIMG[k].src; else im.style.display = 'none';
   });
-  if (UIIMG.avaHero){ $('#heroAva').src = UIIMG.avaHero.src; $('#menuAva').src = UIIMG.avaHero.src; }
-  else { $('#heroAva').style.display = 'none'; $('#menuAva').style.display = 'none'; }
+  if (UIIMG.avaHero) $('#menuAva').src = UIIMG.avaHero.src;
+  else $('#menuAva').style.display = 'none';
   /* parte 2 — 9-slices via canvas: em file:// o canvas fica "tainted" e
      toDataURL falha; nesse caso mantemos o visual CSS escuro dos painéis */
   try {
@@ -515,6 +489,7 @@ let hp = S.maxhp, wave = 1, potions = 3, torchOn = false;
 let fury = 0;                       // 0–100: enche ao sofrer dano, gasta no golpe especial
 let exhausted = false;              // após um especial, o herói perde a próxima rodada
 let enemies = [], player = null, targetIdx = 0;
+let enemySide = 'right';            // canto dos inimigos ('left'|'right'), sorteado a cada onda
 let phase = 'menu';                 // menu | player | busy | qte
 let qteStart = 0, qteResult = null, qteType = 'parry';   // parry (toque) | jump (arrastar ↑)
 let QTE_MS = 900;                   // com tocha: 1260
@@ -572,21 +547,30 @@ function resizeCanvas(){
 }
 window.addEventListener('resize', resizeCanvas);
 
-/* posições em "slots" estilo Final Fantasy: herói à esquerda, inimigos à direita */
+/* layout estilo Pokémon Red: inimigos num canto superior (lado sorteado),
+   herói embaixo no canto oposto, ambos virados um para o outro */
+const pFlip = () => enemySide === 'left';            // herói olha para o lado dos inimigos
+const eFlip = () => enemySide === 'right';           // sprites olham p/ direita por padrão
+const mirrorX = x => enemySide === 'right' ? x : W - x;
+const frontOfEnemy = en => en.x + (enemySide === 'right' ? -1 : 1) * en.size*0.55;
+const frontOfHero = () => player.x + (enemySide === 'right' ? 1 : -1) * player.size*0.55;
 function layoutActors(){
   if (!player) return;
-  const base = Math.min(H*0.36, W*0.32);
-  player.size = base*1.1;
-  player.homeX = W*0.20; player.homeY = H*0.58;
+  const base = Math.min(H*0.32, W*0.30);
+  player.size = base*1.15;
+  player.homeX = mirrorX(W*0.26); player.homeY = H*0.72;
+  player.flip = pFlip();
   const slots = enemies.length === 1
-    ? [{x:W*0.70, y:H*0.52}]
-    : [{x:W*0.66, y:H*0.26}, {x:W*0.78, y:H*0.52}, {x:W*0.62, y:H*0.76}];
+    ? [{x:W*0.70, y:H*0.30}]
+    : [{x:W*0.66, y:H*0.25}, {x:W*0.83, y:H*0.38}, {x:W*0.56, y:H*0.46}];
   enemies.forEach((en, i) => {
-    en.size = en.unit === 'boss' ? base*1.9 : base;
-    en.homeX = slots[i % slots.length].x;
+    en.size = en.unit === 'boss' ? base*1.7 : base;
+    en.homeX = mirrorX(slots[i % slots.length].x);
     en.homeY = slots[i % slots.length].y;
+    en.flip = eFlip();
   });
   [player, ...enemies].forEach(a => { if (!a.tween){ a.x = a.homeX; a.y = a.homeY; } });
+  placeCmds();
 }
 
 function makePlayer(){
@@ -664,12 +648,21 @@ function drawActor(a, t){
   ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
   ctx.fillStyle = a.dead ? '#f87171' : '#c9cde4';
-  ctx.fillText(a.dead ? 'K.O.' : a.name, a.x, by - 4);
+  ctx.fillText(a.dead ? 'K.O.' : (a === player ? a.name + ' ' + hp + '/' + S.maxhp : a.name), a.x, by - 4);
   if (!a.dead){
     const pct = Math.max(0, (a === player ? hp/S.maxhp : a.hp/a.maxhp));
     ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by-1, bw+2, 7);
     ctx.fillStyle = pct <= .3 ? '#f87171' : '#4ade80';
     ctx.fillRect(bx, by, bw*pct, 5);
+  }
+  /* fúria do herói: barra fina sob o HP, com marcas nos gatilhos de 25% e 50% */
+  if (a === player && !a.dead){
+    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by+7, bw+2, 6);
+    ctx.fillStyle = fury >= 100 ? '#ef4444' : '#f59e0b';
+    ctx.fillRect(bx, by+8, bw*fury/100, 4);
+    ctx.fillStyle = 'rgba(10,12,20,.85)';
+    ctx.fillRect(bx + bw*0.25, by+8, 1, 4);
+    ctx.fillRect(bx + bw*0.50, by+8, 1, 4);
   }
   /* escudos arcanos do boss */
   const shieldY = by - 18;
@@ -799,18 +792,10 @@ $('#reset').addEventListener('click', () => {
    ================================================================ */
 const log = m => { $('#logwin').textContent = m; };
 function renderHUD(){
-  const pct = Math.max(0, hp/S.maxhp*100);
-  $('#hpfill').style.width = pct + '%';
-  $('#hpnum').textContent = hp + '/' + S.maxhp;
-  $('#hero .hpbar').classList.toggle('low', pct <= 30);
   $('#potN').textContent = '×' + potions;
   $('#mapN').textContent = '×' + S.mapas;
-  $('#goldB').textContent = S.gold;
-  $('#torchTag').textContent = torchOn ? '· 🔥' : '';
-  $('#furyfill').style.width = fury + '%';
-  $('#furyN').textContent = fury + '%';
-  $('#hero .furybar').classList.toggle('full', fury >= 100);
-  $('#wavechip').textContent = 'MASMORRA NV. ' + S.dgLv + ' · ONDA ' + wave + '/3' + (wave === 3 ? ' · BOSS' : '');
+  $('#wavechip').textContent = 'MASMORRA NV. ' + S.dgLv + ' · ONDA ' + wave + '/3' +
+    (wave === 3 ? ' · BOSS' : '') + ' · 🪙 ' + S.gold + (torchOn ? ' · 🔥' : '');
 }
 /* multiplicador do golpe especial conforme a fúria acumulada */
 function specialInfo(){
@@ -822,8 +807,22 @@ function specialInfo(){
 }
 function gainFury(n){ fury = Math.min(100, fury + n); renderHUD(); }
 function shakeApp(){ $('#app').classList.add('shake'); setTimeout(() => $('#app').classList.remove('shake'), 400); }
+/* ancora o menu flutuante ao lado do herói, voltado para o centro do campo */
+function placeCmds(){
+  if (!player || !W) return;
+  const c = $('#cmds');
+  c.style.top = Math.round(player.homeY) + 'px';
+  if (enemySide === 'right'){                        // herói à esquerda → menu à direita dele
+    c.style.left = Math.round(player.homeX + player.size*0.62) + 'px';
+    c.style.transform = 'translateY(-60%)';
+  } else {                                           // herói à direita → menu à esquerda dele
+    c.style.left = Math.round(player.homeX - player.size*0.62) + 'px';
+    c.style.transform = 'translate(-100%,-60%)';
+  }
+}
 function setCmds(on){
   $('#cmds').classList.toggle('hidden', !on);   // menu de ataque só na vez do herói
+  if (on) placeCmds();
   $('#cAtk').disabled = !on;
   $('#cSpec').disabled = !on || fury < 25;    // habilita se algum especial está disponível
   $('#cPot').disabled = !on || potions <= 0 || hp >= S.maxhp;
@@ -909,15 +908,23 @@ async function startRun(){
 
 async function startWave(){
   phase = 'busy'; setCmds(false);
+  enemySide = rnd(0,1) ? 'right' : 'left';           // sorteia o canto dos inimigos
+  const px = player.x, py = player.y;
   enemies = makeWave(wave);
   targetIdx = 0;
   layoutActors();
+  player.x = px; player.y = py;                      // herói corre até o novo canto
   renderHUD();
-  /* inimigos entram correndo pela direita */
-  enemies.forEach((en, i) => { en.x = W + 60 + i*70; en.y = en.homeY; });
+  /* inimigos entram correndo pelo lado sorteado */
+  enemies.forEach((en, i) => { en.x = enemySide === 'right' ? W + 60 + i*70 : -60 - i*70; en.y = en.homeY; });
   log(wave === 3 ? '⚔ O ' + BOSS_DEF.name + ' surge das sombras!' : 'Onda ' + wave + '/3 — monstros à vista!');
   setTurn(null);
-  await Promise.all(enemies.map(en => tween(en, en.homeX, en.homeY, 700, 'run')));
+  player.flip = player.homeX < player.x;             // olha na direção da corrida
+  await Promise.all([
+    tween(player, player.homeX, player.homeY, 600, 'run'),
+    ...enemies.map(en => tween(en, en.homeX, en.homeY, 700, 'run')),
+  ]);
+  player.anim = 'idle'; player.flip = pFlip();
   enemies.forEach(en => { en.anim = 'idle'; en.frame = 0; });
   beginPlayerTurn();
 }
@@ -955,7 +962,7 @@ async function playerAttack(){
   phase = 'busy'; setCmds(false);
   const en = enemies[targetIdx];
   /* corre até o alvo, golpeia, volta */
-  await tween(player, en.x - en.size*0.55, en.y, 340, 'run');
+  await tween(player, frontOfEnemy(en), en.y, 340, 'run');
   const hit = playOnce(player, 'attack');
   await wait(200);                                   // impacto no meio do golpe
   const crit = Math.random() < 0.15;
@@ -985,9 +992,9 @@ async function playerAttack(){
 }
 
 async function playerReturn(){
-  player.flip = true;                                // volta olhando para trás
+  player.flip = !pFlip();                            // volta olhando para trás
   await tween(player, player.homeX, player.homeY, 340, 'run');
-  player.flip = false; player.anim = 'idle';
+  player.flip = pFlip(); player.anim = 'idle';
   await wait(150);
 }
 async function waveCleared(){
@@ -1004,8 +1011,8 @@ async function playerSpecial(){
   phase = 'busy'; closeSpec(); setCmds(false);
   fury = 0; exhausted = true;                        // custo: perde a próxima rodada
   const targets = sp.aoe ? enemies.filter(e => !e.dead) : [enemies[targetIdx]];
-  const tx = sp.aoe ? W*0.50 : targets[0].x - targets[0].size*0.55;
-  const ty = sp.aoe ? H*0.55 : targets[0].y;
+  const tx = sp.aoe ? mirrorX(W*0.55) : frontOfEnemy(targets[0]);
+  const ty = sp.aoe ? H*0.38 : targets[0].y;
   log(sp.aoe ? '⚡ FÚRIA TOTAL! Golpe giratório em TODOS!' : '⚡ Golpe de fúria (×' + sp.m + ')!');
   await tween(player, tx, ty, 320, 'run');
   const hit = playOnce(player, 'attack');
@@ -1089,7 +1096,7 @@ async function playerSeq(){
     return;
   }
   const en = enemies[targetIdx];
-  await tween(player, en.x - en.size*0.55, en.y, 300, 'run');
+  await tween(player, frontOfEnemy(en), en.y, 300, 'run');
   const hit = playOnce(player, 'attack');
   await wait(200);
   if (mult >= 1.5) shakeApp();
@@ -1191,7 +1198,7 @@ async function enemyAttack(en){
   log(combo.length > 1
     ? '⚠ ' + en.name + ' prepara um COMBO de ' + combo.length + ' golpes!'
     : en.name + ' vai atacar!');
-  if (!ranged) await tween(en, player.x + player.size*0.55, player.y, 380, 'run');
+  if (!ranged) await tween(en, frontOfHero(), player.y, 380, 'run');
   else await wait(380);
   en.anim = 'idle'; en.frame = 0;
   await wait(220);
@@ -1220,9 +1227,9 @@ async function enemyAttack(en){
   }
   en.warn = false;
   if (!ranged && !en.dead){
-    en.flip = false;                                 // volta olhando para trás
+    en.flip = !eFlip();                              // volta olhando para trás
     await tween(en, en.homeX, en.homeY, 380, 'run');
-    en.flip = true; en.anim = 'idle';
+    en.flip = eFlip(); en.anim = 'idle';
   }
 }
 
@@ -1395,6 +1402,10 @@ $('#battle').addEventListener('pointerup', e => {
   if (gY !== null && phase === 'qte' && qteType === 'jump' && (gY - e.clientY) > 50) tryJump();
   gY = null;
 });
+
+/* toques no menu flutuante não viram swipe/seleção de alvo no campo */
+$('#cmds').addEventListener('pointerdown', e => e.stopPropagation());
+$('#cmds').addEventListener('pointerup', e => e.stopPropagation());
 
 /* no campo: swipe troca alvo; toque curto seleciona o monstro tocado */
 let swipeX = null, swipeY = null;
