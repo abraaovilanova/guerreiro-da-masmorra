@@ -54,6 +54,7 @@
   h1{font-size:clamp(22px,6vw,30px);text-align:center;letter-spacing:-.01em;text-wrap:balance;line-height:1.15}
   h1 em{font-style:normal;color:var(--accent)}
   #goldbar{display:flex;justify-content:center;align-items:center;gap:8px;font-size:19px;color:var(--gold);font-weight:700}
+  #torchTimer{font-size:12px;color:var(--ink-dim);font-weight:400}
   .uprow{display:flex;align-items:center;gap:12px;padding:9px 0}
   .uprow + .uprow{border-top:1px solid var(--border)}
   .uprow .ico{font-size:21px;width:30px;text-align:center}
@@ -106,6 +107,16 @@
   #field.fx-good::after{animation:fxgood .5s ease}
   @keyframes fxbad{0%{box-shadow:inset 0 0 0 999px rgba(248,113,113,.35)}100%{box-shadow:inset 0 0 0 999px rgba(248,113,113,0)}}
   @keyframes fxgood{0%{box-shadow:inset 0 0 60px 12px rgba(96,214,255,.55), inset 0 0 0 4px rgba(74,222,128,.8)}100%{box-shadow:inset 0 0 0 0 rgba(96,214,255,0)}}
+
+  /* ---- nome do golpe/combo inimigo ---- */
+  #movename{
+    position:absolute;top:15%;left:50%;translate:-50% 0;z-index:6;
+    font-size:17px;font-weight:800;letter-spacing:.05em;color:#ffe9a8;
+    text-shadow:0 2px 8px #000;background:rgba(15,17,23,.8);
+    border:1px solid var(--gold);border-radius:10px;padding:7px 16px;
+    opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;
+  }
+  #movename.on{opacity:1}
 
   /* ---- QTE: círculo que encolhe ---- */
   #qte{
@@ -275,7 +286,12 @@
   <!-- ================= TELA INICIAL: UPGRADES + LOJA ================= -->
   <div class="screen" id="menu">
     <h1>⚔ Guerreiro da <em>Masmorra</em></h1>
-    <div id="goldbar"><img class="icn" data-ico="icoCoin" alt="ouro"> <span class="num" id="gold">0</span></div>
+    <div id="goldbar">
+      <img class="icn" data-ico="icoCoin" alt="ouro"> <span class="num" id="gold">0</span>
+      <span style="color:var(--border)">·</span>
+      🔥 <span class="num" id="torchN">20</span><span style="font-size:14px;color:var(--ink-dim)">/20</span>
+      <span id="torchTimer"></span>
+    </div>
 
     <div class="card" id="herocard">
       <canvas id="heroCv" width="220" height="140"></canvas>
@@ -307,8 +323,8 @@
       <div class="uprow">
         <div class="ico">🔥</div>
         <div class="info">
-          <div class="label">Tocha — <span class="num" id="nTocha">0</span></div>
-          <div class="desc">Ilumina a masmorra: o círculo de defesa encolhe 40% mais devagar (1 por entrada)</div>
+          <div class="label">Tocha — <span class="num" id="nTocha">0</span>/20</div>
+          <div class="desc">A chave da masmorra: 1 por entrada. Recarrega sozinha a cada 10 min; compre para recarregar na hora</div>
         </div>
         <button class="shopbtn" data-buy="tocha">Comprar<small>🪙 40</small></button>
       </div>
@@ -338,6 +354,7 @@
       <button class="side" id="arrL" aria-label="Alvo anterior">◀</button>
       <button class="side" id="arrR" aria-label="Próximo alvo">▶</button>
       <div id="swipehint">arraste, toque no monstro ou use as setas para mirar</div>
+      <div id="movename"></div>
       <div id="qte">
         <div class="zone"><div class="target">🛡️</div><div class="shrink"></div></div>
         <div class="tip">TOQUE QUANDO O CÍRCULO FECHAR!</div>
@@ -700,14 +717,42 @@ document.addEventListener('pointerdown', () => SFX.ensure(), { once:true });
 
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
-const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true };
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true };
 let S = structuredClone(DEFAULTS);
-try { const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d && d.maxhp) S = Object.assign(structuredClone(DEFAULTS), d); } catch(e){}
+try {
+  const d = JSON.parse(localStorage.getItem(SAVE_KEY));
+  if (d && d.maxhp){
+    S = Object.assign(structuredClone(DEFAULTS), d);
+    if (d.torchT === undefined) S.tochas = 20;   // migração: saves antigos ganham a carga cheia
+  }
+} catch(e){}
 if (!DG_COLORS[S.dgColor]) S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];
+
+/* ---------- tochas: a "chave" da masmorra (1 por entrada, recarga por tempo) ---------- */
+const TORCH_MAX = 20, TORCH_REGEN_MS = 10 * 60 * 1000;   // 10 min por tocha faltante
+function regenTorches(){
+  if (S.tochas >= TORCH_MAX){ S.torchT = 0; return; }
+  const now = Date.now();
+  if (!S.torchT) S.torchT = now;
+  while (S.tochas < TORCH_MAX && now - S.torchT >= TORCH_REGEN_MS){
+    S.tochas++;
+    S.torchT += TORCH_REGEN_MS;
+  }
+  if (S.tochas >= TORCH_MAX) S.torchT = 0;
+  save();
+}
+function spendTorch(){
+  regenTorches();
+  if (S.tochas <= 0) return false;
+  if (!S.torchT) S.torchT = Date.now();          // caiu do máximo: inicia o ciclo de recarga
+  S.tochas--;
+  save();
+  return true;
+}
 const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch(e){} };
 
 /* ---------- estado da run ---------- */
-let hp = S.maxhp, wave = 1, potions = 3, torchOn = false;
+let hp = S.maxhp, wave = 1, potions = 3;
 let fury = 0;                       // 0–100: enche ao sofrer dano, gasta no golpe especial
 let exhausted = false;              // após um especial, o herói perde a próxima rodada
 let stagger = 0;                    // 0–100 exaustão do herói: enche ao sofrer dano
@@ -717,7 +762,8 @@ let enemies = [], player = null, targetIdx = 0;
 let enemySide = 'right';            // canto dos inimigos ('left'|'right'), sorteado a cada onda
 let phase = 'menu';                 // menu | player | busy | qte
 let qteStart = 0, qteResult = null, qteType = 'parry';   // parry (toque) | jump (arrastar ↑)
-let QTE_MS = 900;                   // com tocha: 1260
+let QTE_MS = 900;                   // duração base do círculo de reação
+let qteMs = 900;                    // duração do QTE atual (golpes nomeados variam >Nv.5)
 
 /* ---------- upgrades e loja ---------- */
 const UPS = {
@@ -1099,9 +1145,18 @@ requestAnimationFrame(loop);
    ================================================================ */
 function renderMenu(){
   if (!DG_COLORS[S.dgColor]) S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];
+  regenTorches();
   const cfg = DG_COLORS[S.dgColor];
-  $('#enter').innerHTML = '🏰 Entrar na Masmorra <b style="color:' + cfg.hex + '">' + cfg.nome + '</b> (Nv. ' + S.dgLv + ')';
-  $('#enter').style.boxShadow = '0 4px 24px ' + cfg.hex + '66';
+  $('#enter').innerHTML = S.tochas > 0
+    ? '🏰 Entrar na Masmorra <b style="color:' + cfg.hex + '">' + cfg.nome + '</b> (Nv. ' + S.dgLv + ') · 🔥1'
+    : '🏰 Sem tochas — aguarde a recarga';
+  $('#enter').disabled = S.tochas <= 0;
+  $('#enter').style.boxShadow = S.tochas > 0 ? '0 4px 24px ' + cfg.hex + '66' : 'none';
+  $('#torchN').textContent = S.tochas;
+  $('#torchTimer').textContent = (S.tochas < TORCH_MAX && S.torchT)
+    ? (() => { const s = Math.max(0, Math.ceil((S.torchT + TORCH_REGEN_MS - Date.now())/1000));
+               return '· +1 em ' + Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); })()
+    : '';
   $('#gold').textContent = S.gold;
   $('#mVida').textContent = S.maxhp;
   $('#mAtk').textContent = S.atk;
@@ -1114,9 +1169,12 @@ function renderMenu(){
     b.disabled = S.gold < upCost(b.dataset.up);
   });
   document.querySelectorAll('.shopbtn').forEach(b => {
-    b.disabled = S.gold < SHOP[b.dataset.buy].cost;
+    b.disabled = S.gold < SHOP[b.dataset.buy].cost ||
+                 (b.dataset.buy === 'tocha' && S.tochas >= TORCH_MAX);
   });
 }
+/* relógio do menu: recarga de tochas ao vivo */
+setInterval(() => { if (!$('#menu').classList.contains('hidden')) renderMenu(); }, 1000);
 document.querySelectorAll('.upbtn').forEach(b => b.addEventListener('click', () => {
   const k = b.dataset.up;
   if (S.gold < upCost(k)) return;
@@ -1127,7 +1185,11 @@ document.querySelectorAll('.shopbtn').forEach(b => b.addEventListener('click', (
   const k = b.dataset.buy;
   if (S.gold < SHOP[k].cost) return;
   S.gold -= SHOP[k].cost;
-  if (k === 'tocha') S.tochas++; else S.mapas++;
+  if (k === 'tocha'){
+    if (S.tochas >= TORCH_MAX) return;
+    S.tochas++;
+    if (S.tochas >= TORCH_MAX) S.torchT = 0;
+  } else S.mapas++;
   save(); renderMenu();
 }));
 SFX.enabled = S.sound !== false;
@@ -1159,7 +1221,7 @@ function renderHUD(){
   $('#potN').textContent = '×' + potions;
   $('#mapN').textContent = '×' + S.mapas;
   $('#wavechip').textContent = 'MASMORRA NV. ' + S.dgLv + ' · ONDA ' + wave + '/3' +
-    (wave === 3 ? ' · BOSS' : '') + ' · 🪙 ' + S.gold + (torchOn ? ' · 🔥' : '');
+    (wave === 3 ? ' · BOSS' : '') + ' · 🪙 ' + S.gold;
 }
 /* multiplicador do golpe especial conforme a fúria acumulada */
 function specialInfo(){
@@ -1284,14 +1346,12 @@ function cycleTarget(dir){
 }
 
 async function startRun(){
+  if (!spendTorch()){ renderMenu(); return; }        // sem tocha não entra
   /* a cada 5 entradas na masmorra, um vídeo de propaganda */
   S.entries = (S.entries || 0) + 1; save();
   if (S.entries % 5 === 0) await ADS.showInterstitial();
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
   stagger = 0; guardBroken = false;
-  torchOn = S.tochas > 0;
-  if (torchOn){ S.tochas--; save(); }
-  QTE_MS = torchOn ? 1260 : 900;
   player = makePlayer();
   enemies = [];
   $('#menu').classList.add('hidden');
@@ -1561,6 +1621,7 @@ function comboQte(tag){
     qte.querySelector('.tip').textContent = 'GOLPE ' + tag + ' · TOQUE QUANDO FECHAR!';
     ring.style.animation = 'none'; void ring.offsetWidth; ring.style.animation = '';
     ring.style.animationDuration = QTE_MS + 'ms';
+    ring.style.animationTimingFunction = 'linear';   // combo do herói é sempre constante
     qte.classList.add('on');
     /* 🪙 aviso sonoro no início da janela perfeita (se ainda não travou) */
     const cue = setTimeout(() => { if (!result) SFX.play('coin'); }, QTE_MS * 0.68);
@@ -1671,16 +1732,50 @@ async function enemyPhase(){
   beginPlayerTurn();
 }
 
-/* ---- combos: inimigos fortes desferem 2–3 golpes seguidos ----
-   Cada golpe exige uma reação: 'parry' (tocar) ou 'jump' (arrastar ↑) */
-function comboFor(en){
-  const n = en.kind === 'boss'   ? rnd(2,3)
-          : en.kind === 'lancer' ? 2
-          : (S.dgLv >= 3 && Math.random() < 0.35 ? 2 : 1);
-  return Array.from({length:n}, () => {
-    if (en.kind === 'boss' || en.kind === 'lancer') return Math.random() < 0.45 ? 'jump' : 'parry';
-    return S.dgLv >= 2 && Math.random() < 0.30 ? 'jump' : 'parry';
-  });
+/* ---- golpes NOMEADOS: cada monstro tem um repertório fixo ----
+   Cada golpe exige reação: 'parry' (tocar) ou 'jump' (arrastar ↑).
+   m = velocidade do círculo (só vale em masmorras Nv.>5: <1 fecha mais
+   rápido, >1 mais devagar) · curve muda o ritmo do fechamento:
+   'accel' começa devagar e acelera; 'decel' começa rápido e freia.
+   O nome aparece na tela — o jogador aprende o padrão pelo título. */
+const MOVES = {
+  pawn: [
+    { name:'Facada do Servo',     hits:[{t:'parry'}] },
+    { name:'Corte Apressado',     hits:[{t:'parry', m:0.75}] },
+    { name:'Dança das Facas',     hits:[{t:'parry', m:1.2}, {t:'parry', m:0.7, curve:'accel'}], lv:3 },
+  ],
+  archer: [
+    { name:'Flecha Certeira',     hits:[{t:'parry'}] },
+    { name:'Tiro Traiçoeiro',     hits:[{t:'parry', m:1.35, curve:'accel'}] },
+    { name:'Chuva de Flechas',    hits:[{t:'parry', m:0.8}, {t:'parry', m:0.8}], lv:3 },
+  ],
+  lancer: [
+    { name:'Investida Dupla',     hits:[{t:'parry'}, {t:'jump', m:0.85}] },
+    { name:'Varredura Rasteira',  hits:[{t:'jump', m:1.25, curve:'accel'}, {t:'parry', m:0.7}] },
+  ],
+  boss: [
+    { name:'Julgamento do Cavaleiro', hits:[{t:'parry'}, {t:'jump', m:0.9}, {t:'parry', m:0.7}] },
+    { name:'Lâmina Paciente',         hits:[{t:'parry', m:1.5, curve:'accel'}, {t:'parry', m:0.65}] },
+    { name:'Tempestade de Aço',       hits:[{t:'jump', m:0.85}, {t:'parry', m:0.8}, {t:'parry', m:1.2, curve:'decel'}] },
+  ],
+  monk: [
+    { name:'Feitiço Sombrio',    hits:[{t:'parry'}] },
+    { name:'Chama Voraz',        hits:[{t:'parry', m:0.75}] },
+    { name:'Prece Invertida',    hits:[{t:'parry', m:1.4, curve:'accel'}] },
+  ],
+};
+function pickMove(en){
+  const pool = MOVES[en.kind].filter(mv => !mv.lv || S.dgLv >= mv.lv);
+  return pool[rnd(0, pool.length - 1)];
+}
+/* banner com o nome do golpe */
+let moveNameT = null;
+function showMoveName(txt){
+  const el = $('#movename');
+  el.textContent = txt;
+  el.classList.add('on');
+  clearTimeout(moveNameT);
+  moveNameT = setTimeout(() => el.classList.remove('on'), 1600);
 }
 
 /* ---- ESCUDO ARCANO: a partir da masmorra Nv.5 o boss pode gastar o turno
@@ -1689,6 +1784,7 @@ function comboFor(en){
 async function bossShield(en){
   const gain = Math.min(SHIELD_MAX - en.shield, rnd(2, 3));
   en.warn = true;
+  showMoveName('🛡️ Barreira Arcana');
   log('🛡️ ' + en.name + ' conjura uma barreira arcana…');
   await wait(550);
   en.shield += gain;
@@ -1713,6 +1809,7 @@ async function monkTurn(en){
 
 async function monkHeal(en, tgt){
   en.warn = true;
+  showMoveName('📿 Prece de Cura');
   log('📿 ' + en.name + ' entoa uma prece de cura…');
   const cast = playOnce(en, 'attack');
   await wait(450);
@@ -1735,6 +1832,7 @@ async function monkCurse(en){
   const cast = playOnce(en, 'attack');
   await wait(450);
   curse = { type, turns, power: Math.max(3, Math.round(en.atk * 0.5)) };
+  showMoveName(type === 'dot' ? '☠ Maldição Sombria' : '⚡ Selo da Fúria');
   player.flash = 1; fieldFx('bad'); shakeApp();
   SFX.play('curse');
   addFloat(player, type === 'dot' ? '☠ MALDIÇÃO!' : '⚡ FÚRIA SELADA!', '#c084fc', true);
@@ -1747,15 +1845,19 @@ async function monkCurse(en){
 }
 
 async function monkBolt(en){
+  const mv = pickMove(en);
+  const hit = mv.hits[0];
   en.warn = true;
-  log('🔮 ' + en.name + ' dispara um feitiço contra você!');
+  showMoveName('🔮 ' + mv.name);
+  log('🔮 ' + en.name + ' conjura: ' + mv.name + '!');
   await wait(380);
   let result = null;
   if (guardBroken){                                  // guarda quebrada: sem defesa
     log('💫 Exausto, você não consegue reagir ao feitiço!');
     await wait(550);
   } else {
-    result = await runQte('parry', '');
+    const ms = S.dgLv > 5 ? Math.round(QTE_MS * (hit.m || 1)) : QTE_MS;
+    result = await runQte('parry', '', ms, S.dgLv > 5 ? hit.curve : null);
   }
   const swing = playOnce(en, 'attack');
   await wait(180);
@@ -1771,11 +1873,13 @@ async function enemyAttack(en){
   }
   if (en.kind === 'monk') return monkTurn(en);       // o Monge conjura de longe
   const ranged = en.kind === 'archer';               // arqueiro atira de longe
-  const combo = comboFor(en);
+  const mv = pickMove(en);
+  const combo = mv.hits;
   en.warn = true;
+  showMoveName('⚔ ' + mv.name);
   log(combo.length > 1
-    ? '⚠ ' + en.name + ' prepara um COMBO de ' + combo.length + ' golpes!'
-    : en.name + ' vai atacar!');
+    ? '⚠ ' + en.name + ' prepara: ' + mv.name + ' (' + combo.length + ' golpes)!'
+    : '⚠ ' + en.name + ' prepara: ' + mv.name + '!');
   if (!ranged) await tween(en, frontOfHero(), player.y, 380, 'run');
   else await wait(380);
   en.anim = 'idle'; en.frame = 0;
@@ -1786,13 +1890,16 @@ async function enemyAttack(en){
   let allDefended = combo.length > 1;
   for (let i = 0; i < combo.length; i++){
     if (hp <= 0) break;
-    const type = combo[i];
+    const type = combo[i].t;
     let result = null;
     if (guardBroken){                                // guarda quebrada: sem parry nem pulo
       log('💫 Exausto, você não consegue reagir ao golpe!');
       await wait(550);
     } else {
-      result = await runQte(type, combo.length > 1 ? (i+1) + '/' + combo.length : '');
+      /* Nv.>5: cada golpe nomeado tem seu próprio ritmo de círculo */
+      const ms = S.dgLv > 5 ? Math.round(QTE_MS * (combo[i].m || 1)) : QTE_MS;
+      const curve = S.dgLv > 5 ? combo[i].curve : null;
+      result = await runQte(type, combo.length > 1 ? (i+1) + '/' + combo.length : '', ms, curve);
     }
     const swing = playOnce(en, 'attack');
     await wait(180);
@@ -1843,9 +1950,11 @@ async function counterAttack(en){
   await swing;
 }
 
-/* QTE: círculo encolhe por QTE_MS; a cor/ícone indicam a reação exigida */
-async function runQte(type, tag){
+/* QTE: círculo encolhe por `ms`; a cor/ícone indicam a reação exigida.
+   `curve` muda o ritmo do fechamento (accel = devagar→rápido). */
+async function runQte(type, tag, ms = QTE_MS, curve = null){
   phase = 'qte'; qteType = type; qteResult = null; qteStart = performance.now();
+  qteMs = ms;
   const qte = $('#qte'), ring = qte.querySelector('.shrink');
   qte.classList.remove('perfect','blocked','dodged','jump');
   if (type === 'jump') qte.classList.add('jump');
@@ -1853,11 +1962,12 @@ async function runQte(type, tag){
   qte.querySelector('.tip').textContent = (tag ? 'GOLPE ' + tag + ' · ' : '') +
     (type === 'jump' ? 'ARRASTE PARA CIMA — PULE!' : 'TOQUE QUANDO O CÍRCULO FECHAR!');
   ring.style.animation = 'none'; void ring.offsetWidth; ring.style.animation = '';
-  ring.style.animationDuration = QTE_MS + 'ms';
+  ring.style.animationDuration = ms + 'ms';
+  ring.style.animationTimingFunction = curve === 'accel' ? 'ease-in' : curve === 'decel' ? 'ease-out' : 'linear';
   qte.classList.add('on');
   /* 🪙 aviso sonoro no início da janela perfeita (se ainda não reagiu) */
-  const cue = setTimeout(() => { if (!qteResult) SFX.play('coin'); }, QTE_MS * 0.68);
-  await wait(QTE_MS);
+  const cue = setTimeout(() => { if (!qteResult) SFX.play('coin'); }, ms * 0.68);
+  await wait(ms);
   clearTimeout(cue);
   qte.classList.remove('on');
   phase = 'busy';
@@ -1924,7 +2034,7 @@ function fieldFx(kind){
 function tryParry(){
   if (phase !== 'qte' || qteType !== 'parry' || qteResult) return;
   const t = performance.now() - qteStart;
-  qteResult = t >= QTE_MS*0.68 ? 'perfect' : 'block';
+  qteResult = t >= qteMs*0.68 ? 'perfect' : 'block';
   const qte = $('#qte');
   qte.classList.add(qteResult === 'perfect' ? 'perfect' : 'blocked');
   qte.querySelector('.tip').textContent = qteResult === 'perfect' ? '✨ PERFEITO!' : '🛡️ BLOQUEADO';
