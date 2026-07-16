@@ -47,10 +47,16 @@
   button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   button:disabled{opacity:.35;cursor:default}
 
-  /* ============ TELA INICIAL ============ */
-  #menu{justify-content:flex-start;gap:12px;overflow-y:auto}
+  /* ============ TELA INICIAL (sem scroll: tudo cabe na tela) ============ */
+  #menu{justify-content:flex-start;gap:12px;overflow:hidden}
   #menu > :first-child{margin-top:auto}
   #menu > :last-child{margin-bottom:auto}
+  /* ============ MERCADO ============ */
+  #shop{justify-content:flex-start;gap:12px;overflow:hidden}
+  #shop > :first-child{margin-top:auto}
+  #shop > :last-child{margin-bottom:auto}
+  #shopGold{display:flex;justify-content:center;gap:8px;font-size:18px;color:var(--gold);font-weight:700}
+  #openShop,#shopBack{text-align:center;font-weight:700;font-size:15px;padding:13px 14px}
   h1{font-size:clamp(22px,6vw,30px);text-align:center;letter-spacing:-.01em;text-wrap:balance;line-height:1.15}
   h1 em{font-style:normal;color:var(--accent)}
   #goldbar{display:flex;justify-content:center;align-items:center;gap:8px;font-size:19px;color:var(--gold);font-weight:700}
@@ -242,13 +248,37 @@
   .icn{width:22px;height:22px;image-rendering:pixelated;vertical-align:-5px}
   .icn-s{width:15px;height:15px;image-rendering:pixelated;vertical-align:-3px}
   .ava{width:34px;height:34px;image-rendering:pixelated;vertical-align:-11px}
-  #herocard{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 14px}
-  #heroCv{width:220px;height:140px;flex:none}
+  #herocard{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 14px;min-height:0}
+  #heroCv{height:min(140px,17vh);width:auto;aspect-ratio:220/140;flex:0 1 auto;min-height:0}
   #herocard .hname{font-size:19px;font-weight:800;letter-spacing:.03em}
   #herocard .hsub{font-size:11px;color:var(--ink-dim);margin-top:2px}
-  #shopToggle{text-align:left;font-weight:700;font-size:15px;padding:13px 14px}
-  #shopToggle #shopArrow{float:right;color:var(--ink-dim);transition:transform .15s}
-  #shopToggle.open #shopArrow{transform:rotate(180deg)}
+  /* telas baixas: comprime tudo para caber sem scroll */
+  @media (max-height:760px){
+    .screen{padding:10px;gap:8px}
+    #menu,#shop{gap:8px}
+    h1{font-size:18px}
+    .ribboned{padding:8px 4px 15px}
+    #goldbar{font-size:16px}
+    #heroCv{height:min(110px,13vh)}
+    #herocard .hname{font-size:15px}
+    #herocard .hsub{display:none}
+    .uprow{padding:5px 0}
+    .uprow .desc{font-size:10px}
+    .uprow .ico{font-size:17px}
+    .upbtn,.shopbtn{min-width:80px;padding:7px 8px;font-size:12px}
+    #enter,#openShop,#shopBack{padding:10px;font-size:14px}
+  }
+  /* telas muito baixas (ex.: 360×640) */
+  @media (max-height:680px){
+    .screen{padding:8px}
+    #menu,#shop{gap:6px}
+    h1{font-size:16px}
+    .ribboned{padding:6px 4px 12px}
+    #heroCv{height:min(88px,12vh)}
+    .uprow{padding:4px 0}
+    #bestTag{display:none}
+    #enter,#openShop,#shopBack{padding:8px;font-size:13px}
+  }
   .skinned .card{
     background:none;border-radius:0;border:13px solid transparent;
     border-image:var(--ui-paper) 44 54 43 54 fill stretch;
@@ -318,8 +348,18 @@
       </div>
     </div>
 
-    <button id="shopToggle">🛒 Mercado <span id="shopArrow">▾</span></button>
-    <div class="card hidden" id="shopCard">
+    <button id="openShop">🛒 Mercado</button>
+    <button id="enter">🏰 Entrar na Masmorra</button>
+    <div id="bestTag">Masmorras conquistadas: 0</div>
+    <button id="sndToggle">🔊 efeitos sonoros</button>
+    <button id="reset">zerar progresso</button>
+  </div>
+
+  <!-- ================= MERCADO ================= -->
+  <div class="screen hidden" id="shop">
+    <h1>🛒 <em>Mercado</em></h1>
+    <div id="shopGold">🪙 0</div>
+    <div class="card">
       <div class="uprow">
         <div class="ico">🔥</div>
         <div class="info">
@@ -337,11 +377,7 @@
         <button class="shopbtn" data-buy="mapa">Comprar<small>🪙 30</small></button>
       </div>
     </div>
-
-    <button id="enter">🏰 Entrar na Masmorra</button>
-    <div id="bestTag">Masmorras conquistadas: 0</div>
-    <button id="sndToggle">🔊 efeitos sonoros</button>
-    <button id="reset">zerar progresso</button>
+    <button id="shopBack">↩ Voltar ao acampamento</button>
   </div>
 
   <!-- ================= BATALHA ================= -->
@@ -1173,8 +1209,27 @@ function renderMenu(){
                  (b.dataset.buy === 'tocha' && S.tochas >= TORCH_MAX);
   });
 }
-/* relógio do menu: recarga de tochas ao vivo */
-setInterval(() => { if (!$('#menu').classList.contains('hidden')) renderMenu(); }, 1000);
+/* ---- MERCADO: tela própria ---- */
+function renderShop(){
+  regenTorches();
+  $('#shopGold').textContent = '🪙 ' + S.gold + ' · 🔥 ' + S.tochas + '/' + TORCH_MAX;
+  renderMenu();                                      // mantém contadores/botões em dia
+}
+$('#openShop').addEventListener('click', () => {
+  $('#menu').classList.add('hidden');
+  $('#shop').classList.remove('hidden');
+  renderShop();
+});
+$('#shopBack').addEventListener('click', () => {
+  $('#shop').classList.add('hidden');
+  $('#menu').classList.remove('hidden');
+  renderMenu();
+});
+/* relógio: recarga de tochas ao vivo no acampamento e no mercado */
+setInterval(() => {
+  if (!$('#menu').classList.contains('hidden')) renderMenu();
+  else if (!$('#shop').classList.contains('hidden')) renderShop();
+}, 1000);
 document.querySelectorAll('.upbtn').forEach(b => b.addEventListener('click', () => {
   const k = b.dataset.up;
   if (S.gold < upCost(k)) return;
@@ -1190,7 +1245,7 @@ document.querySelectorAll('.shopbtn').forEach(b => b.addEventListener('click', (
     S.tochas++;
     if (S.tochas >= TORCH_MAX) S.torchT = 0;
   } else S.mapas++;
-  save(); renderMenu();
+  save(); renderShop();
 }));
 SFX.enabled = S.sound !== false;
 function renderSnd(){
@@ -1203,10 +1258,6 @@ $('#sndToggle').addEventListener('click', () => {
   SFX.play('potion');                                // feedback ao religar
 });
 renderSnd();
-$('#shopToggle').addEventListener('click', () => {
-  const open = $('#shopCard').classList.toggle('hidden');
-  $('#shopToggle').classList.toggle('open', !open);
-});
 $('#reset').addEventListener('click', () => {
   if (!confirm('Apagar todo o progresso?')) return;
   S = structuredClone(DEFAULTS);
