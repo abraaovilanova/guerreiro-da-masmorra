@@ -389,7 +389,7 @@
       <div id="wavechip">MASMORRA NV. 1 · ONDA 1/3</div>
       <button class="side" id="arrL" aria-label="Alvo anterior">◀</button>
       <button class="side" id="arrR" aria-label="Próximo alvo">▶</button>
-      <div id="swipehint">arraste, toque no monstro ou use as setas para mirar</div>
+      <div id="swipehint">setas/toque para mirar · arraste do herói para jogar uma 🪨</div>
       <div id="movename"></div>
       <div id="qte">
         <div class="zone"><div class="target">🛡️</div><div class="shrink"></div></div>
@@ -408,8 +408,13 @@
         <div id="cmdMain">
           <button id="cAtk"><span class="cur">▶</span>Atacar</button>
           <button id="cSpec"><span class="cur">▶</span>✨ Ataque especial</button>
+          <button id="cHab"><span class="cur">▶</span>🔥 Habilidade</button>
           <button id="cPot"><span class="cur">▶</span>Poção <span class="num" id="potN">×3</span></button>
           <button id="cRun"><span class="cur">▶</span>Fugir 🗺️<span class="num" id="mapN">×0</span></button>
+        </div>
+        <div id="cmdHab" class="hidden">
+          <button id="cFire"><span class="cur">▶</span>🔥 Fúria do Fogo <span class="num" id="fireTag"></span></button>
+          <button id="cHabBack"><span class="cur">▶</span>↩ Voltar</button>
         </div>
         <div id="cmdSpec" class="hidden">
           <button id="cFury"><span class="cur">▶</span>⚡ Fúria <span class="num" id="furyM">(25%+)</span></button>
@@ -793,6 +798,10 @@ let fury = 0;                       // 0–100: enche ao sofrer dano, gasta no g
 let exhausted = false;              // após um especial, o herói perde a próxima rodada
 let stagger = 0;                    // 0–100 exaustão do herói: enche ao sofrer dano
 let guardBroken = false;            // exaustão estourada: sem parry/pulo até agir de novo
+let fireFury = false;               // 🔥 Fúria do Fogo: ataques ×1.2 + fúria cheia até usar especial
+let rockUsed = false;               // 🪨 pedrada: 1 por rodada, arrastando do herói
+let rockDrag = null, rockFly = null;
+const atkMul = () => fireFury ? 1.2 : 1;
 let curse = null;                   // encantamento do Monge: {type:'dot'|'nofury', turns, power}
 let enemies = [], player = null, targetIdx = 0;
 let enemySide = 'right';            // canto dos inimigos ('left'|'right'), sorteado a cada onda
@@ -1069,17 +1078,27 @@ function drawActor(a, t){
     ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by+14, bw+2, 6);
     ctx.fillStyle = stagger >= 100 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
     ctx.fillRect(bx, by+15, bw*stagger/100, 4);
-    /* encantamento ativo do Monge */
-    if (curse){
-      ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
-      ctx.fillStyle = '#c084fc';
-      ctx.fillText(curse.type === 'dot' ? '☠ maldição ×' + curse.turns : '⚡🚫 selada ×' + curse.turns, a.x, by + 32);
+    /* pilha de status: fúria do fogo, encantamento, guarda quebrada */
+    ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
+    let sy = by + 32;
+    if (fireFury){
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText('🔥 ataques ×1.2', a.x, sy); sy += 11;
     }
-    /* guarda quebrada pela exaustão */
+    if (curse){
+      ctx.fillStyle = '#c084fc';
+      ctx.fillText(curse.type === 'dot' ? '☠ maldição ×' + curse.turns : '⚡🚫 selada ×' + curse.turns, a.x, sy); sy += 11;
+    }
     if (guardBroken){
-      ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
       ctx.fillStyle = '#60d6ff';
-      ctx.fillText('💫 sem defesa!', a.x, by + (curse ? 43 : 32));
+      ctx.fillText('💫 sem defesa!', a.x, sy);
+    }
+    /* pedrada disponível: 🪨 pulsando ao lado do herói */
+    if (phase === 'player' && !rockUsed){
+      ctx.globalAlpha = 0.6 + Math.sin(t/250)*0.4;
+      ctx.font = '15px sans-serif';
+      ctx.fillText('🪨', a.x - bw/2 - 14, by + 4);
+      ctx.globalAlpha = 1;
     }
   }
   /* exaustão dos monstros: enche a cada golpe especial sofrido */
@@ -1125,6 +1144,28 @@ function draw(t){
     .sort((a,b) => a.y - b.y)
     .forEach(a => drawActor(a, t));
   drawFx();
+  /* mira da pedrada: linha pontilhada do herói até o dedo */
+  if (rockDrag && player){
+    ctx.save();
+    ctx.setLineDash([6,6]);
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y - player.size*0.25);
+    ctx.lineTo(rockDrag.x, rockDrag.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(rockDrag.x, rockDrag.y, 14, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  /* pedra em voo (arco) */
+  if (rockFly){
+    const k = Math.min(1, (performance.now() - rockFly.t0)/rockFly.ms);
+    ctx.font = '18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🪨', lerp(rockFly.x, rockFly.tx, k),
+                       lerp(rockFly.y, rockFly.ty, k) - Math.sin(k*Math.PI)*36);
+  }
   /* números flutuantes de dano/cura/ouro */
   floats = floats.filter(f => f.el < 900);
   for (const f of floats){
@@ -1336,6 +1377,9 @@ function setCmds(on){
   $('#cFury').disabled = !on || fury < 25;
   $('#cSeq').disabled = !on || fury < 50;
   $('#cCombo').disabled = !on || fury < 25;
+  $('#cHab').disabled = !on;
+  $('#cFire').disabled = !on || fireFury;
+  $('#fireTag').textContent = fireFury ? '(ativa)' : '';
   const sp = specialInfo();
   $('#furyM').textContent = sp ? sp.tag : '(25%+)';
   $('#comboM').textContent = fury >= 75 ? '4 golpes' : fury >= 50 ? '3 golpes' : fury >= 25 ? '2 golpes' : '(25%+)';
@@ -1348,7 +1392,30 @@ function openSpec(){
 }
 function closeSpec(){
   $('#cmdSpec').classList.add('hidden');
+  $('#cmdHab').classList.add('hidden');
   $('#cmdMain').classList.remove('hidden');
+}
+/* submenu de habilidades */
+function openHab(){
+  if (phase !== 'player') return;
+  $('#cmdMain').classList.add('hidden');
+  $('#cmdHab').classList.remove('hidden');
+}
+/* 🔥 FÚRIA DO FOGO: sem custo, mas passa a vez. Ataques ×1.2 e fúria
+   sempre cheia até o herói usar um ataque especial (que encerra o modo). */
+async function useFireFury(){
+  if (phase !== 'player' || fireFury) return;
+  phase = 'busy'; closeSpec(); setCmds(false); setTurn('player');
+  fireFury = true;
+  fury = 100;
+  renderHUD();
+  SFX.play('magic');
+  showMoveName('🔥 Fúria do Fogo');
+  player.flash = 1;
+  addFloat(player, '🔥 FÚRIA DO FOGO!', '#f59e0b', true);
+  log('🔥 Fúria do Fogo! Ataques ×1.2 e fúria cheia até usar um especial — você passa a vez.');
+  await wait(1000);
+  if (aliveIdx().length && hp > 0) enemyPhase();
 }
 
 /* ---- ordem do turno: herói + inimigos vivos, destaque em quem age ---- */
@@ -1404,7 +1471,8 @@ async function startRun(){
   S.entries = (S.entries || 0) + 1; save();
   if (S.entries % 5 === 0) await ADS.showInterstitial();
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
-  stagger = 0; guardBroken = false;
+  stagger = 0; guardBroken = false; fireFury = false;
+  rockUsed = false; rockDrag = null; rockFly = null;
   player = makePlayer();
   enemies = [];
   $('#menu').classList.add('hidden');
@@ -1467,6 +1535,7 @@ function beginPlayerTurn(){
   }
   phase = 'player';
   guardBroken = false;                               // recuperou a guarda ao voltar a agir
+  rockUsed = false;                                  // nova rodada: pedrada disponível
   const alive = aliveIdx();
   if (!alive.includes(targetIdx)) targetIdx = alive[0];
   closeSpec();
@@ -1510,7 +1579,7 @@ async function playerAttack(){
     log((crit ? 'CRÍTICO! ' : '') + 'Você quebrou ' + broke + (broke > 1 ? ' escudos' : ' escudo') +
         ' de ' + en.name + '! Restam ' + en.shield + '.');
   } else {
-    let dmg = Math.max(1, S.atk - en.def + rnd(-2,3));
+    let dmg = Math.max(1, Math.round(S.atk * atkMul()) - en.def + rnd(-2,3));
     if (crit) dmg *= 2;
     en.hp = Math.max(0, en.hp - dmg);
     en.flash = 1;
@@ -1559,12 +1628,13 @@ async function playerSpecial(){
   for (const en of targets){
     enemyStagger(en, sp.m);
     if (en.shield > 0){ breakShield(en, 2, true); continue; }   // golpe forte quebra 2 escudos
-    const dmg = Math.max(1, Math.round(S.atk * sp.m) - en.def + rnd(-1,3));
+    const dmg = Math.max(1, Math.round(S.atk * sp.m * atkMul()) - en.def + rnd(-1,3));
     en.hp = Math.max(0, en.hp - dmg);
     en.flash = 1;
     addFloat(en, dmg, '#fbbf24', true);
     if (en.hp <= 0) slayEnemy(en);
   }
+  fireFury = false;                                  // especial usado: fim da Fúria do Fogo
   save();
   renderHUD(); renderTurnbar();
   await hit;
@@ -1624,6 +1694,7 @@ async function playerSeq(){
   const mult = await runSeqBar();
   phase = 'busy';
   if (mult === null){
+    fireFury = false;                                // especial usado (mesmo falhando)
     log('💨 O ataque falhou! O guerreiro hesitou…');
     addFloat(player, 'FALHOU!', '#8b90ad', true);
     await wait(600);
@@ -1638,15 +1709,17 @@ async function playerSeq(){
   enemyStagger(en, mult);
   if (en.shield > 0){
     const broke = breakShield(en, mult >= 2 ? 3 : mult >= 1.5 ? 2 : 1, mult >= 1.5);
+    fireFury = false;                                // especial usado: fim da Fúria do Fogo
     log('☠ Sequência Mortal ×' + mult + '! Estilhaçou ' + broke +
         (broke > 1 ? ' escudos' : ' escudo') + ' de ' + en.name + '! Restam ' + en.shield + '.');
   } else {
-    const dmg = Math.max(1, Math.round(S.atk * mult) - en.def + rnd(-1,3));
+    const dmg = Math.max(1, Math.round(S.atk * mult * atkMul()) - en.def + rnd(-1,3));
     en.hp = Math.max(0, en.hp - dmg);
     en.flash = 1;
     SFX.play(mult >= 1.5 ? 'crit' : 'hit');
     addFloat(en, dmg, mult >= 2 ? '#fbbf24' : '#fff', mult >= 1.5);
     log('☠ Sequência Mortal ×' + mult + '! ' + dmg + ' de dano em ' + en.name + '.');
+    fireFury = false;                                // especial usado: fim da Fúria do Fogo
   }
   await hit;
   if (en.hp <= 0){
@@ -1716,7 +1789,7 @@ async function playerCombo(){
         breakShield(en, 1, true);
         log('🗡 Golpe ' + (i+1) + '/' + n + ' quebrou um escudo! Restam ' + en.shield + '.');
       } else {
-        const dmg = Math.max(1, Math.round(S.atk * MULTS[i]) - en.def + rnd(-1,2));
+        const dmg = Math.max(1, Math.round(S.atk * MULTS[i] * atkMul()) - en.def + rnd(-1,2));
         en.hp = Math.max(0, en.hp - dmg);
         en.flash = 1;
         SFX.play(MULTS[i] >= 1.8 ? 'crit' : 'hit');
@@ -1737,6 +1810,7 @@ async function playerCombo(){
     }
     if (i < n - 1) await wait(200);
   }
+  fireFury = false;                                  // especial usado: fim da Fúria do Fogo
   if (landed === n && !en.dead) log('✨ COMBO PERFEITO! Todos os ' + n + ' golpes conectaram!');
   await playerReturn();
   if (await waveCleared()) return;
@@ -1990,7 +2064,7 @@ async function counterAttack(en){
     await swing;
     return;
   }
-  const dmg = Math.max(1, Math.round(S.atk * m) - en.def);
+  const dmg = Math.max(1, Math.round(S.atk * m * atkMul()) - en.def);
   en.hp = Math.max(0, en.hp - dmg);
   en.flash = 1;
   SFX.play('crit');
@@ -2192,8 +2266,11 @@ bindHold('cSeq', playerSeq);
 bindHold('cCombo', playerCombo);
 bindHold('cPot', usePotion);
 bindHold('cRun', flee);
+bindHold('cFire', useFireFury);
 $('#cSpec').addEventListener('click', openSpec);     // navegação: toque simples
 $('#cBack').addEventListener('click', closeSpec);
+$('#cHab').addEventListener('click', openHab);
+$('#cHabBack').addEventListener('click', closeSpec);
 $('#arrL').addEventListener('click', e => { e.stopPropagation(); cycleTarget(-1); });
 $('#arrR').addEventListener('click', e => { e.stopPropagation(); cycleTarget(1); });
 
@@ -2214,10 +2291,65 @@ $('#battle').addEventListener('pointerup', e => {
 $('#cmds').addEventListener('pointerdown', e => e.stopPropagation());
 $('#cmds').addEventListener('pointerup', e => e.stopPropagation());
 
-/* no campo: swipe troca alvo; toque curto seleciona o monstro tocado */
+/* ---- 🪨 PEDRADA: 1 por rodada, grátis — arraste do herói até um monstro.
+   Errar a mira desperdiça a pedra. Acertando: 20% do ataque de dano,
+   ou quebra 1 escudo se o monstro tiver. ---- */
+const canvasPos = e => {
+  const r = cv.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+};
+async function throwRock(tp){
+  rockUsed = true;
+  const tgt = enemies.find(en => !en.dead && !en.gone &&
+    Math.abs(tp.x - en.x) < en.size*0.45 && Math.abs(tp.y - en.y) < en.size*0.55);
+  rockFly = { x: player.x, y: player.y - player.size*0.25, tx: tp.x, ty: tp.y, t0: performance.now(), ms: 280 };
+  SFX.play('whoosh');
+  await wait(290);
+  rockFly = null;
+  if (!tgt){
+    addFloat({ x: tp.x, y: tp.y, size: 40 }, 'ERROU! 🪨', '#8b90ad');
+    log('🪨 A pedra passou longe…');
+    return;
+  }
+  tgt.flash = 1;
+  if (tgt.shield > 0){
+    breakShield(tgt, 1, false);
+    log('🪨 A pedrada quebrou um escudo de ' + tgt.name + '! Restam ' + tgt.shield + '.');
+    return;
+  }
+  const dmg = Math.max(1, Math.round(S.atk * 0.2 * atkMul()));
+  tgt.hp = Math.max(0, tgt.hp - dmg);
+  SFX.play('hit');
+  addFloat(tgt, dmg, '#fff');
+  log('🪨 Pedrada certeira em ' + tgt.name + '! ' + dmg + ' de dano.');
+  if (tgt.hp <= 0){
+    slayEnemy(tgt);
+    log('💥 ' + tgt.name + ' caiu com uma pedrada! +' + tgt.gold + ' de ouro.');
+    await waveCleared();
+  }
+}
+
+/* no campo: swipe troca alvo; toque curto seleciona; arrastar do herói mira a pedra */
 let swipeX = null, swipeY = null;
-$('#field').addEventListener('pointerdown', e => { swipeX = e.clientX; swipeY = e.clientY; });
+$('#field').addEventListener('pointerdown', e => {
+  swipeX = e.clientX; swipeY = e.clientY;
+  if (phase === 'player' && !rockUsed && player){
+    const p = canvasPos(e);
+    if (Math.abs(p.x - player.x) < player.size*0.5 && Math.abs(p.y - player.y) < player.size*0.55){
+      rockDrag = p;                                  // começou a mirar no herói
+    }
+  }
+});
+$('#field').addEventListener('pointermove', e => { if (rockDrag) rockDrag = canvasPos(e); });
+$('#field').addEventListener('pointerleave', () => { rockDrag = null; });
 $('#field').addEventListener('pointerup', e => {
+  if (rockDrag){
+    const p = canvasPos(e);
+    rockDrag = null; swipeX = null;
+    /* precisa arrastar de verdade (não é um toque no herói) */
+    if (phase === 'player' && Math.hypot(p.x - player.x, p.y - player.y) > player.size*0.6) throwRock(p);
+    return;
+  }
   if (swipeX === null) return;
   const dx = e.clientX - swipeX;
   const r = cv.getBoundingClientRect();
