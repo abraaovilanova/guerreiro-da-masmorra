@@ -61,7 +61,11 @@
   #shop > :first-child{margin-top:auto}
   #shop > :last-child{margin-bottom:auto}
   #shopGold{display:flex;justify-content:center;gap:8px;font-size:18px;color:var(--gold);font-weight:700}
-  #openShop,#shopBack{text-align:center;font-weight:700;font-size:15px;padding:13px 14px}
+  #shopBack{text-align:center;font-weight:700;font-size:15px;padding:13px 14px}
+  #menuRow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #menuRow button{text-align:center;font-weight:700;font-size:14px;padding:8px 10px}
+  #menuRow button small{display:block;font-weight:400;font-size:11px;color:var(--ink-dim);margin-top:2px}
+  #chestBtn:not(:disabled) small{color:var(--gold)}
   h1{font-size:clamp(22px,6vw,30px);text-align:center;letter-spacing:-.01em;text-wrap:balance;line-height:1.15}
   h1 em{font-style:normal;color:var(--accent)}
   #goldbar{display:flex;justify-content:center;align-items:center;gap:8px;font-size:19px;color:var(--gold);font-weight:700}
@@ -285,7 +289,8 @@
     .uprow .desc{font-size:10px}
     .uprow .ico{font-size:17px}
     .upbtn,.shopbtn{min-width:80px;padding:7px 8px;font-size:12px}
-    #enter,#openShop,#shopBack{padding:10px;font-size:14px}
+    #enter,#shopBack{padding:10px;font-size:14px}
+    #menuRow button{padding:6px 8px;font-size:13px}
   }
   /* telas muito baixas (ex.: 360×640) */
   @media (max-height:680px){
@@ -296,7 +301,9 @@
     #heroCv{height:min(88px,12vh)}
     .uprow{padding:4px 0}
     #bestTag{display:none}
-    #enter,#openShop,#shopBack{padding:8px;font-size:13px}
+    #enter,#shopBack{padding:8px;font-size:13px}
+    #menuRow button{padding:5px 8px;font-size:12px}
+    #menuRow button small{font-size:10px}
   }
   .skinned .card{
     background:none;border-radius:0;border:13px solid transparent;
@@ -367,7 +374,10 @@
       </div>
     </div>
 
-    <button id="openShop">🛒 Mercado</button>
+    <div id="menuRow">
+      <button id="openShop">🛒 Mercado<small>tochas e mapas</small></button>
+      <button id="chestBtn">🎁 Baú do Dia<small>…</small></button>
+    </div>
     <button id="enter">🏰 Entrar na Masmorra</button>
     <div id="bestTag">Masmorras conquistadas: 0</div>
     <button id="sndToggle">🔊 efeitos sonoros</button>
@@ -825,7 +835,7 @@ document.addEventListener('pointerdown', () => SFX.ensure(), { once:true });
 
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
-const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false };
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'' };
 let S = structuredClone(DEFAULTS);
 try {
   const d = JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -1317,6 +1327,7 @@ function renderMenu(){
                return '· +1 em ' + Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); })()
     : '';
   $('#gold').textContent = S.gold;
+  renderChest();
   $('#mVida').textContent = S.maxhp;
   $('#mAtk').textContent = S.atk;
   $('#mDef').textContent = S.def;
@@ -1332,6 +1343,39 @@ function renderMenu(){
                  (b.dataset.buy === 'tocha' && S.tochas >= TORCH_MAX);
   });
 }
+/* ---- 🎁 BAÚ DO DIA: assista um vídeo e abra (1× por dia) ----
+   O ouro escala com a masmorra atual. ---- */
+const localDay = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate(); };
+const chestReward = () => 80 + 40 * (S.dgLv - 1);
+function renderChest(){
+  const opened = S.chestDay === localDay();
+  const b = $('#chestBtn');
+  b.disabled = opened;
+  b.innerHTML = opened
+    ? '🎁 Baú do Dia<small>✅ aberto — volte amanhã</small>'
+    : '🎁 Baú do Dia<small>🎬 assistir e abrir · 🪙 ' + chestReward() + '</small>';
+}
+$('#chestBtn').addEventListener('click', async () => {
+  if (S.chestDay === localDay()) return;
+  const b = $('#chestBtn');
+  b.disabled = true;
+  const ok = await ADS.showRewarded();
+  if (ok){
+    const gold = chestReward();
+    S.chestDay = localDay();
+    S.gold += gold;
+    save();
+    SFX.play('coin');
+    showOverlay('🎁 BAÚ ABERTO!',
+      'O baú da Masmorra Nv. ' + S.dgLv + ' continha <b>🪙 ' + gold + '</b>!<br>Volte amanhã para abrir outro.');
+  } else {
+    b.innerHTML = '🎁 Baú do Dia<small>vídeo indisponível — tente de novo</small>';
+    b.disabled = false;
+    return;
+  }
+  renderMenu();
+});
+
 /* ---- MERCADO: tela própria ---- */
 function renderShop(){
   regenTorches();
