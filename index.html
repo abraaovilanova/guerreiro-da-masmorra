@@ -180,6 +180,9 @@
   #qte.jump .tip{color:#fde68a}
   #qte.dodged .shrink{border-color:var(--hp);animation-play-state:paused}
   #qte.dodged .tip{color:var(--hp)}
+  #qte.lateral{background:rgba(74,222,128,.08)}
+  #qte.lateral .shrink{border-color:var(--hp)}
+  #qte.lateral .tip{color:#bbf7d0}
   #qte.atk{background:rgba(167,139,250,.08)}
   #qte.atk .shrink{border-color:var(--accent)}
   #qte.atk .tip{color:#d8ccff}
@@ -513,11 +516,11 @@ const lerp = (a,b,k) => a + (b-a)*k;
 
 /* ---------- cores de masmorra: cada uma usa as unidades da sua cor ---------- */
 const DG_COLORS = {
-  red:    { dir:'Red Units/',    bdir:'Red Buildings/',    tiles:'Tilemap_color1.png', nome:'Vermelha', hex:'#f87171', boss:'Cavaleiro Vermelho' },
-  black:  { dir:'Black Units/',  bdir:'Black Buildings/',  tiles:'Tilemap_color4.png', nome:'Negra',    hex:'#8b90ad', boss:'Cavaleiro Negro' },
-  blue:   { dir:'Blue Units/',   bdir:'Blue Buildings/',   tiles:'Tilemap_color5.png', nome:'Azul',     hex:'#38bdf8', boss:'Cavaleiro Azul' },
-  purple: { dir:'Purple Units/', bdir:'Purple Buildings/', tiles:'Tilemap_color3.png', nome:'Púrpura',  hex:'#a78bfa', boss:'Cavaleiro Púrpura' },
-  yellow: { dir:'Yellow Units/', bdir:'Yellow Buildings/', tiles:'Tilemap_color2.png', nome:'Dourada',  hex:'#fbbf24', boss:'Cavaleiro Dourado' },
+  red:    { dir:'Red Units/',    bdir:'Red Buildings/',    tiles:'Tilemap_color1.png', nome:'Vermelha', hex:'#f87171', boss:'Cavaleiro Vermelho', gob:'Red' },
+  black:  { dir:'Black Units/',  bdir:'Black Buildings/',  tiles:'Tilemap_color4.png', nome:'Negra',    hex:'#8b90ad', boss:'Cavaleiro Negro',    gob:'Purple' },
+  blue:   { dir:'Blue Units/',   bdir:'Blue Buildings/',   tiles:'Tilemap_color5.png', nome:'Azul',     hex:'#38bdf8', boss:'Cavaleiro Azul',     gob:'Blue' },
+  purple: { dir:'Purple Units/', bdir:'Purple Buildings/', tiles:'Tilemap_color3.png', nome:'Púrpura',  hex:'#a78bfa', boss:'Cavaleiro Púrpura',  gob:'Purple' },
+  yellow: { dir:'Yellow Units/', bdir:'Yellow Buildings/', tiles:'Tilemap_color2.png', nome:'Dourada',  hex:'#fbbf24', boss:'Cavaleiro Dourado',  gob:'Yellow' },
 };
 const COLOR_KEYS = Object.keys(DG_COLORS);
 
@@ -528,6 +531,7 @@ const UNITS = {
             anims:{ idle:'Warrior_Idle.png', run:'Warrior_Run.png', attack:'Warrior_Attack1.png', guard:'Warrior_Guard.png' } },
 };
 /* gera pawn/archer/lancer/monk/boss para cada cor: chaves tipo 'red_pawn' */
+const GOBBASE = 'Tiny Swords (Free Pack)/Factions/Goblins/Troops/';
 for (const [c, cfg] of Object.entries(DG_COLORS)){
   UNITS[c + '_pawn']   = { fs:192, dir:cfg.dir + 'Pawn/',    fall:'👺',
     anims:{ idle:'Pawn_Idle Knife.png', run:'Pawn_Run Knife.png', attack:'Pawn_Interact Knife.png' } };
@@ -539,17 +543,27 @@ for (const [c, cfg] of Object.entries(DG_COLORS)){
     anims:{ idle:'Idle.png', run:'Run.png', attack:'Heal.png' } };
   UNITS[c + '_boss']   = { fs:192, dir:cfg.dir + 'Warrior/', fall:'👹',
     anims:{ idle:'Warrior_Idle.png', run:'Warrior_Run.png', attack:'Warrior_Attack1.png' } };
+  /* 🔥 goblins de fogo (Factions): sheets de várias linhas — {file, row, frames} */
+  UNITS[c + '_torch'] = { fs:192, base:GOBBASE, dir:'Torch/' + cfg.gob + '/', fall:'🔥',
+    anims:{ idle:  { file:'Torch_' + cfg.gob + '.png', row:0, frames:7 },
+            run:   { file:'Torch_' + cfg.gob + '.png', row:1, frames:6 },
+            attack:{ file:'Torch_' + cfg.gob + '.png', row:2, frames:6 } } };
+  UNITS[c + '_tnt'] = { fs:192, base:GOBBASE, dir:'TNT/' + cfg.gob + '/', fall:'🧨',
+    anims:{ idle:  { file:'TNT_' + cfg.gob + '.png', row:0, frames:6 },
+            run:   { file:'TNT_' + cfg.gob + '.png', row:1, frames:6 },
+            attack:{ file:'TNT_' + cfg.gob + '.png', row:2, frames:7 } } };
 }
 
 /* pré-carrega todos os sheets; usa data-URI embutido se existir (Artifact) */
 const IMGS = {};
 const loadPromise = Promise.allSettled(Object.entries(UNITS).flatMap(([u, cfg]) =>
-  Object.entries(cfg.anims).map(([anim, file]) => new Promise((res, rej) => {
+  Object.entries(cfg.anims).map(([anim, spec]) => new Promise((res, rej) => {
     const img = new Image();
     const key = u + '.' + anim;
+    const file = typeof spec === 'string' ? spec : spec.file;
     img.onload = () => { IMGS[key] = img; res(); };
     img.onerror = () => { IMGS[key] = null; rej(key); };   // sem sprite → fallback emoji
-    img.src = (window.EMBED && window.EMBED[key]) || (BASE + cfg.dir + file);
+    img.src = (window.EMBED && window.EMBED[key]) || ((cfg.base || BASE) + cfg.dir + file);
   }))
 ));
 
@@ -898,6 +912,20 @@ let rocksLeft = 1;                  // 🪨 pedradas restantes na rodada (a Gema
 let rockDrag = null, rockFly = null;
 const atkMul = () => fireFury ? 1.2 : 1;
 
+/* ---------- 🧨 dinamites: goblins de fogo grudam marcadores no herói;
+   no início de cada rodada do herói, 1 explode e causa dano ---------- */
+let dynamite = 0, dynPower = 0, dynFly = null;
+const DYN_MAX = 5;
+const DYN_IMG = new Image();
+DYN_IMG.src = (window.EMBED && window.EMBED['fx.Dynamite.png']) ||
+  'Tiny Swords (Free Pack)/Factions/Goblins/Troops/TNT/Dynamite/Dynamite.png';
+function addDynamite(en){
+  if (dynamite >= DYN_MAX) return;
+  dynamite++;
+  dynPower = Math.max(dynPower, Math.max(3, Math.round(en.atk * 0.4)));
+  addFloat(player, '+1 🧨', '#fb923c');
+}
+
 /* ---------- tutorial (Campo de Treinamento) ---------- */
 let TUT = null;                     // ativo: {waitFor, resolve} — orquestra os passos
 function tutEvent(name){
@@ -952,11 +980,15 @@ const COMMONS = [
   { unit:'archer', name:'Arqueiro', hp:24, atk:12, def:1 },
   { unit:'lancer', name:'Lanceiro', hp:40, atk:11, def:4 },
   { unit:'monk',   name:'Monge',    hp:26, atk:10, def:2 },
+  /* 🔥 goblins de fogo (masmorra 3+): golpes certeiros grudam uma 🧨 no herói */
+  { unit:'torch',  name:'Goblin da Tocha', hp:28, atk:10, def:2, fire:true, lv:3 },
+  { unit:'tnt',    name:'Goblin Dinamite', hp:22, atk:9,  def:1, fire:true, lv:3 },
 ];
 const BOSS_DEF = { unit:'boss', name:'Chefe', hp:160, atk:20, def:6 };
 
 function makeWave(w){
   const L = S.dgLv;
+  const pool = COMMONS.filter(c => !c.lv || L >= c.lv);   // goblins só na masmorra 3+
   const mult = (1 + (L-1)*0.25) * (w === 2 ? 1.3 : 1);
   const mk = (base, i, n) => ({
     ...base,
@@ -979,7 +1011,7 @@ function makeWave(w){
       /* masmorras 5, 10, 15…: o chefe do pergaminho nunca luta sozinho —
          vem com dois guardas menores (mais fracos que os comuns) */
       const guards = [0, 1].map(i => {
-        const g = mk(COMMONS[rnd(0, COMMONS.length-1)], i, 2);
+        const g = mk(pool[rnd(0, pool.length-1)], i, 2);
         g.hp = g.maxhp = Math.round(g.maxhp * 0.7);
         g.atk = Math.round(g.atk * 0.8);
         g.gold = Math.round(g.gold * 0.8);
@@ -990,7 +1022,7 @@ function makeWave(w){
     }
     return [b];
   }
-  return [0,1,2].map(i => mk(COMMONS[rnd(0, COMMONS.length-1)], i, 3));
+  return [0,1,2].map(i => mk(pool[rnd(0, pool.length-1)], i, 3));
 }
 
 /* ================================================================
@@ -1140,8 +1172,15 @@ const tween = (a, tx, ty, ms, anim) => new Promise(res => {
 });
 
 function frameCount(a){
+  const spec = UNITS[a.unit].anims[a.anim];
+  if (spec && typeof spec === 'object' && spec.frames) return spec.frames;   // sheet multi-linha
   const img = IMGS[a.unit + '.' + a.anim];
   return (img && img.naturalWidth) ? Math.max(1, Math.floor(img.width / UNITS[a.unit].fs)) : 4;
+}
+/* linha do sheet onde a animação vive (0 nos sheets de linha única) */
+function animRow(a){
+  const spec = UNITS[a.unit].anims[a.anim];
+  return (spec && typeof spec === 'object' && spec.row) || 0;
 }
 
 function updateActor(a, dt){
@@ -1186,7 +1225,7 @@ function drawActor(a, t){
     const ds = a.size * (cfg.fs/192) * 1.55;   // sheets 320px têm mais margem — compensa
     ctx.translate(a.x, a.y);
     if (a.flip) ctx.scale(-1,1);
-    ctx.drawImage(img, f*cfg.fs, 0, cfg.fs, cfg.fs, -ds/2, -ds/2, ds, ds);
+    ctx.drawImage(img, f*cfg.fs, animRow(a)*cfg.fs, cfg.fs, cfg.fs, -ds/2, -ds/2, ds, ds);
   } else {
     ctx.font = Math.round(a.size*0.5) + 'px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1235,6 +1274,19 @@ function drawActor(a, t){
     if (guardBroken){
       ctx.fillStyle = '#60d6ff';
       ctx.fillText('💫 sem defesa!', a.x, sy);
+    }
+    /* 🧨 dinamites grudadas: pavios acesos sobre a cabeça do herói */
+    if (dynamite > 0){
+      const ds = 18, fr = Math.floor(t/110) % 6;
+      const x0 = a.x - dynamite*ds/2;
+      for (let i = 0; i < dynamite; i++){
+        if (DYN_IMG.naturalWidth){
+          ctx.drawImage(DYN_IMG, fr*64, 0, 64, 64, x0 + i*ds, by - 36, ds, ds);
+        } else {
+          ctx.font = '13px sans-serif';
+          ctx.fillText('🧨', x0 + i*ds + ds/2, by - 24);
+        }
+      }
     }
     /* pedrada disponível: 🪨 pulsando ao lado do herói */
     if (phase === 'player' && rocksLeft > 0){
@@ -1308,6 +1360,22 @@ function draw(t){
     ctx.font = '18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('🪨', lerp(rockFly.x, rockFly.tx, k),
                        lerp(rockFly.y, rockFly.ty, k) - Math.sin(k*Math.PI)*36);
+  }
+  /* 🧨 dinamite arremessada pelo goblin (arco girando) */
+  if (dynFly){
+    const k = Math.min(1, (performance.now() - dynFly.t0)/dynFly.ms);
+    const dx = lerp(dynFly.x, dynFly.tx, k);
+    const dy = lerp(dynFly.y, dynFly.ty, k) - Math.sin(k*Math.PI)*44;
+    if (DYN_IMG.naturalWidth){
+      ctx.save();
+      ctx.translate(dx, dy);
+      ctx.rotate(k*6);
+      ctx.drawImage(DYN_IMG, (Math.floor(performance.now()/90) % 6)*64, 0, 64, 64, -13, -13, 26, 26);
+      ctx.restore();
+    } else {
+      ctx.font = '18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🧨', dx, dy);
+    }
   }
   /* números flutuantes de dano/cura/ouro */
   floats = floats.filter(f => f.el < 900);
@@ -1668,7 +1736,7 @@ async function useFireFury(){
    agir antes do herói; o Chefe é pesado e costuma fechar a rodada.
    A barra de turnos mostra a fila real: quem já agiu fica apagado. ---- */
 let turnActive = null;   // 'player' | objeto do inimigo | null
-const SPD = { warrior:10, pawn:12, archer:9, monk:8, lancer:7, boss:6 };
+const SPD = { warrior:10, pawn:12, archer:9, torch:9, monk:8, tnt:8, lancer:7, boss:6 };
 let roundOrder = [], roundPtr = 0;
 function rollInitiative(){
   const units = [
@@ -1811,6 +1879,7 @@ async function startTutorial(){
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
   stagger = 0; guardBroken = false; fireFury = false;
   rocksLeft = 0; rockDrag = null; rockFly = null;
+  dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
   roundOrder = []; roundPtr = 0;                     // treino não usa a fila de iniciativa
   player = makePlayer();
   enemies = [];
@@ -1907,6 +1976,7 @@ async function startRun(){
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
   stagger = 0; guardBroken = false; fireFury = false;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
+  dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
   player = makePlayer();
   enemies = [];
   $('#menu').classList.add('hidden');
@@ -1945,6 +2015,18 @@ async function startWave(){
 }
 
 function beginPlayerTurn(){
+  /* 🧨 dinamites grudadas: 1 explode no início de cada rodada do herói */
+  if (dynamite > 0){
+    dynamite--;
+    hp = Math.max(0, hp - dynPower);
+    player.flash = 1;
+    spawnExplosion(player.x, player.y - player.size*0.15, player.size*0.9);
+    addFloat(player, '-' + dynPower + ' 🧨', '#fb923c', true);
+    log('🧨 Uma dinamite explodiu em você! ' + dynPower + ' de dano.' +
+        (dynamite > 0 ? ' Restam ' + dynamite + '!' : ''));
+    renderHUD();
+    if (hp <= 0) return defeat();
+  } else dynPower = 0;
   /* encantamentos do Monge agem no início do turno do herói */
   if (curse){
     if (curse.type === 'dot'){
@@ -1988,6 +2070,63 @@ function slayEnemy(en){
   en.gone = true;                                    // remove o sprite: só a explosão fica
   shakeApp();
   renderHUD(); renderTurnbar();
+  if (en.fire && !TUT) pendingBooms.push(en);        // 🔥 goblins explodem ao morrer
+}
+
+/* ---- 💥 EXPLOSÃO FINAL dos goblins de fogo: ao morrer, o corpo detona.
+   Estilhaça os outros monstros e o herói só escapa com a ESQUIVA LATERAL
+   (deslizar ⬅➡) — que apenas evita o dano, sem gerar fúria. ---- */
+let pendingBooms = [];
+async function goblinBoom(en){
+  const dmg = Math.max(3, Math.round(en.atk * 0.5));
+  showMoveName('💥 ' + en.name + ' vai explodir!');
+  log('💥 O corpo de ' + en.name + ' vai explodir! DESLIZE para o lado para esquivar!');
+  await wait(450);
+  const r = await runQte('side', '', QTE_MS);
+  /* KABOOM: explosão grande em camadas */
+  spawnExplosion(en.x, en.y, en.size * 2.8);
+  spawnExplosion(en.x - en.size*0.5, en.y + en.size*0.25, en.size * 1.7);
+  spawnExplosion(en.x + en.size*0.5, en.y - en.size*0.2, en.size * 1.5);
+  shakeApp();
+  /* estilhaços nos outros monstros (quebram 1 escudo do chefe, se houver) */
+  for (const o of enemies){
+    if (o === en || o.dead) continue;
+    if (o.shield > 0){ breakShield(o, 1, false); continue; }
+    const spl = Math.max(1, dmg - Math.round((o.def || 0) / 2));
+    o.hp = Math.max(0, o.hp - spl);
+    o.flash = 1;
+    addFloat(o, spl, '#fb923c');
+    if (o.hp <= 0){
+      slayEnemy(o);                                  // pode encadear outra explosão 🔥
+      log('💥 A explosão levou ' + o.name + ' junto! +' + o.gold + ' de ouro.');
+    }
+  }
+  /* o herói: esquiva lateral anula, senão toma o dano cheio */
+  if (r === 'side'){
+    SFX.play('whoosh');
+    addFloat(player, 'ESQUIVOU!', '#4ade80', true);
+    log('💨 Você deslizou para o lado — a explosão de ' + en.name + ' não te alcançou!');
+    fieldFx('good');
+  } else {
+    hp = Math.max(0, hp - dmg);
+    player.flash = 1;
+    SFX.play('hurt');
+    addFloat(player, '-' + dmg + ' 💥', '#fb923c', true);
+    log('💥 A explosão de ' + en.name + ' te atingiu! ' + dmg + ' de dano.');
+    fieldFx('bad');
+    gainFury(1);
+    heroStagger(dmg, false);
+  }
+  renderHUD(); renderTurnbar();
+  await wait(500);
+}
+/* processa a fila de explosões (em cadeia); true = o herói caiu no meio delas */
+async function processBooms(){
+  while (pendingBooms.length){
+    await goblinBoom(pendingBooms.shift());
+    if (hp <= 0){ defeat(); return true; }
+  }
+  return false;
 }
 
 /* ---- escudos do boss: enquanto houver, cada golpe quebra escudos e o HP fica intacto ---- */
@@ -2044,6 +2183,7 @@ async function playerAttack(){
     }
     if (i < strikes - 1 && !en.dead) await wait(150);
   }
+  if (await processBooms()) return;
   await playerReturn();
   if (await waveCleared()) return;
   enemyPhase();
@@ -2096,6 +2236,7 @@ async function playerSpecial(){
   save();
   renderHUD(); renderTurnbar();
   await hit;
+  if (await processBooms()) return;
   await playerReturn();
   if (await waveCleared()) return;
   enemyPhase();
@@ -2185,6 +2326,7 @@ async function playerSeq(){
     slayEnemy(en);
     log('💥 ' + en.name + ' caiu! +' + en.gold + ' de ouro.');
   }
+  if (await processBooms()) return;
   await playerReturn();
   if (await waveCleared()) return;
   enemyPhase();
@@ -2272,6 +2414,7 @@ async function playerCombo(){
   }
   fireFury = false;                                  // especial usado: fim da Fúria do Fogo
   if (landed === n && !en.dead) log('✨ COMBO PERFEITO! Todos os ' + n + ' golpes conectaram!');
+  if (await processBooms()) return;
   await playerReturn();
   if (await waveCleared()) return;
   enemyPhase();
@@ -2335,6 +2478,17 @@ const MOVES = {
     { name:'Feitiço Sombrio',    hits:[{t:'parry'}] },
     { name:'Chama Voraz',        hits:[{t:'parry', m:0.75}] },
     { name:'Prece Invertida',    hits:[{t:'parry', m:1.4, curve:'accel'}] },
+  ],
+  torch: [
+    { name:'Tocha Flamejante',   hits:[{t:'parry'}] },
+    { name:'Giro Incendiário',   hits:[{t:'jump', m:0.9}] },
+    { name:'Dança do Fogo',      hits:[{t:'parry', m:0.8}, {t:'jump', m:0.85}], lv:5 },
+  ],
+  tnt: [
+    { name:'Dinamite Acesa',     hits:[{t:'parry'}] },
+    { name:'Pavio Curto',        hits:[{t:'parry', m:0.7}] },
+    { name:'Bomba Rolante',      hits:[{t:'side', m:0.95}] },
+    { name:'Barril Explosivo',   hits:[{t:'parry', m:1.3, curve:'accel'}], lv:5 },
   ],
 };
 function pickMove(en){
@@ -2445,7 +2599,7 @@ async function enemyAttack(en){
     return bossShield(en);                           // gasta o turno se protegendo
   }
   if (en.kind === 'monk') return monkTurn(en);       // o Monge conjura de longe
-  const ranged = en.kind === 'archer';               // arqueiro atira de longe
+  const ranged = en.kind === 'archer' || en.kind === 'tnt';   // arqueiro e goblin dinamite atiram de longe
   const mv = pickMove(en);
   const combo = mv.hits;
   en.warn = true;
@@ -2476,10 +2630,17 @@ async function enemyAttack(en){
     }
     const swing = playOnce(en, 'attack');
     await wait(180);
+    if (en.kind === 'tnt'){                          // 🧨 a dinamite voa até o herói
+      dynFly = { x:en.x, y:en.y - en.size*0.3, tx:player.x, ty:player.y - player.size*0.2,
+                 t0:performance.now(), ms:260 };
+      await wait(270);
+      dynFly = null;
+    }
     const hitAtk = combo.length > 1 ? Math.round(en.atk * 0.65) : en.atk;   // combo divide a força
     applyHit(en, type, result, hitAtk, combo.length > 1);
     await swing;
-    const ok = (type === 'jump' && result === 'dodge') || (type === 'parry' && result === 'perfect');
+    const ok = (type === 'jump' && result === 'dodge') || (type === 'parry' && result === 'perfect') ||
+               (type === 'side' && result === 'side');
     if (!ok) allDefended = false;
     if (i < combo.length - 1) await wait(260);
   }
@@ -2523,6 +2684,7 @@ async function counterAttack(en){
     log('💥 CONTRA-ATAQUE fatal! ' + en.name + ' não sobreviveu à resposta!');
   }
   await swing;
+  await processBooms();                              // goblin morto no contra-ataque explode já
 }
 
 /* QTE: círculo encolhe por `ms`; a cor/ícone indicam a reação exigida.
@@ -2531,11 +2693,13 @@ async function runQte(type, tag, ms = QTE_MS, curve = null){
   phase = 'qte'; qteType = type; qteResult = null; qteStart = performance.now();
   qteMs = ms;
   const qte = $('#qte'), ring = qte.querySelector('.shrink');
-  qte.classList.remove('perfect','blocked','dodged','jump');
+  qte.classList.remove('perfect','blocked','dodged','jump','lateral');
   if (type === 'jump') qte.classList.add('jump');
-  qte.querySelector('.target').textContent = type === 'jump' ? '⬆️' : '🛡️';
+  if (type === 'side') qte.classList.add('lateral');   // 'lateral': .side já é a classe das setas
+  qte.querySelector('.target').textContent = type === 'jump' ? '⬆️' : type === 'side' ? '↔️' : '🛡️';
   qte.querySelector('.tip').textContent = (tag ? 'GOLPE ' + tag + ' · ' : '') +
-    (type === 'jump' ? 'ARRASTE PARA CIMA — PULE!' : 'TOQUE QUANDO O CÍRCULO FECHAR!');
+    (type === 'jump' ? 'ARRASTE PARA CIMA — PULE!' :
+     type === 'side' ? 'DESLIZE P/ ESQUERDA OU DIREITA!' : 'TOQUE QUANDO O CÍRCULO FECHAR!');
   ring.style.animation = 'none'; void ring.offsetWidth; ring.style.animation = '';
   ring.style.animationDuration = ms + 'ms';
   ring.style.animationTimingFunction = curve === 'accel' ? 'ease-in' : curve === 'decel' ? 'ease-out' : 'linear';
@@ -2552,7 +2716,23 @@ async function runQte(type, tag, ms = QTE_MS, curve = null){
 /* aplica o dano de um golpe conforme a reação do jogador */
 function applyHit(en, type, result, atk, inCombo){
   let dmg;
-  if (type === 'jump'){
+  if (type === 'side'){
+    if (result === 'side'){
+      dmg = 0;
+      SFX.play('whoosh');
+      addFloat(player, 'ESQUIVOU!', '#4ade80', true);
+      log('💨 Você deslizou para o lado e o golpe de ' + en.name + ' passou reto!');
+      fieldFx('good');                               // esquiva lateral: só evita o dano
+    } else {
+      dmg = atk + rnd(0,3);
+      player.flash = 1;
+      SFX.play('hurt');
+      addFloat(player, '-' + dmg, '#f87171', true);
+      log('O golpe rolante de ' + en.name + ' te pegou em cheio! ' + dmg + ' de dano.');
+      fieldFx('bad'); shakeApp();
+      if (en.fire) addDynamite(en);                  // 🧨 golpe de fogo certeiro gruda dinamite
+    }
+  } else if (type === 'jump'){
     if (result === 'dodge'){
       dmg = 0;
       SFX.play('whoosh');
@@ -2567,6 +2747,7 @@ function applyHit(en, type, result, atk, inCombo){
       addFloat(player, '-' + dmg, '#f87171', true);
       log('O golpe rasteiro de ' + en.name + ' varreu suas pernas! ' + dmg + ' de dano.');
       fieldFx('bad'); shakeApp();
+      if (en.fire) addDynamite(en);                  // 🧨 golpe de fogo certeiro gruda dinamite
     }
   } else if (result === 'perfect'){
     dmg = 0;
@@ -2598,6 +2779,7 @@ function applyHit(en, type, result, atk, inCombo){
     addFloat(player, '-' + dmg, '#f87171', true);
     log(en.name + ' acertou em cheio! ' + dmg + ' de dano.');
     fieldFx('bad'); shakeApp();
+    if (en.fire) addDynamite(en);                    // 🧨 golpe de fogo certeiro gruda dinamite
   }
   if (dmg > 0 && result !== 'block') gainFury(1);    // dano sofrido vira fúria (bloqueio já deu o dele)
   if (dmg > 0) heroStagger(dmg, inCombo);                                // e também exaustão
@@ -2629,6 +2811,20 @@ function tryJump(){
   (async () => {                                     // animação: salto rápido
     await tween(player, player.x, player.homeY - player.size*0.55, 150, 'run');
     await tween(player, player.x, player.homeY, 180, 'run');
+    player.anim = 'idle';
+  })();
+}
+/* esquiva lateral (deslizar ⬅➡): só evita o dano — não gera fúria nem cansa o inimigo */
+function trySide(){
+  if (phase !== 'qte' || qteType !== 'side' || qteResult) return;
+  qteResult = 'side';
+  const qte = $('#qte');
+  qte.classList.add('dodged');
+  qte.querySelector('.tip').textContent = '💨 ESQUIVA LATERAL!';
+  (async () => {                                     // animação: dash para o lado e volta
+    const dir = enemySide === 'right' ? -1 : 1;
+    await tween(player, player.homeX + dir*player.size*0.7, player.homeY, 140, 'run');
+    await tween(player, player.homeX, player.homeY, 180, 'run');
     player.anim = 'idle';
   })();
 }
@@ -2677,6 +2873,7 @@ function offerDoubleReward(bonus){
   };
 }
 function defeat(){
+  if (player && player.dead) return;                 // já derrotado (evita overlay duplo)
   phase = 'menu';
   player.dead = true;
   showOverlay('☠ DERROTA…',
@@ -2739,17 +2936,18 @@ $('#cHabBack').addEventListener('click', closeSpec);
 $('#arrL').addEventListener('click', e => { e.stopPropagation(); cycleTarget(-1); });
 $('#arrR').addEventListener('click', e => { e.stopPropagation(); cycleTarget(1); });
 
-/* QTE de parry: qualquer toque · QTE de pulo: arrastar para cima */
-let gY = null;
+/* QTE de parry: toque · pulo: arrastar ↑ · esquiva lateral: deslizar ⬅➡ */
+let gX = null, gY = null;
 $('#battle').addEventListener('pointerdown', e => {
-  gY = e.clientY;
+  gX = e.clientX; gY = e.clientY;
   if (phase === 'qte' && qteType === 'parry') tryParry();
   if (phase === 'seq' && seqStop) seqStop();
   if (phase === 'combo' && comboTap) comboTap();
 });
 $('#battle').addEventListener('pointerup', e => {
   if (gY !== null && phase === 'qte' && qteType === 'jump' && (gY - e.clientY) > 50) tryJump();
-  gY = null;
+  if (gX !== null && phase === 'qte' && qteType === 'side' && Math.abs(e.clientX - gX) > 50) trySide();
+  gX = null; gY = null;
 });
 
 /* toques no menu flutuante não viram swipe/seleção de alvo no campo */
@@ -2792,6 +2990,7 @@ async function throwRock(tp){
   if (tgt.hp <= 0){
     slayEnemy(tgt);
     log('💥 ' + tgt.name + ' caiu com uma pedrada! +' + tgt.gold + ' de ouro.');
+    if (await processBooms()) return;
     await waveCleared();
   }
   tutEvent('rockHit');
@@ -2832,6 +3031,7 @@ $('#field').addEventListener('pointerup', e => {
 });
 
 document.addEventListener('keydown', e => {
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && phase === 'qte'){ trySide(); e.preventDefault(); return; }
   if (e.key === 'ArrowLeft')  cycleTarget(-1);
   if (e.key === 'ArrowRight') cycleTarget(1);
   if (e.key === 'ArrowUp' && phase === 'qte'){ tryJump(); e.preventDefault(); }

@@ -1,0 +1,261 @@
+PIXEL-DECK ASSET LICENSE
+========================
+
+Asset Pack:
+64 Tiny Monsters – 48x48 Pixel Art Pack
+
+Copyright © Pixel-Deck
+
+All rights reserved except for the permissions expressly granted under this license.
+
+
+1. LICENSE GRANT
+----------------
+
+By downloading, purchasing, or using this asset pack, you are granted a non-exclusive, worldwide, non-transferable license to use the included assets in personal, educational, and commercial projects, subject to the terms below.
+
+This license grants you permission to use the assets inside completed and substantially developed projects.
+
+Ownership of the original artwork remains with Pixel-Deck.
+
+
+2. PERMITTED USE
+----------------
+
+You may use the assets in:
+
+- Free video games
+- Commercial video games
+- Mobile games
+- Desktop games
+- Browser games
+- Game jam projects
+- Prototypes
+- Educational projects
+- Personal projects
+- Client projects
+- Videos
+- Livestreams
+- Trailers
+- Promotional images
+- Social media content
+- Printed promotional material
+- Interactive applications
+- Tabletop or card game projects
+- Other creative projects in which the assets are incorporated into a larger finished work
+
+
+3. MODIFICATION
+---------------
+
+You may modify the assets for use in your own permitted projects.
+
+Allowed modifications include:
+
+- Recoloring
+- Resizing
+- Cropping
+- Animation
+- Adding visual effects
+- Adding weapons or armor
+- Changing details
+- Combining the assets with other artwork
+- Creating alternate versions
+- Adjusting brightness, contrast, or saturation
+
+Modified assets remain subject to this license.
+
+Modification does not transfer ownership of the original artwork to you.
+
+
+4. COMMERCIAL USE
+-----------------
+
+Commercial use is allowed.
+
+You may sell games, applications, videos, printed products, or other completed projects that include the assets, provided that the assets are part of a larger finished product and are not the primary standalone content being sold.
+
+You may use the assets in multiple commercial and non-commercial projects.
+
+
+5. ATTRIBUTION
+--------------
+
+Attribution is appreciated but not required.
+
+Suggested credit:
+
+Pixel art by Pixel-Deck
+https://pixel-deck.com
+
+
+6. PROHIBITED USE
+-----------------
+
+You may not:
+
+- Resell the original assets as standalone files
+- Redistribute the original assets
+- Share the original downloadable files with other people
+- Upload the assets to another asset marketplace
+- Upload the assets to a public file-sharing service
+- Include the assets in another asset pack
+- Sell modified versions as standalone assets
+- Redistribute modified versions as standalone assets
+- Claim that you created the original artwork
+- Register the original artwork as your own intellectual property
+- Use the assets as the primary content of a competing asset product
+- Use the assets in templates where the files can be easily extracted
+- Include the source PNG files in publicly accessible project repositories
+- Use the assets to train, fine-tune, or develop artificial intelligence models
+- Use the assets as input material for generative AI datasets
+- Mint or sell the original or modified assets as standalone NFTs
+- Use the assets in illegal, fraudulent, defamatory, or hateful content
+
+
+7. CLIENT WORK
+--------------
+
+You may use the assets in work created for a client.
+
+The client may use the assets only as part of the completed project delivered to them.
+
+The client does not receive the right to redistribute, resell, or reuse the source assets independently unless they purchase their own license.
+
+
+8. TEAM USE
+-----------
+
+A single purchase may be used by one individual or one small development team working on the same project.
+
+The files may be shared internally only with team members who require access for the licensed project.
+
+The files may not be shared with unrelated teams, companies, contractors, communities, or third parties.
+
+For separate companies or unrelated teams, an additional purchase or license is required.
+
+
+9. SOURCE FILE PROTECTION
+-------------------------
+
+You must take reasonable steps to prevent the original PNG files from being easily downloaded or extracted.
+
+The assets may be included in compiled or packaged games and applications.
+
+You should not distribute the assets in an exposed source folder unless this is technically necessary for the completed project.
+
+
+10. OPEN-SOURCE PROJECTS
+------------------------
+
+You may use the assets in an open-source project only when the original asset files are not included in the public repository.
+
+The project code may be open source, but the licensed artwork must remain excluded from public source distribution.
+
+A private repository is allowed for development purposes.
+
+
+11. PRINTED PRODUCTS
+--------------------
+
+You may use the assets in printed materials when they are part of a larger original design.
+
+Examples include:
+
+- Game manuals
+- Promotional posters
+- Trading cards
+- Board game components
+- Packaging
+- Art books connected to your project
+
+You may not sell individual prints, stickers, posters, merchandise, or products whose main value is the unmodified monster artwork itself without separate written permission.
+
+
+12. ARTIFICIAL INTELLIGENCE
+---------------------------
+
+The assets may not be used:
+
+- To train artificial intelligence models
+- To fine-tune artificial intelligence models
+- To create machine-learning datasets
+- To build image-generation datasets
+- To test commercial AI training systems
+- As reference material in datasets intended for automated style replication
+
+This restriction applies to both the original and modified assets.
+
+
+13. OWNERSHIP
+-------------
+
+Pixel-Deck retains all ownership and intellectual property rights to the original asset pack and included artwork.
+
+You receive a license to use the assets but do not receive ownership of the original artwork.
+
+Your own project code, game design, writing, music, and original artwork remain your property.
+
+
+14. REFUNDS
+-----------
+
+Because this is a digital product, refunds may be limited once the files have been downloaded.
+
+Refund handling is also subject to the rules of the marketplace through which the asset pack was purchased.
+
+
+15. TERMINATION
+---------------
+
+This license automatically terminates if you violate any of its terms.
+
+Upon termination, you must stop using the assets and remove the files from any future distributions.
+
+Previously released completed projects may remain available only if the violation has been corrected and the assets are no longer being distributed improperly.
+
+
+16. WARRANTY
+------------
+
+The assets are provided “as is” without warranties of any kind.
+
+Pixel-Deck does not guarantee that the assets will meet every technical, legal, or creative requirement of your project.
+
+You are responsible for testing compatibility with your software and project.
+
+
+17. LIABILITY
+-------------
+
+Pixel-Deck is not liable for indirect, incidental, special, or consequential damages resulting from the use or inability to use the assets.
+
+Your use of the assets is at your own risk.
+
+
+18. ADDITIONAL PERMISSION
+-------------------------
+
+For uses not covered by this license, contact Pixel-Deck to request separate written permission.
+
+Examples may include:
+
+- Large-scale merchandise
+- Standalone physical products
+- Mass-produced printed goods
+- Redistribution partnerships
+- Asset bundles
+- Educational redistribution
+- Publisher-wide licensing
+
+
+19. ACCEPTANCE
+--------------
+
+By downloading, purchasing, copying, modifying, or using the assets, you confirm that you have read, understood, and accepted this license.
+
+
+WEBSITE
+-------
+
+https://pixel-deck.com
