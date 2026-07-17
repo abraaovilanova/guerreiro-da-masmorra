@@ -54,7 +54,7 @@
   button:disabled{opacity:.35;cursor:default}
 
   /* ============ TELA INICIAL (sem scroll: tudo cabe na tela) ============ */
-  #menu{justify-content:flex-start;gap:12px;overflow:hidden}
+  #menu{justify-content:flex-start;gap:12px;overflow-y:auto}
   #menu > :first-child{margin-top:auto}
   #menu > :last-child{margin-bottom:auto}
   /* ============ MERCADO ============ */
@@ -70,7 +70,23 @@
   .redbtn{background:linear-gradient(180deg,#dc2626,#991b1b);border-color:#f87171}
   .skinned .shopbtn.redbtn{border-image:var(--ui-btn-red) 47 45 47 45 fill stretch}
   .gemlocked{opacity:.55}
-  #menuRow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  /* ============ 🗺 MAPA-MÚNDI ============ */
+  #mapFrame{
+    flex:1;position:relative;overflow:hidden;border-radius:14px;
+    border:1px solid var(--border);background:#0a0c13;min-height:0;
+  }
+  #mapCv{display:block;width:100%;height:100%;touch-action:none}
+  #mapEnter{
+    text-align:center;font-size:16px;font-weight:700;padding:13px;
+    background:linear-gradient(180deg,#7c3aed,#5b21b6);border-color:#a78bfa;
+  }
+  #mapBack{text-align:center;font-weight:700;font-size:14px;padding:11px}
+  /* 🛡 ícone do upgrade de escudo: sprite 16px dos sheets Shields1-3, evolui a cada 5 níveis */
+  #shieldIco{
+    display:inline-block;width:24px;height:24px;vertical-align:-5px;
+    background-repeat:no-repeat;background-size:144px 144px;image-rendering:pixelated;
+  }
+  #menuRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
   #menuRow button{text-align:center;font-weight:700;font-size:14px;padding:8px 10px}
   #menuRow button small{display:block;font-weight:400;font-size:11px;color:var(--ink-dim);margin-top:2px}
   #chestBtn:not(:disabled) small{color:var(--gold)}
@@ -380,14 +396,15 @@
         <button class="upbtn" data-up="atk">+3 ataque<small>🪙 <span class="num">60</span></small></button>
       </div>
       <div class="uprow">
-        <div class="ico"><img class="icn" data-ico="icoShield" alt="defesa"></div>
+        <div class="ico"><span id="shieldIco"></span></div>
         <div class="info"><div class="label">Defesa</div><div class="val num" id="mDef">3</div></div>
         <button class="upbtn" data-up="def">+2 defesa<small>🪙 <span class="num">60</span></small></button>
       </div>
     </div>
 
     <div id="menuRow">
-      <button id="openShop">🛒 Mercado<small>tochas e mapas</small></button>
+      <button id="openShop">🛒 Mercado<small>tochas e gemas</small></button>
+      <button id="openMap">🗺️ Mapa<small>mapa-múndi</small></button>
       <button id="chestBtn">🎁 Baú do Dia<small>…</small></button>
     </div>
     <button id="enter">🏰 Entrar na Masmorra</button>
@@ -423,6 +440,14 @@
       <div id="gemList"></div>
     </div>
     <button id="shopBack">↩ Voltar ao acampamento</button>
+  </div>
+
+  <!-- ================= 🗺 MAPA-MÚNDI ================= -->
+  <div class="screen hidden" id="worldmap">
+    <h1>🗺️ <em>Mapa-múndi</em></h1>
+    <div id="mapFrame"><canvas id="mapCv"></canvas></div>
+    <button id="mapEnter" class="hidden">⚔ Entrar na Masmorra</button>
+    <button id="mapBack">↩ Voltar ao acampamento</button>
   </div>
 
   <!-- ================= BATALHA ================= -->
@@ -554,12 +579,47 @@ for (const [c, cfg] of Object.entries(DG_COLORS)){
             attack:{ file:'TNT_' + cfg.gob + '.png', row:2, frames:7 } } };
 }
 
+/* ---- monstros do THE PACK (frames soltos 100×120, olham p/ esquerda) e Minotauro ---- */
+const PACKBASE = 'assets/THE PACK/Monsters/';
+const seqFiles = (dir, n) => Array.from({ length:n }, (_, i) => dir + String(i+1).padStart(2, '0') + '.png');
+UNITS.kingslime = { fs:100, fw:100, fh:120, cont:[0.43, 0.71], vis:0.85, faceLeft:true, base:PACKBASE, dir:'KING SLIME/', fall:'👑',
+  anims:{ idle:  { files:seqFiles('idel/', 4),   frames:4 },
+          run:   { files:seqFiles('idel/', 4),   frames:4 },     // o Rei Slime "anda" quicando
+          attack:{ files:seqFiles('attack/', 8), frames:8 } } };
+UNITS.tree = { fs:100, fw:100, fh:120, cont:[0.43, 0.69], vis:0.9, faceLeft:true, base:PACKBASE, dir:'Tree/', fall:'🌳',
+  anims:{ idle:  { files:['ground Up/11.png'],       frames:1 },
+          run:   { files:['ground Up/11.png'],       frames:1 },
+          grow:  { files:seqFiles('ground Up/', 11), frames:11 },   // 🌱 surge do chão
+          attack:{ files:seqFiles('attact/', 10),    frames:10 } } };
+UNITS.mino = { fs:96, cont:[0.45, 0.667], vis:0.8, base:'assets/', dir:'', fall:'🐂',
+  anims:{ idle:  { file:'Minotaur - Sprite Sheet.png', row:0, frames:5 },
+          run:   { file:'Minotaur - Sprite Sheet.png', row:1, frames:8 },
+          attack:{ file:'Minotaur - Sprite Sheet.png', row:3, frames:9 } } };
+
 /* pré-carrega todos os sheets; usa data-URI embutido se existir (Artifact) */
 const IMGS = {};
 const loadPromise = Promise.allSettled(Object.entries(UNITS).flatMap(([u, cfg]) =>
   Object.entries(cfg.anims).map(([anim, spec]) => new Promise((res, rej) => {
-    const img = new Image();
     const key = u + '.' + anim;
+    if (typeof spec === 'object' && spec.files){
+      /* frames em arquivos soltos (THE PACK): costura num canvas em memória */
+      const fw = cfg.fw || cfg.fs, fh = cfg.fh || cfg.fs;
+      Promise.all(spec.files.map(f => new Promise((r2, j2) => {
+        const im = new Image();
+        im.onload = () => r2(im);
+        im.onerror = () => j2(key);
+        im.src = (cfg.base || BASE) + cfg.dir + f;
+      }))).then(imgs => {
+        const c = document.createElement('canvas');
+        c.width = fw * imgs.length; c.height = fh;
+        const x = c.getContext('2d');
+        imgs.forEach((im, i) => x.drawImage(im, i*fw, 0));
+        c.naturalWidth = c.width;                    // o motor testa naturalWidth
+        IMGS[key] = c; res();
+      }).catch(() => { IMGS[key] = null; rej(key); });
+      return;
+    }
+    const img = new Image();
     const file = typeof spec === 'string' ? spec : spec.file;
     img.onload = () => { IMGS[key] = img; res(); };
     img.onerror = () => { IMGS[key] = null; rej(key); };   // sem sprite → fallback emoji
@@ -864,7 +924,7 @@ document.addEventListener('pointerdown', () => SFX.ensure(), { once:true });
 
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
-const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'', gemas:{un:[],own:{},eq:[]} };
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'', gemas:{un:[],own:{},eq:[]}, mapPos:-1 };
 let S = structuredClone(DEFAULTS);
 try {
   const d = JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -877,6 +937,7 @@ try {
 if (!DG_COLORS[S.dgColor]) S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];
 if (!S.gemas || !Array.isArray(S.gemas.un)) S.gemas = structuredClone(DEFAULTS.gemas);   // saves antigos
 if (S.gemas.eq.length > 1) S.gemas.eq = S.gemas.eq.slice(0, 1);   // regra nova: só 1 gema equipada
+if (S.mapPos === undefined) S.mapPos = -1;
 
 /* ---------- tochas: a "chave" da masmorra (1 por entrada, recarga por tempo) ---------- */
 const TORCH_MAX = 20, TORCH_REGEN_MS = 10 * 60 * 1000;   // 10 min por tocha faltante
@@ -950,6 +1011,17 @@ const UPS = {
   atk: { base:60, apply(){ S.atk  += 3;  } },
   def: { base:60, apply(){ S.def  += 2;  } },
 };
+/* 🛡 ícone da Defesa: troca a cada 5 níveis do upgrade — Shields1 → Shields2 →
+   Shields3 → próxima linha do Shields1 → … (cada sheet é uma grade 6×6 de 16px) */
+function renderShieldIcon(){
+  const k = Math.min(Math.floor(S.lv.def / 5), 107);
+  const sheet = (k % 3) + 1;
+  const step = Math.floor(k / 3);
+  const r = step % 6, c = Math.floor(step / 6) % 6;
+  const el = $('#shieldIco');
+  el.style.backgroundImage = "url('assets/Shields" + sheet + ".png')";
+  el.style.backgroundPosition = (-c*24) + 'px ' + (-r*24) + 'px';
+}
 const upCost = k => Math.round(UPS[k].base * Math.pow(1.55, S.lv[k]));
 const SHOP = { tocha:{cost:40}, mapa:{cost:30} };
 
@@ -983,8 +1055,15 @@ const COMMONS = [
   /* 🔥 goblins de fogo (masmorra 3+): golpes certeiros grudam uma 🧨 no herói */
   { unit:'torch',  name:'Goblin da Tocha', hp:28, atk:10, def:2, fire:true, lv:3 },
   { unit:'tnt',    name:'Goblin Dinamite', hp:22, atk:9,  def:1, fire:true, lv:3 },
+  /* 🐂 minotauro (masmorra 4+): pesado, investida exige esquiva lateral */
+  { unit:'mino',   name:'Minotauro', hp:46, atk:13, def:3, lv:4, solo:true },
 ];
-const BOSS_DEF = { unit:'boss', name:'Chefe', hp:160, atk:20, def:6 };
+/* chefes possíveis da onda 3 — sorteado a cada masmorra */
+const BOSS_DEFS = [
+  { unit:'boss',      name:'Chefe',        hp:160, atk:20, def:6 },              // Cavaleiro da cor
+  { unit:'kingslime', name:'Rei Slime',    hp:200, atk:18, def:4, solo:true },
+  { unit:'tree',      name:'Árvore Anciã', hp:170, atk:19, def:8, solo:true, art:'A' },   // 🌱 surge do chão
+];
 
 function makeWave(w){
   const L = S.dgLv;
@@ -992,8 +1071,8 @@ function makeWave(w){
   const mult = (1 + (L-1)*0.25) * (w === 2 ? 1.3 : 1);
   const mk = (base, i, n) => ({
     ...base,
-    kind: base.unit,                       // tipo lógico (pawn/archer/lancer/monk/boss)
-    unit: S.dgColor + '_' + base.unit,     // sprite da cor da masmorra
+    kind: base.unit,                       // tipo lógico (pawn/archer/lancer/monk/boss…)
+    unit: base.solo ? base.unit : S.dgColor + '_' + base.unit,   // solo: sprite único, sem cor
     hp:Math.round(base.hp*mult), maxhp:Math.round(base.hp*mult),
     atk:Math.round(base.atk*mult), def:Math.round(base.def*mult),
     shield:0,                    // escudos arcanos (boss Nv.5+): quebram antes do HP
@@ -1005,8 +1084,11 @@ function makeWave(w){
     name: base.name + (n > 1 ? ' ' + 'ABC'[i] : ''),
   });
   if (w === 3){
-    const b = mk(BOSS_DEF, 0, 1);
-    b.name = DG_COLORS[S.dgColor].boss;
+    const bd = BOSS_DEFS[rnd(0, BOSS_DEFS.length-1)];
+    const b = mk(bd, 0, 1);
+    b.boss = true;
+    b.p2 = L >= 3 && Math.random() < 0.6;   // 😡 alguns chefes (Nv.3+) têm FASE 2 aos 50% de HP
+    if (bd.unit === 'boss') b.name = DG_COLORS[S.dgColor].boss;
     if (L % 5 === 0){
       /* masmorras 5, 10, 15…: o chefe do pergaminho nunca luta sozinho —
          vem com dois guardas menores (mais fracos que os comuns) */
@@ -1147,7 +1229,7 @@ function layoutActors(){
     ? [{x:W*0.70, y:H*0.30}]
     : [{x:W*0.66, y:H*0.25}, {x:W*0.83, y:H*0.38}, {x:W*0.56, y:H*0.46}];
   enemies.forEach((en, i) => {
-    en.size = en.kind === 'boss' ? base*1.7 : en.escort ? base*0.85 : base;
+    en.size = en.boss ? base*1.7 : en.escort ? base*0.85 : base;
     en.homeX = mirrorX(slots[i % slots.length].x);
     en.homeY = slots[i % slots.length].y;
     en.flip = eFlip();
@@ -1200,6 +1282,16 @@ function updateActor(a, dt){
     } else a.frame++;
   }
   a.flash = Math.max(0, a.flash - dt/300);
+  /* 😡 FASE 2: chefe marcado cai abaixo de 50% do HP → entra em fúria */
+  if (a.p2 && !a.enraged && !a.dead && a.hp <= a.maxhp * 0.5) enrage(a);
+}
+function enrage(en){
+  en.enraged = true;
+  en.atk = Math.round(en.atk * 1.4);
+  SFX.play('curse');
+  shakeApp();
+  addFloat(en, '😡 FASE 2!', '#f87171', true);
+  log('😡 ' + (en.art || 'O') + ' ' + en.name + ' entra em FÚRIA! Golpes mais fortes, mais rápidos — e turnos extras!');
 }
 
 function drawActor(a, t){
@@ -1219,13 +1311,25 @@ function drawActor(a, t){
   try {
     if (a.dead) ctx.filter = 'grayscale(1)';
     else if (a.flash > 0) ctx.filter = 'brightness(' + (1 + a.flash*1.6).toFixed(2) + ')';
+    else if (a.enraged && Math.floor(t/220) % 2)     // 😡 fase 2: pisca avermelhado
+      ctx.filter = 'brightness(1.55) saturate(1.9) hue-rotate(-25deg)';
   } catch(e){}
   if (img && img.naturalWidth){
     const f = Math.min(a.frame, frameCount(a)-1);
-    const ds = a.size * (cfg.fs/192) * 1.55;   // sheets 320px têm mais margem — compensa
     ctx.translate(a.x, a.y);
-    if (a.flip) ctx.scale(-1,1);
-    ctx.drawImage(img, f*cfg.fs, animRow(a)*cfg.fs, cfg.fs, cfg.fs, -ds/2, -ds/2, ds, ds);
+    const flip = cfg.faceLeft ? !a.flip : a.flip;   // sprites do THE PACK olham p/ esquerda
+    if (flip) ctx.scale(-1,1);
+    if (cfg.cont){
+      /* frames com margem grande: escala pelo CONTEÚDO e ancora o pé na sombra.
+         cont = [fração da altura ocupada, fração onde fica o pé] · vis = altura visível ÷ size */
+      const fw = cfg.fw || cfg.fs, fh = cfg.fh || cfg.fs;
+      const dh = a.size * (cfg.vis || 0.85) / cfg.cont[0];
+      const dw = dh * fw / fh;
+      ctx.drawImage(img, f*fw, animRow(a)*fh, fw, fh, -dw/2, a.size*0.30 - dh*cfg.cont[1], dw, dh);
+    } else {
+      const ds = a.size * (cfg.fs/192) * 1.55;   // sheets 320px têm mais margem — compensa
+      ctx.drawImage(img, f*cfg.fs, animRow(a)*cfg.fs, cfg.fs, cfg.fs, -ds/2, -ds/2, ds, ds);
+    }
   } else {
     ctx.font = Math.round(a.size*0.5) + 'px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1423,6 +1527,8 @@ function loop(t){
     draw(t);
   } else if (!$('#menu').classList.contains('hidden')){
     drawMenuHero(dt);
+  } else if (!$('#worldmap').classList.contains('hidden')){
+    drawMap(t);
   }
   requestAnimationFrame(loop);
 }
@@ -1453,6 +1559,7 @@ function renderMenu(){
   $('#mVida').textContent = S.maxhp;
   $('#mAtk').textContent = S.atk;
   $('#mDef').textContent = S.def;
+  renderShieldIcon();
   $('#nTocha').textContent = S.tochas;
   $('#nMapa').textContent = S.mapas;
   $('#bestTag').textContent = 'Masmorras conquistadas: ' + S.wins;
@@ -1616,6 +1723,184 @@ $('#reset').addEventListener('click', () => {
 });
 
 /* ================================================================
+   🗺 MAPA-MÚNDI — cartografia estilo FFT (referência IMG_0710):
+   cidades pixel-art sobre fundo escuro, ligadas por trilhas sinuosas;
+   as portas de masmorra brilham no meio do caminho entre as cidades.
+   Nós pares = cidades · nós ímpares = masmorras. A cada 5 masmorras
+   vencidas o mapa vira uma nova "região" (as portas renumeram).
+   ================================================================ */
+const mapCv = $('#mapCv'), mctx = mapCv.getContext('2d');
+const MAP_B = 'Tiny Swords (Free Pack)/Buildings/';
+const MAP_CITIES = [
+  { nome:'Pedraverde',    b:MAP_B+'Blue Buildings/Castle.png',      cor:'#38bdf8' },
+  { nome:'Lago Bruma',    b:MAP_B+'Yellow Buildings/Tower.png',     cor:'#fbbf24' },
+  { nome:'Solar Silente', b:MAP_B+'Purple Buildings/Monastery.png', cor:'#a78bfa' },
+  { nome:'Torre Rubra',   b:MAP_B+'Red Buildings/Tower.png',        cor:'#f87171' },
+  { nome:'Bosque Ermo',   b:MAP_B+'Black Buildings/House1.png',     cor:'#8b90ad' },
+  { nome:'Castelo Ruína', b:MAP_B+'Purple Buildings/Castle.png',    cor:'#c084fc' },
+];
+const MAP_POS = [
+  {x:.22,y:.08},{x:.52,y:.13},{x:.79,y:.21},{x:.63,y:.33},{x:.30,y:.37},
+  {x:.17,y:.50},{x:.32,y:.61},{x:.58,y:.57},{x:.80,y:.67},{x:.62,y:.81},{x:.32,y:.88},
+];
+const mapRegion   = () => Math.floor((S.dgLv - 1) / 5);
+const doorLevel   = i  => mapRegion()*5 + (i + 1)/2;        // nó ímpar → nível da masmorra
+const frontierIdx = () => 2*((S.dgLv - 1) % 5) + 1;         // porta da masmorra atual
+let mapWalk = null;                                         // {path:[nós], seg, t0, ms}
+function mapNodeXY(i, w, h){ return { x: MAP_POS[i].x*w, y: MAP_POS[i].y*h }; }
+function mapCtrl(i, a, b){                                  // controle da curva do segmento i
+  return { x:(a.x+b.x)/2 + Math.sin(i*3.7)*20, y:(a.y+b.y)/2 + Math.cos(i*2.9)*14 };
+}
+function ensureMapPos(){
+  if (S.mapPos < 0 || S.mapPos > frontierIdx()) S.mapPos = frontierIdx() - 1;
+}
+function updateMapEnter(){
+  const b = $('#mapEnter');
+  const on = !mapWalk && S.mapPos === frontierIdx();
+  b.classList.toggle('hidden', !on);
+  if (on){
+    const cfg = DG_COLORS[S.dgColor];
+    b.textContent = '⚔ Entrar na Masmorra ' + cfg.nome + ' (Nv. ' + S.dgLv + ') · 🔥1';
+    b.disabled = S.tochas <= 0 && S.tutDone;
+  }
+}
+function drawMap(t){
+  const r = $('#mapFrame').getBoundingClientRect();
+  if (!r.width) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (mapCv.width !== Math.round(r.width*dpr) || mapCv.height !== Math.round(r.height*dpr)){
+    mapCv.width = Math.round(r.width*dpr); mapCv.height = Math.round(r.height*dpr);
+  }
+  mctx.setTransform(dpr,0,0,dpr,0,0);
+  mctx.imageSmoothingEnabled = false;
+  const w = r.width, h = r.height;
+  mctx.fillStyle = '#0a0c13'; mctx.fillRect(0, 0, w, h);
+  const grad = mctx.createRadialGradient(w/2, h*0.4, 40, w/2, h*0.4, h*0.8);
+  grad.addColorStop(0, 'rgba(36,29,69,.35)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+  mctx.fillStyle = grad; mctx.fillRect(0, 0, w, h);
+  mctx.font = '700 11px ' + getComputedStyle(document.body).fontFamily;
+  mctx.textAlign = 'center';
+  mctx.fillStyle = '#8b90ad';
+  mctx.fillText('— REGIÃO ' + (mapRegion() + 1) + ' —', w/2, 16);
+  /* trilhas sinuosas */
+  mctx.strokeStyle = '#3a3f5e'; mctx.lineWidth = 2; mctx.setLineDash([5,6]);
+  for (let i = 0; i < MAP_POS.length - 1; i++){
+    const a = mapNodeXY(i, w, h), b = mapNodeXY(i+1, w, h), m = mapCtrl(i, a, b);
+    mctx.beginPath(); mctx.moveTo(a.x, a.y); mctx.quadraticCurveTo(m.x, m.y, b.x, b.y); mctx.stroke();
+  }
+  mctx.setLineDash([]);
+  const front = frontierIdx();
+  /* nós: cidades (prédios do Tiny Swords) e portas de masmorra */
+  for (let i = 0; i < MAP_POS.length; i++){
+    const p = mapNodeXY(i, w, h);
+    if (i % 2 === 0){                                // cidade
+      const c = MAP_CITIES[i/2];
+      const vis = i <= front + 1;                    // a próxima cidade aparece no horizonte
+      mctx.globalAlpha = vis ? 1 : 0.28;
+      mctx.fillStyle = c.cor + '44';
+      mctx.beginPath(); mctx.ellipse(p.x, p.y + 14, 30, 8, 0, 0, Math.PI*2); mctx.fill();
+      const img = DECOR_IMGS[c.b];
+      if (img && img.naturalWidth){
+        const bw = Math.min(66, w*0.16), bh = bw * img.height / img.width;
+        mctx.drawImage(img, p.x - bw/2, p.y + 12 - bh, bw, bh);
+      } else {
+        mctx.font = '26px sans-serif'; mctx.fillText('🏰', p.x, p.y + 6);
+      }
+      mctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
+      mctx.strokeStyle = '#000'; mctx.lineWidth = 3; mctx.lineJoin = 'round';
+      mctx.strokeText(c.nome.toUpperCase(), p.x, p.y + 26);
+      mctx.fillStyle = '#ffe9a8';
+      mctx.fillText(c.nome.toUpperCase(), p.x, p.y + 26);
+      mctx.globalAlpha = 1;
+    } else {                                         // porta de masmorra
+      const lv = doorLevel(i);
+      const atual = lv === S.dgLv, feita = lv < S.dgLv;
+      const cor = atual ? DG_COLORS[S.dgColor].hex : feita ? '#4a5070' : '#23263d';
+      mctx.save();
+      if (atual){ mctx.shadowColor = cor; mctx.shadowBlur = 12 + Math.sin(t/220)*6; }
+      mctx.fillStyle = cor;
+      mctx.beginPath();                              // portal em arco
+      mctx.moveTo(p.x - 8, p.y + 10);
+      mctx.lineTo(p.x - 8, p.y - 4);
+      mctx.arc(p.x, p.y - 4, 8, Math.PI, 0);
+      mctx.lineTo(p.x + 8, p.y + 10);
+      mctx.closePath(); mctx.fill();
+      mctx.fillStyle = '#0a0c13';
+      mctx.beginPath();
+      mctx.moveTo(p.x - 4.5, p.y + 10);
+      mctx.lineTo(p.x - 4.5, p.y - 3);
+      mctx.arc(p.x, p.y - 3, 4.5, Math.PI, 0);
+      mctx.lineTo(p.x + 4.5, p.y + 10);
+      mctx.closePath(); mctx.fill();
+      mctx.restore();
+      mctx.font = '700 9px ' + getComputedStyle(document.body).fontFamily;
+      mctx.strokeStyle = '#000'; mctx.lineWidth = 3;
+      const tag = feita ? '✓ NV.' + lv : 'NV.' + lv;
+      mctx.strokeText(tag, p.x, p.y + 22);
+      mctx.fillStyle = atual ? '#ffe9a8' : '#8b90ad';
+      mctx.fillText(tag, p.x, p.y + 22);
+    }
+  }
+  /* token do herói caminhando pelas trilhas */
+  let tk;
+  if (mapWalk){
+    const from = mapWalk.seg === 0 ? S.mapPos : mapWalk.path[mapWalk.seg - 1];
+    const to = mapWalk.path[mapWalk.seg];
+    const k = Math.min(1, (performance.now() - mapWalk.t0) / mapWalk.ms);
+    const a = mapNodeXY(from, w, h), b = mapNodeXY(to, w, h);
+    const m = mapCtrl(Math.min(from, to), a, b);
+    const u = 1 - k;
+    tk = { x: u*u*a.x + 2*u*k*m.x + k*k*b.x, y: u*u*a.y + 2*u*k*m.y + k*k*b.y };
+    if (k >= 1){
+      if (++mapWalk.seg >= mapWalk.path.length){
+        S.mapPos = mapWalk.path[mapWalk.path.length - 1];
+        mapWalk = null; save(); updateMapEnter();
+      } else mapWalk.t0 = performance.now();
+    }
+  } else {
+    const p = mapNodeXY(S.mapPos, w, h);
+    tk = { x: p.x, y: p.y };
+  }
+  const bob = Math.sin(t/260) * 2;
+  if (UIIMG.avaHero) mctx.drawImage(UIIMG.avaHero, tk.x - 12, tk.y - 30 + bob, 24, 24);
+  else { mctx.font = '18px sans-serif'; mctx.fillText('🧑‍🎤', tk.x, tk.y - 16 + bob); }
+}
+mapCv.addEventListener('pointerup', e => {
+  if (mapWalk) return;
+  const rct = mapCv.getBoundingClientRect();
+  const x = e.clientX - rct.left, y = e.clientY - rct.top;
+  const front = frontierIdx();
+  let hit = -1;
+  MAP_POS.forEach((p, i) => {
+    if (Math.hypot(x - p.x*rct.width, y - p.y*rct.height) < 30) hit = i;
+  });
+  if (hit < 0 || hit > front || hit === S.mapPos) return;   // só nós já alcançados
+  const path = [];
+  const dir = hit > S.mapPos ? 1 : -1;
+  for (let i = S.mapPos + dir; dir > 0 ? i <= hit : i >= hit; i += dir) path.push(i);
+  mapWalk = { path, seg:0, t0:performance.now(), ms:420 };
+  SFX.play('whoosh');
+  updateMapEnter();
+});
+$('#openMap').addEventListener('click', () => {
+  ensureMapPos();
+  MAP_CITIES.forEach(c => loadDecor(c.b));
+  $('#menu').classList.add('hidden');
+  $('#worldmap').classList.remove('hidden');
+  updateMapEnter();
+});
+$('#mapBack').addEventListener('click', () => {
+  $('#worldmap').classList.add('hidden');
+  $('#menu').classList.remove('hidden');
+  renderMenu();
+});
+$('#mapEnter').addEventListener('click', () => {
+  $('#worldmap').classList.add('hidden');
+  $('#menu').classList.remove('hidden');             // se faltar tocha, cai no acampamento
+  startRun();
+});
+
+/* ================================================================
    BATALHA
    ================================================================ */
 const log = m => { $('#logwin').textContent = m; };
@@ -1736,12 +2021,17 @@ async function useFireFury(){
    agir antes do herói; o Chefe é pesado e costuma fechar a rodada.
    A barra de turnos mostra a fila real: quem já agiu fica apagado. ---- */
 let turnActive = null;   // 'player' | objeto do inimigo | null
-const SPD = { warrior:10, pawn:12, archer:9, torch:9, monk:8, tnt:8, lancer:7, boss:6 };
+const SPD = { warrior:10, pawn:12, archer:9, torch:9, monk:8, tnt:8, lancer:7, mino:7, boss:6, kingslime:6, tree:5 };
 let roundOrder = [], roundPtr = 0;
 function rollInitiative(){
   const units = [
     { ref:'player', init: SPD.warrior + rnd(0, 5) },
-    ...enemies.filter(e => !e.dead).map(e => ({ ref:e, init: (SPD[e.kind] || 8) + rnd(0, 5) })),
+    /* 😡 fase 2: o chefe em fúria entra 2–3 vezes na fila, com prioridade extra */
+    ...enemies.filter(e => !e.dead).flatMap(e => {
+      const vezes = e.enraged ? rnd(2, 3) : 1;
+      return Array.from({ length: vezes }, () =>
+        ({ ref:e, init: (SPD[e.kind] || 8) + rnd(0, 5) + (e.enraged ? 3 : 0) }));
+    }),
   ];
   units.sort((a, b) => b.init - a.init);
   return units.map(u => u.ref);
@@ -1784,7 +2074,7 @@ function drawMini(c, unit){
   }
   /* recorta o miolo do frame 0, espelhado p/ inimigos olharem à esquerda */
   const crop = fs*0.5, off = fs*0.25;
-  if (unit !== 'warrior'){ x.translate(40, 0); x.scale(-1, 1); }
+  if (unit !== 'warrior' && !UNITS[unit].faceLeft){ x.translate(40, 0); x.scale(-1, 1); }
   x.drawImage(img, off, off*0.9, crop, crop, 0, 0, 40, 40);
 }
 function renderTurnbar(){
@@ -1794,7 +2084,10 @@ function renderTurnbar(){
   const seq = roundOrder.length ? roundOrder : ['player', ...enemies.filter(e => !e.dead)];
   seq.forEach((ref, i) => {
     const chip = document.createElement('div');
-    const active = turnActive === ref;
+    /* com a fila rolada o destaque é por posição (o chefe em fúria aparece 2-3×) */
+    const active = roundOrder.length
+      ? (turnActive !== null && i === roundPtr - 1)
+      : turnActive === ref;
     const done = roundOrder.length && !active &&
                  (i < roundPtr - 1 || (ref !== 'player' && ref.dead));
     chip.className = 'tchip' + (active ? ' act' : '') + (done ? ' done' : '');
@@ -2001,13 +2294,19 @@ async function startWave(){
   /* inimigos entram correndo pelo lado sorteado */
   enemies.forEach((en, i) => { en.x = enemySide === 'right' ? W + 60 + i*70 : -60 - i*70; en.y = en.homeY; });
   log(wave === 3
-    ? '⚔ O ' + enemies[0].name + ' surge das sombras' + (enemies.length > 1 ? ' com sua escolta!' : '!')
+    ? '⚔ ' + (enemies[0].art || 'O') + ' ' + enemies[0].name + ' surge das sombras' + (enemies.length > 1 ? ' com sua escolta!' : '!')
     : 'Onda ' + wave + '/3 — monstros à vista!');
   setTurn(null);
   player.flip = player.homeX < player.x;             // olha na direção da corrida
   await Promise.all([
     tween(player, player.homeX, player.homeY, 600, 'run'),
-    ...enemies.map(en => tween(en, en.homeX, en.homeY, 700, 'run')),
+    ...enemies.map(en => {
+      if (UNITS[en.unit].anims.grow){                // 🌱 a Árvore não anda: brota no lugar
+        en.x = en.homeX; en.y = en.homeY;
+        return playOnce(en, 'grow');
+      }
+      return tween(en, en.homeX, en.homeY, 700, 'run');
+    }),
   ]);
   player.anim = 'idle'; player.flip = pFlip();
   enemies.forEach(en => { en.anim = 'idle'; en.frame = 0; });
@@ -2490,6 +2789,23 @@ const MOVES = {
     { name:'Bomba Rolante',      hits:[{t:'side', m:0.95}] },
     { name:'Barril Explosivo',   hits:[{t:'parry', m:1.3, curve:'accel'}], lv:5 },
   ],
+  kingslime: [
+    { name:'Esmagada Real',      hits:[{t:'parry'}] },
+    { name:'Salto do Rei',       hits:[{t:'jump', m:0.9}] },
+    { name:'Onda Gosmenta',      hits:[{t:'side', m:0.9}] },
+    { name:'Fúria Gelatinosa',   hits:[{t:'parry', m:0.8}, {t:'side', m:0.8}], lv:7 },
+  ],
+  tree: [
+    { name:'Chicote de Raiz',    hits:[{t:'parry'}] },
+    { name:'Raízes Rasteiras',   hits:[{t:'jump', m:0.95}] },
+    { name:'Galhada Giratória',  hits:[{t:'side', m:0.9}] },
+    { name:'Ira da Floresta',    hits:[{t:'parry', m:0.85}, {t:'jump', m:0.8}], lv:7 },
+  ],
+  mino: [
+    { name:'Machadada Brutal',   hits:[{t:'parry', m:0.9}] },
+    { name:'Investida do Touro', hits:[{t:'side', m:0.85}] },
+    { name:'Giro do Machado',    hits:[{t:'jump', m:0.9}, {t:'parry', m:0.8}], lv:6 },
+  ],
 };
 function pickMove(en){
   const pool = MOVES[en.kind].filter(mv => !mv.lv || S.dgLv >= mv.lv);
@@ -2595,15 +2911,21 @@ async function monkBolt(en){
 
 /* ---- turno do monstro: avança → combo de QTEs → golpes ---- */
 async function enemyAttack(en){
-  if (en.kind === 'boss' && S.dgLv >= 5 && en.shield < SHIELD_MAX && Math.random() < 0.45){
+  if (en.boss && S.dgLv >= 5 && en.shield < SHIELD_MAX && Math.random() < 0.45){
     return bossShield(en);                           // gasta o turno se protegendo
   }
   if (en.kind === 'monk') return monkTurn(en);       // o Monge conjura de longe
-  const ranged = en.kind === 'archer' || en.kind === 'tnt';   // arqueiro e goblin dinamite atiram de longe
+  /* ataques à distância: arqueiro, goblin dinamite e a Árvore (enraizada, não anda) */
+  const ranged = en.kind === 'archer' || en.kind === 'tnt' || en.kind === 'tree';
   const mv = pickMove(en);
-  const combo = mv.hits;
+  /* 😡 fase 2: o chefe emenda um golpe extra (e mais veloz) no fim do combo */
+  let combo = mv.hits;
+  if (en.enraged && combo.length < 4){
+    const last = combo[combo.length - 1];
+    combo = [...combo, { t:last.t, m:(last.m || 1) * 0.85, curve:last.curve }];
+  }
   en.warn = true;
-  showMoveName('⚔ ' + mv.name);
+  showMoveName((en.enraged ? '😡 ' : '⚔ ') + mv.name);
   log(combo.length > 1
     ? '⚠ ' + en.name + ' prepara: ' + mv.name + ' (' + combo.length + ' golpes)!'
     : '⚠ ' + en.name + ' prepara: ' + mv.name + '!');
@@ -2623,8 +2945,9 @@ async function enemyAttack(en){
       log('💫 Exausto, você não consegue reagir ao golpe!');
       await wait(550);
     } else {
-      /* Nv.>5: cada golpe nomeado tem seu próprio ritmo de círculo */
-      const ms = S.dgLv > 5 ? Math.round(QTE_MS * (combo[i].m || 1)) : QTE_MS;
+      /* Nv.>5: cada golpe nomeado tem seu próprio ritmo · 😡 fase 2: 25% mais rápido */
+      const rage = en.enraged ? 0.75 : 1;
+      const ms = Math.round((S.dgLv > 5 ? QTE_MS * (combo[i].m || 1) : QTE_MS) * rage);
       const curve = S.dgLv > 5 ? combo[i].curve : null;
       result = await runQte(type, combo.length > 1 ? (i+1) + '/' + combo.length : '', ms, curve);
     }
@@ -2991,7 +3314,10 @@ async function throwRock(tp){
     slayEnemy(tgt);
     log('💥 ' + tgt.name + ' caiu com uma pedrada! +' + tgt.gold + ' de ouro.');
     if (await processBooms()) return;
-    await waveCleared();
+    if (await waveCleared()) return;
+    if (phase !== 'player' && hp > 0){               // a explosão do goblin deixou a fase presa
+      phase = 'player'; setCmds(true); setTurn('player');
+    }
   }
   tutEvent('rockHit');
 }
