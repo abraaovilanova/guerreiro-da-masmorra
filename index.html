@@ -58,11 +58,18 @@
   #menu > :first-child{margin-top:auto}
   #menu > :last-child{margin-bottom:auto}
   /* ============ MERCADO ============ */
-  #shop{justify-content:flex-start;gap:12px;overflow:hidden}
+  #shop{justify-content:flex-start;gap:12px;overflow-y:auto}
   #shop > :first-child{margin-top:auto}
   #shop > :last-child{margin-bottom:auto}
   #shopGold{display:flex;justify-content:center;gap:8px;font-size:18px;color:var(--gold);font-weight:700}
   #shopBack{text-align:center;font-weight:700;font-size:15px;padding:13px 14px}
+  /* ---- 💎 gemas no mercado ---- */
+  .gemicn{width:26px;height:26px;image-rendering:pixelated}
+  .gembtns{flex:none;display:flex;flex-direction:column;gap:4px}
+  .gembtns .shopbtn{min-width:96px;padding:6px 8px;font-size:12px}
+  .redbtn{background:linear-gradient(180deg,#dc2626,#991b1b);border-color:#f87171}
+  .skinned .shopbtn.redbtn{border-image:var(--ui-btn-red) 47 45 47 45 fill stretch}
+  .gemlocked{opacity:.55}
   #menuRow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   #menuRow button{text-align:center;font-weight:700;font-size:14px;padding:8px 10px}
   #menuRow button small{display:block;font-weight:400;font-size:11px;color:var(--ink-dim);margin-top:2px}
@@ -222,17 +229,17 @@
 
   /* menu flutuante ao lado do herói, estilo Clair Obscur / Metaphor */
   #cmds{
-    position:absolute;z-index:4;min-width:150px;max-width:190px;padding:9px 12px;
+    position:absolute;z-index:4;min-width:112px;max-width:150px;padding:6px 9px;
     background:rgba(22,25,44,.92);backdrop-filter:blur(3px);
     box-shadow:0 10px 30px rgba(0,0,0,.5);
   }
-  #cmdMain,#cmdSpec{display:flex;flex-direction:column;gap:5px}
+  #cmdMain,#cmdSpec,#cmdHab{display:flex;flex-direction:column;gap:3px}
   #cmds button{
-    font-size:14px;padding:7px 10px;background:none;border:none;text-align:left;
+    font-size:12.5px;padding:4px 7px;background:none;border:none;text-align:left;
     position:relative;overflow:hidden;border-radius:8px;
   }
   #cmds button:not(:disabled):active{color:var(--accent)}
-  #cmds .cur{color:var(--accent);margin-right:6px}
+  #cmds .cur{color:var(--accent);margin-right:4px}
   /* barra de carga: segure o comando para ativar */
   #cmds button.hold::after{
     content:"";position:absolute;inset:0;pointer-events:none;
@@ -353,7 +360,7 @@
     <div class="card" id="herocard">
       <canvas id="heroCv" width="220" height="140"></canvas>
       <div class="hname"><img id="menuAva" class="ava" alt=""> GUERREIRO</div>
-      <div class="hsub">Cavaleiro azul do acampamento</div>
+      <div class="hsub" id="heroSub">Cavaleiro azul do acampamento</div>
     </div>
 
     <div class="card">
@@ -406,6 +413,10 @@
         </div>
         <button class="shopbtn" data-buy="mapa">Comprar<small>🪙 30</small></button>
       </div>
+    </div>
+    <div class="card">
+      <div class="label" style="margin-bottom:2px">💎 Gemas — o guerreiro usa 1 por vez</div>
+      <div id="gemList"></div>
     </div>
     <button id="shopBack">↩ Voltar ao acampamento</button>
   </div>
@@ -556,6 +567,8 @@ const UIA = {
   icoMeat: 'Icons/Icon_04.png',
   icoSword:'Icons/Icon_05.png',
   icoShield:'Icons/Icon_06.png',
+  gemBlue: 'Buttons/TinyRoundBlueButton.png',   // 💎 gema Nv.1
+  gemRed:  'Buttons/TinyRoundRedButton.png',    // 💎 gema Nv.2 (mais forte)
 };
 const UIIMG = {};
 const uiPromise = Promise.allSettled(Object.entries(UIA).map(([k, f]) => new Promise((res, rej) => {
@@ -836,7 +849,7 @@ document.addEventListener('pointerdown', () => SFX.ensure(), { once:true });
 
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
-const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'' };
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'', gemas:{un:[],own:{},eq:[]} };
 let S = structuredClone(DEFAULTS);
 try {
   const d = JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -847,6 +860,8 @@ try {
   }
 } catch(e){}
 if (!DG_COLORS[S.dgColor]) S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];
+if (!S.gemas || !Array.isArray(S.gemas.un)) S.gemas = structuredClone(DEFAULTS.gemas);   // saves antigos
+if (S.gemas.eq.length > 1) S.gemas.eq = S.gemas.eq.slice(0, 1);   // regra nova: só 1 gema equipada
 
 /* ---------- tochas: a "chave" da masmorra (1 por entrada, recarga por tempo) ---------- */
 const TORCH_MAX = 20, TORCH_REGEN_MS = 10 * 60 * 1000;   // 10 min por tocha faltante
@@ -878,7 +893,7 @@ let exhausted = false;              // após um especial, o herói perde a próx
 let stagger = 0;                    // 0–100 exaustão do herói: enche ao sofrer dano
 let guardBroken = false;            // exaustão estourada: sem parry/pulo até agir de novo
 let fireFury = false;               // 🔥 Fúria do Fogo: ataques ×1.2 + fúria cheia até usar especial
-let rockUsed = false;               // 🪨 pedrada: 1 por rodada, arrastando do herói
+let rocksLeft = 1;                  // 🪨 pedradas restantes na rodada (a Gema do Arremesso dá extras)
 let rockDrag = null, rockFly = null;
 const atkMul = () => fireFury ? 1.2 : 1;
 
@@ -909,6 +924,27 @@ const UPS = {
 const upCost = k => Math.round(UPS[k].base * Math.pow(1.55, S.lv[k]));
 const SHOP = { tocha:{cost:40}, mapa:{cost:30} };
 
+/* ---------- 💎 GEMAS: liberadas por pergaminhos dos chefes das masmorras 1, 5, 10, 15.
+   Toda gema nasce no Nv.1 (azul) e evolui no Mercado até o Nv.5 (vermelha),
+   com custo que cresce exponencialmente. O guerreiro equipa só 1 por vez. ---------- */
+const GEM_ORDER = ['pedra', 'vital', 'eco', 'perfura'];
+const GEM_MAX = 5;
+const GEMS = {
+  pedra:   { nome:'Gema do Arremesso', ico:'🪨', cost1:250,
+             desc: lv => (1 + lv) + ' pedradas grátis por rodada' },
+  vital:   { nome:'Gema Vital',        ico:'💗', cost1:300,
+             desc: lv => 'Parry perfeito cura ' + (3 + 2*lv) + '% do HP máximo' },
+  eco:     { nome:'Gema do Eco',       ico:'⚔️', cost1:400,
+             desc: lv => 'O ataque simples golpeia 2× (eco com ' + Math.round(37.5 + 12.5*lv) + '% do dano)' },
+  perfura: { nome:'Gema Perfurante',   ico:'💠', cost1:400,
+             desc: lv => (30 + 10*lv) + '% do dano atravessa os escudos arcanos' },
+};
+/* evoluir do nível lv → lv+1: ×5 por nível (chegar ao Nv.5 custa 624.000 🪙 no total, mais de 2^19) */
+const gemUpCost = lv => 4000 * Math.pow(5, lv - 1);
+/* nível da gema em efeito: 0 se não for a equipada (o guerreiro usa 1 por vez) */
+const gemLv = id => S.gemas.eq.includes(id) ? (S.gemas.own[id] || 0) : 0;
+const rocksPerRound = () => 1 + gemLv('pedra');   // Nv.1 → 2 pedras … Nv.5 → 6 pedras
+
 /* ---------- monstros: 3 comuns, 3 comuns+fortes, Boss ---------- */
 const COMMONS = [
   { unit:'pawn',   name:'Servo',    hp:30, atk:9,  def:2 },
@@ -938,6 +974,19 @@ function makeWave(w){
   if (w === 3){
     const b = mk(BOSS_DEF, 0, 1);
     b.name = DG_COLORS[S.dgColor].boss;
+    if (L % 5 === 0){
+      /* masmorras 5, 10, 15…: o chefe do pergaminho nunca luta sozinho —
+         vem com dois guardas menores (mais fracos que os comuns) */
+      const guards = [0, 1].map(i => {
+        const g = mk(COMMONS[rnd(0, COMMONS.length-1)], i, 2);
+        g.hp = g.maxhp = Math.round(g.maxhp * 0.7);
+        g.atk = Math.round(g.atk * 0.8);
+        g.gold = Math.round(g.gold * 0.8);
+        g.escort = true;
+        return g;
+      });
+      return [b, ...guards];
+    }
     return [b];
   }
   return [0,1,2].map(i => mk(COMMONS[rnd(0, COMMONS.length-1)], i, 3));
@@ -1065,7 +1114,7 @@ function layoutActors(){
     ? [{x:W*0.70, y:H*0.30}]
     : [{x:W*0.66, y:H*0.25}, {x:W*0.83, y:H*0.38}, {x:W*0.56, y:H*0.46}];
   enemies.forEach((en, i) => {
-    en.size = en.kind === 'boss' ? base*1.7 : base;
+    en.size = en.kind === 'boss' ? base*1.7 : en.escort ? base*0.85 : base;
     en.homeX = mirrorX(slots[i % slots.length].x);
     en.homeY = slots[i % slots.length].y;
     en.flip = eFlip();
@@ -1184,10 +1233,10 @@ function drawActor(a, t){
       ctx.fillText('💫 sem defesa!', a.x, sy);
     }
     /* pedrada disponível: 🪨 pulsando ao lado do herói */
-    if (phase === 'player' && !rockUsed){
+    if (phase === 'player' && rocksLeft > 0){
       ctx.globalAlpha = 0.6 + Math.sin(t/250)*0.4;
       ctx.font = '15px sans-serif';
-      ctx.fillText('🪨', a.x - bw/2 - 14, by + 4);
+      ctx.fillText(rocksLeft > 1 ? '🪨×' + rocksLeft : '🪨', a.x - bw/2 - 14, by + 4);
       ctx.globalAlpha = 1;
     }
   }
@@ -1335,11 +1384,13 @@ function renderMenu(){
   $('#nTocha').textContent = S.tochas;
   $('#nMapa').textContent = S.mapas;
   $('#bestTag').textContent = 'Masmorras conquistadas: ' + S.wins;
+  const eqGems = S.gemas.eq.map(id => GEMS[id].ico + ' ' + GEMS[id].nome + ' Nv.' + (S.gemas.own[id] || 1));
+  $('#heroSub').textContent = eqGems.length ? eqGems.join(' · ') : 'Cavaleiro azul do acampamento';
   document.querySelectorAll('.upbtn').forEach(b => {
     b.querySelector('small .num').textContent = upCost(b.dataset.up);
     b.disabled = S.gold < upCost(b.dataset.up);
   });
-  document.querySelectorAll('.shopbtn').forEach(b => {
+  document.querySelectorAll('.shopbtn[data-buy]').forEach(b => {
     b.disabled = S.gold < SHOP[b.dataset.buy].cost ||
                  (b.dataset.buy === 'tocha' && S.tochas >= TORCH_MAX);
   });
@@ -1381,8 +1432,68 @@ $('#chestBtn').addEventListener('click', async () => {
 function renderShop(){
   regenTorches();
   $('#shopGold').textContent = '🪙 ' + S.gold + ' · 🔥 ' + S.tochas + '/' + TORCH_MAX;
+  renderGems();
   renderMenu();                                      // mantém contadores/botões em dia
 }
+/* ---- 💎 vitrine de gemas: bloqueada (📜), à venda (Nv.1) e evolução até o Nv.5.
+   Ícone azul nos níveis 1–2; vermelho do Nv.3 em diante (a versão mais forte). ---- */
+function gemIconHTML(lv){
+  const img = lv >= 3 ? UIIMG.gemRed : UIIMG.gemBlue;
+  return img ? '<img class="gemicn" src="' + img.src + '" alt="gema">' : '💎';
+}
+function renderGems(){
+  const nextMilestone = S.dgLv <= 1 ? 1 : Math.ceil(S.dgLv / 5) * 5;
+  let lockedIdx = 0;
+  $('#gemList').innerHTML = GEM_ORDER.map(id => {
+    const g = GEMS[id];
+    if (!S.gemas.un.includes(id)){
+      /* marcos dos pergaminhos: masmorra 1, depois múltiplos de 5 */
+      const lvHint = lockedIdx === 0 ? nextMilestone
+        : (nextMilestone === 1 ? 5 * lockedIdx : nextMilestone + 5 * lockedIdx);
+      lockedIdx++;
+      return '<div class="uprow gemlocked"><div class="ico">📜</div><div class="info">' +
+        '<div class="label">Gema misteriosa</div>' +
+        '<div class="desc">Pergaminho com o chefe da Masmorra Nv. ' + lvHint + '</div></div></div>';
+    }
+    const own = S.gemas.own[id] || 0;
+    const eq = S.gemas.eq.includes(id);
+    let btns = '';
+    if (!own){
+      btns = '<button class="shopbtn" data-gem="' + id + '" data-gact="buy1"' +
+             (S.gold < g.cost1 ? ' disabled' : '') + '>Comprar<small>🪙 ' + g.cost1 + '</small></button>';
+    } else {
+      btns = '<button class="shopbtn" data-gem="' + id + '" data-gact="equip">' +
+             (eq ? '✅ Equipada' : 'Equipar') + '</button>';
+      if (own < GEM_MAX)
+        btns += '<button class="shopbtn redbtn" data-gem="' + id + '" data-gact="up"' +
+                (S.gold < gemUpCost(own) ? ' disabled' : '') + '>Nv. ' + (own + 1) +
+                '<small>🪙 ' + gemUpCost(own) + '</small></button>';
+    }
+    return '<div class="uprow"><div class="ico">' + (own ? gemIconHTML(own) : '📜') + '</div><div class="info">' +
+      '<div class="label">' + g.ico + ' ' + g.nome + (own ? ' — Nv.' + own + '/' + GEM_MAX : '') + '</div>' +
+      '<div class="desc">' + g.desc(Math.max(1, own)) + '</div></div>' +
+      '<div class="gembtns">' + btns + '</div></div>';
+  }).join('');
+}
+$('#gemList').addEventListener('click', e => {
+  const b = e.target.closest('button[data-gem]');
+  if (!b || b.disabled) return;
+  const id = b.dataset.gem, g = GEMS[id], act = b.dataset.gact;
+  if (act === 'buy1' && !S.gemas.own[id] && S.gold >= g.cost1){
+    S.gold -= g.cost1;
+    S.gemas.own[id] = 1;
+    if (!S.gemas.eq.length) S.gemas.eq = [id];        // equipa direto se não houver outra
+    SFX.play('coin');
+  } else if (act === 'up' && S.gemas.own[id] && S.gemas.own[id] < GEM_MAX && S.gold >= gemUpCost(S.gemas.own[id])){
+    S.gold -= gemUpCost(S.gemas.own[id]);
+    S.gemas.own[id]++;
+    SFX.play('magic');
+  } else if (act === 'equip'){
+    S.gemas.eq = S.gemas.eq.includes(id) ? [] : [id];  // 1 por vez: equipar troca a atual
+    SFX.play('potion');
+  }
+  save(); renderShop();
+});
 $('#openShop').addEventListener('click', () => {
   $('#menu').classList.add('hidden');
   $('#shop').classList.remove('hidden');
@@ -1404,7 +1515,7 @@ document.querySelectorAll('.upbtn').forEach(b => b.addEventListener('click', () 
   S.gold -= upCost(k); UPS[k].apply(); S.lv[k]++;
   save(); renderMenu();
 }));
-document.querySelectorAll('.shopbtn').forEach(b => b.addEventListener('click', () => {
+document.querySelectorAll('.shopbtn[data-buy]').forEach(b => b.addEventListener('click', () => {
   const k = b.dataset.buy;
   if (S.gold < SHOP[k].cost) return;
   S.gold -= SHOP[k].cost;
@@ -1651,7 +1762,7 @@ async function tutDummyAttack(type){
 async function startTutorial(){
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
   stagger = 0; guardBroken = false; fireFury = false;
-  rockUsed = true; rockDrag = null; rockFly = null;
+  rocksLeft = 0; rockDrag = null; rockFly = null;
   player = makePlayer();
   enemies = [];
   $('#menu').classList.add('hidden');
@@ -1678,7 +1789,7 @@ async function startTutorial(){
 
   /* 1 — pedrada */
   tutHint('🪨 Toque no <b>GUERREIRO</b> e arraste até o boneco para jogar uma pedra!');
-  phase = 'player'; setTurn('player'); rockUsed = false;
+  phase = 'player'; setTurn('player'); rocksLeft = 1;
   await tutWait(['rockHit']);
   tutHide();
   await tutMsg('🎯 Boa pedrada! Ela é <b>grátis 1× por rodada</b>: causa 20% do seu ataque e sempre quebra 1 escudo.');
@@ -1722,7 +1833,7 @@ async function startTutorial(){
     await tutMsg('☄️ Especiais gastam a fúria e deixam você <b>exausto</b> por 1 rodada (no treino, deixamos passar 😉).');
     tutHint('💥 Termine o serviço: derrote o Boneco de Treino!');
     while (aliveIdx().length){
-      phase = 'player'; rockUsed = false; setCmds(true); setTurn('player');
+      phase = 'player'; rocksLeft = 1; setCmds(true); setTurn('player');
       await tutWait(['playerActed', 'cleared']);
       exhausted = false;
     }
@@ -1746,7 +1857,7 @@ async function startRun(){
   if (S.entries % 5 === 0) await ADS.showInterstitial();
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
   stagger = 0; guardBroken = false; fireFury = false;
-  rockUsed = false; rockDrag = null; rockFly = null;
+  rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
   player = makePlayer();
   enemies = [];
   $('#menu').classList.add('hidden');
@@ -1770,7 +1881,9 @@ async function startWave(){
   renderHUD();
   /* inimigos entram correndo pelo lado sorteado */
   enemies.forEach((en, i) => { en.x = enemySide === 'right' ? W + 60 + i*70 : -60 - i*70; en.y = en.homeY; });
-  log(wave === 3 ? '⚔ O ' + enemies[0].name + ' surge das sombras!' : 'Onda ' + wave + '/3 — monstros à vista!');
+  log(wave === 3
+    ? '⚔ O ' + enemies[0].name + ' surge das sombras' + (enemies.length > 1 ? ' com sua escolta!' : '!')
+    : 'Onda ' + wave + '/3 — monstros à vista!');
   setTurn(null);
   player.flip = player.homeX < player.x;             // olha na direção da corrida
   await Promise.all([
@@ -1809,7 +1922,7 @@ function beginPlayerTurn(){
   }
   phase = 'player';
   guardBroken = false;                               // recuperou a guarda ao voltar a agir
-  rockUsed = false;                                  // nova rodada: pedrada disponível
+  rocksLeft = rocksPerRound();                       // nova rodada: pedradas disponíveis
   const alive = aliveIdx();
   if (!alive.includes(targetIdx)) targetIdx = alive[0];
   closeSpec();
@@ -1838,33 +1951,49 @@ function breakShield(en, n, big){
   addFloat(en, '🛡️ -' + broke, '#60a5fa', big);
   return broke;
 }
+/* 💠 Gema Perfurante: parte do dano fere o monstro mesmo com escudos */
+function pierceDamage(en, rawDmg){
+  const g = gemLv('perfura');
+  if (!g || en.dead) return;
+  const pd = Math.max(1, Math.round(rawDmg * (0.3 + 0.1 * g)));   // Nv.1 40% … Nv.5 80%
+  en.hp = Math.max(0, en.hp - pd);
+  addFloat(en, pd + ' 💠', '#60d6ff');
+}
 
 async function playerAttack(){
   if (phase !== 'player') return;
   phase = 'busy'; setCmds(false);
   const en = enemies[targetIdx];
-  /* corre até o alvo, golpeia, volta */
+  /* corre até o alvo, golpeia (2× com a Gema do Eco), volta */
   await tween(player, frontOfEnemy(en), en.y, 340, 'run');
-  const hit = playOnce(player, 'attack');
-  await wait(200);                                   // impacto no meio do golpe
-  const crit = Math.random() < 0.15;
-  if (en.shield > 0){
-    const broke = breakShield(en, crit ? 2 : 1, crit);
-    log((crit ? 'CRÍTICO! ' : '') + 'Você quebrou ' + broke + (broke > 1 ? ' escudos' : ' escudo') +
-        ' de ' + en.name + '! Restam ' + en.shield + '.');
-  } else {
-    let dmg = Math.max(1, Math.round(S.atk * atkMul()) - en.def + rnd(-2,3));
-    if (crit) dmg *= 2;
-    en.hp = Math.max(0, en.hp - dmg);
-    en.flash = 1;
-    SFX.play(crit ? 'crit' : 'hit');
-    addFloat(en, dmg, crit ? '#fbbf24' : '#fff', crit);
-    log(crit ? 'CRÍTICO! ' + dmg + ' de dano em ' + en.name + '!' : dmg + ' de dano em ' + en.name + '.');
-  }
-  await hit;
-  if (en.hp <= 0){
-    slayEnemy(en);
-    log('💥 ' + en.name + ' caiu! +' + en.gold + ' de ouro.');
+  const strikes = gemLv('eco') ? 2 : 1;
+  const echoMul = 0.375 + 0.125 * gemLv('eco');    // Nv.1 50% … Nv.5 100%
+  for (let i = 0; i < strikes && !en.dead; i++){
+    const eco = i > 0;
+    const hit = playOnce(player, 'attack');
+    await wait(200);                                 // impacto no meio do golpe
+    const crit = Math.random() < 0.15;
+    const mul = (eco ? echoMul : 1) * atkMul();
+    if (en.shield > 0){
+      const broke = breakShield(en, crit ? 2 : 1, crit);
+      log((eco ? '💎 Eco! ' : '') + (crit ? 'CRÍTICO! ' : '') + 'Você quebrou ' + broke +
+          (broke > 1 ? ' escudos' : ' escudo') + ' de ' + en.name + '! Restam ' + en.shield + '.');
+      pierceDamage(en, S.atk * mul - en.def);
+    } else {
+      let dmg = Math.max(1, Math.round(S.atk * mul) - en.def + rnd(-2,3));
+      if (crit) dmg *= 2;
+      en.hp = Math.max(0, en.hp - dmg);
+      en.flash = 1;
+      SFX.play(crit ? 'crit' : 'hit');
+      addFloat(en, dmg, crit ? '#fbbf24' : '#fff', crit);
+      log((eco ? '💎 Eco! ' : '') + (crit ? 'CRÍTICO! ' : '') + dmg + ' de dano em ' + en.name + '.');
+    }
+    await hit;
+    if (en.hp <= 0){
+      slayEnemy(en);
+      log('💥 ' + en.name + ' caiu! +' + en.gold + ' de ouro.');
+    }
+    if (i < strikes - 1 && !en.dead) await wait(150);
   }
   await playerReturn();
   if (await waveCleared()) return;
@@ -1902,7 +2031,12 @@ async function playerSpecial(){
   SFX.play('crit');
   for (const en of targets){
     enemyStagger(en, sp.m);
-    if (en.shield > 0){ breakShield(en, 2, true); continue; }   // golpe forte quebra 2 escudos
+    if (en.shield > 0){                              // golpe forte quebra 2 escudos
+      breakShield(en, 2, true);
+      pierceDamage(en, S.atk * sp.m * atkMul() - en.def);
+      if (en.hp <= 0) slayEnemy(en);
+      continue;
+    }
     const dmg = Math.max(1, Math.round(S.atk * sp.m * atkMul()) - en.def + rnd(-1,3));
     en.hp = Math.max(0, en.hp - dmg);
     en.flash = 1;
@@ -1984,6 +2118,7 @@ async function playerSeq(){
   enemyStagger(en, mult);
   if (en.shield > 0){
     const broke = breakShield(en, mult >= 2 ? 3 : mult >= 1.5 ? 2 : 1, mult >= 1.5);
+    pierceDamage(en, S.atk * mult * atkMul() - en.def);
     fireFury = false;                                // especial usado: fim da Fúria do Fogo
     log('☠ Sequência Mortal ×' + mult + '! Estilhaçou ' + broke +
         (broke > 1 ? ' escudos' : ' escudo') + ' de ' + en.name + '! Restam ' + en.shield + '.');
@@ -2062,6 +2197,7 @@ async function playerCombo(){
       enemyStagger(en, MULTS[i]);
       if (en.shield > 0){
         breakShield(en, 1, true);
+        pierceDamage(en, S.atk * MULTS[i] * atkMul() - en.def);
         log('🗡 Golpe ' + (i+1) + '/' + n + ' quebrou um escudo! Restam ' + en.shield + '.');
       } else {
         const dmg = Math.max(1, Math.round(S.atk * MULTS[i] * atkMul()) - en.def + rnd(-1,2));
@@ -2335,8 +2471,10 @@ async function counterAttack(en){
   shakeApp();
   if (en.shield > 0){
     const broke = breakShield(en, 2, true);
+    pierceDamage(en, S.atk * m * atkMul() - en.def);
     log('↩ CONTRA-ATAQUE! Você estilhaçou ' + broke + (broke > 1 ? ' escudos' : ' escudo') +
         ' de ' + en.name + '! Restam ' + en.shield + '.');
+    if (en.hp <= 0) slayEnemy(en);
     await swing;
     return;
   }
@@ -2403,6 +2541,12 @@ function applyHit(en, type, result, atk, inCombo){
     addFloat(player, 'PARRY!', '#fbbf24', true);
     gainFury(10);                                    // parry perfeito também dá fúria
     enemyStagger(en, 1, 15);                         // e cansa o atacante (+15 de exaustão)
+    const gv = gemLv('vital');                       // 💗 Gema Vital: parry perfeito cura HP
+    if (gv && hp < S.maxhp){
+      const heal = Math.max(1, Math.round(S.maxhp * (0.03 + 0.02 * gv)));   // Nv.1 5% … Nv.5 13%
+      hp = Math.min(S.maxhp, hp + heal);
+      addFloat(player, '+' + heal + ' 💗', '#4ade80');
+    }
     log('✨ PERFEITO! Aparou o golpe de ' + en.name + ' (+10 de fúria)!');
     fieldFx('good');
   } else if (result === 'block'){
@@ -2459,12 +2603,23 @@ function tryJump(){
 function victory(){
   phase = 'menu';
   const bonus = 150 + 60*(S.dgLv-1);
+  /* 📜 o chefe da masmorra 1 e os das masmorras 5, 10, 15 derrubam um pergaminho de gema */
+  let scrollMsg = '';
+  if (S.dgLv === 1 || S.dgLv % 5 === 0){
+    const nova = GEM_ORDER.find(id => !S.gemas.un.includes(id));
+    if (nova){
+      S.gemas.un.push(nova);
+      scrollMsg = '<br>📜 O chefe derrubou um <b>Pergaminho de Gema</b>!<br>' +
+                  GEMS[nova].ico + ' <b>' + GEMS[nova].nome + '</b> liberada no Mercado!<br>';
+    }
+  }
   S.gold += bonus; S.wins++; S.dgLv++;
   S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];   // sorteia a cor da próxima
   save();
   const nx = DG_COLORS[S.dgColor];
   showOverlay('🏆 MASMORRA CONQUISTADA!',
     'As 3 ondas caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
+    scrollMsg +
     'A próxima é a Masmorra <b style="color:' + nx.hex + '">' + nx.nome + '</b> (Nv. ' + S.dgLv + ')…');
   offerDoubleReward(bonus);
 }
@@ -2575,7 +2730,7 @@ const canvasPos = e => {
   return { x: e.clientX - r.left, y: e.clientY - r.top };
 };
 async function throwRock(tp){
-  rockUsed = true;
+  rocksLeft--;
   const tgt = enemies.find(en => !en.dead && !en.gone &&
     Math.abs(tp.x - en.x) < en.size*0.45 && Math.abs(tp.y - en.y) < en.size*0.55);
   rockFly = { x: player.x, y: player.y - player.size*0.25, tx: tp.x, ty: tp.y, t0: performance.now(), ms: 280 };
@@ -2585,7 +2740,7 @@ async function throwRock(tp){
   if (!tgt){
     addFloat({ x: tp.x, y: tp.y, size: 40 }, 'ERROU! 🪨', '#8b90ad');
     log('🪨 A pedra passou longe…');
-    if (TUT) rockUsed = false;                       // no treino pode tentar de novo
+    if (TUT) rocksLeft++;                            // no treino pode tentar de novo
     return;
   }
   tgt.flash = 1;
@@ -2612,7 +2767,7 @@ async function throwRock(tp){
 let swipeX = null, swipeY = null;
 $('#field').addEventListener('pointerdown', e => {
   swipeX = e.clientX; swipeY = e.clientY;
-  if (phase === 'player' && !rockUsed && player){
+  if (phase === 'player' && rocksLeft > 0 && player){
     const p = canvasPos(e);
     if (Math.abs(p.x - player.x) < player.size*0.5 && Math.abs(p.y - player.y) < player.size*0.55){
       rockDrag = p;                                  // começou a mirar no herói
