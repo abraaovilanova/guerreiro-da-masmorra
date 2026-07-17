@@ -225,6 +225,7 @@
     opacity:.5;transition:transform .15s, opacity .15s, border-color .15s;
   }
   .tchip.act{border-color:var(--gold);opacity:1;transform:scale(1.12);box-shadow:0 0 10px rgba(251,191,36,.45)}
+  .tchip.done{opacity:.18;filter:grayscale(1)}
   .tchip canvas,.tchip img{width:30px;height:30px;image-rendering:pixelated}
 
   /* menu flutuante ao lado do herói, estilo Clair Obscur / Metaphor */
@@ -462,9 +463,9 @@
           <button id="cHabBack"><span class="cur">▶</span>↩ Voltar</button>
         </div>
         <div id="cmdSpec" class="hidden">
-          <button id="cFury"><span class="cur">▶</span>⚡ Fúria <span class="num" id="furyM">(25%+)</span></button>
-          <button id="cSeq"><span class="cur">▶</span>☠ Seq. Mortal <span class="num">(50%+)</span></button>
-          <button id="cCombo"><span class="cur">▶</span>🗡 Combo <span class="num" id="comboM">(25%+)</span></button>
+          <button id="cFury"><span class="cur">▶</span>⚡ Fúria <span class="num" id="furyM">(⚡1+)</span></button>
+          <button id="cSeq"><span class="cur">▶</span>☠ Seq. Mortal <span class="num">(⚡3+)</span></button>
+          <button id="cCombo"><span class="cur">▶</span>🗡 Combo <span class="num" id="comboM">(⚡1+)</span></button>
           <button id="cBack"><span class="cur">▶</span>↩ Voltar</button>
         </div>
       </div>
@@ -888,7 +889,7 @@ const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } 
 
 /* ---------- estado da run ---------- */
 let hp = S.maxhp, wave = 1, potions = 3;
-let fury = 0;                       // 0–100: enche ao sofrer dano, gasta no golpe especial
+let fury = 0;                       // ⚡ contador 0–5: +1 por defesa/dano sofrido, gasto nos especiais
 let exhausted = false;              // após um especial, o herói perde a próxima rodada
 let stagger = 0;                    // 0–100 exaustão do herói: enche ao sofrer dano
 let guardBroken = false;            // exaustão estourada: sem parry/pulo até agir de novo
@@ -1198,21 +1199,24 @@ function drawActor(a, t){
   ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
   ctx.fillStyle = a.dead ? '#f87171' : '#c9cde4';
-  ctx.fillText(a.dead ? 'K.O.' : (a === player ? a.name + ' ' + hp + '/' + S.maxhp + ' ⚡' + fury + '%' : a.name), a.x, by - 4);
+  ctx.fillText(a.dead ? 'K.O.' : (a === player ? a.name + ' ' + hp + '/' + S.maxhp + ' ⚡' + fury + '/5' : a.name), a.x, by - 4);
   if (!a.dead){
     const pct = Math.max(0, (a === player ? hp/S.maxhp : a.hp/a.maxhp));
     ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by-1, bw+2, 7);
     ctx.fillStyle = pct <= .3 ? '#f87171' : '#4ade80';
     ctx.fillRect(bx, by, bw*pct, 5);
   }
-  /* fúria do herói: barra fina sob o HP, com marcas nos gatilhos de 25% e 50% */
+  /* fúria do herói: 5 pontos (pips) sob o HP — cheia (5) pisca em vermelho */
   if (a === player && !a.dead){
-    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by+7, bw+2, 6);
-    ctx.fillStyle = fury >= 100 ? '#ef4444' : '#f59e0b';
-    ctx.fillRect(bx, by+8, bw*fury/100, 4);
-    ctx.fillStyle = 'rgba(10,12,20,.85)';
-    ctx.fillRect(bx + bw*0.25, by+8, 1, 4);
-    ctx.fillRect(bx + bw*0.50, by+8, 1, 4);
+    const pw = (bw + 2) / 5;
+    for (let i = 0; i < 5; i++){
+      ctx.fillStyle = 'rgba(10,12,20,.85)';
+      ctx.fillRect(bx-1 + i*pw, by+7, pw-2, 6);
+      if (i < fury){
+        ctx.fillStyle = fury >= 5 && Math.floor(t/220) % 2 ? '#ef4444' : '#f59e0b';
+        ctx.fillRect(bx + i*pw, by+8, pw-4, 4);
+      }
+    }
     /* exaustão do herói: cheia + dano de combo = rodada perdida */
     ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by+14, bw+2, 6);
     ctx.fillStyle = stagger >= 100 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
@@ -1555,17 +1559,17 @@ function renderHUD(){
     : 'MASMORRA NV. ' + S.dgLv + ' · ONDA ' + wave + '/3' +
       (wave === 3 ? ' · BOSS' : '') + ' · 🪙 ' + S.gold;
 }
-/* multiplicador do golpe especial conforme a fúria acumulada */
+/* multiplicador do golpe especial conforme os pontos de fúria (0–5) */
 function specialInfo(){
-  if (fury >= 100) return { m:1.5, aoe:true,  tag:'×1.5 TODOS' };
-  if (fury >= 50)  return { m:1.5, aoe:false, tag:'×1.5' };
-  if (fury > 25)   return { m:1.2, aoe:false, tag:'×1.2' };
-  if (fury >= 25)  return { m:1.1, aoe:false, tag:'×1.1' };
+  if (fury >= 5) return { m:1.5, aoe:true,  tag:'×1.5 TODOS' };
+  if (fury >= 3) return { m:1.5, aoe:false, tag:'×1.5' };
+  if (fury >= 2) return { m:1.2, aoe:false, tag:'×1.2' };
+  if (fury >= 1) return { m:1.1, aoe:false, tag:'×1.1' };
   return null;
 }
-function gainFury(n){
+function gainFury(n = 1){
   if (curse && curse.type === 'nofury') return;      // fúria selada pelo Monge
-  fury = Math.min(100, fury + n); renderHUD();
+  fury = Math.min(5, fury + n); renderHUD();
 }
 /* ---- exaustão: barra que enche e derruba quem estourar por uma rodada ----
    Inimigo: +25% a cada golpe ESPECIAL sofrido; cheia + golpe ×1.5+ → perde a rodada.
@@ -1611,18 +1615,18 @@ function setCmds(on){
   $('#arrR').classList.toggle('hidden', !on);
   if (on) placeCmds();
   $('#cAtk').disabled = !on;
-  $('#cSpec').disabled = !on || fury < 25;    // habilita se algum especial está disponível
+  $('#cSpec').disabled = !on || fury < 1;     // habilita se algum especial está disponível
   $('#cPot').disabled = !on || potions <= 0 || hp >= S.maxhp;
   $('#cRun').disabled = !on || S.mapas <= 0;
-  $('#cFury').disabled = !on || fury < 25;
-  $('#cSeq').disabled = !on || fury < 50;
-  $('#cCombo').disabled = !on || fury < 25;
+  $('#cFury').disabled = !on || fury < 1;
+  $('#cSeq').disabled = !on || fury < 3;
+  $('#cCombo').disabled = !on || fury < 1;
   $('#cHab').disabled = !on;
   $('#cFire').disabled = !on || fireFury;
   $('#fireTag').textContent = fireFury ? '(ativa)' : '';
   const sp = specialInfo();
-  $('#furyM').textContent = sp ? sp.tag : '(25%+)';
-  $('#comboM').textContent = fury >= 75 ? '4 golpes' : fury >= 50 ? '3 golpes' : fury >= 25 ? '2 golpes' : '(25%+)';
+  $('#furyM').textContent = sp ? sp.tag : '(⚡1+)';
+  $('#comboM').textContent = fury >= 4 ? '4 golpes' : fury >= 3 ? '3 golpes' : fury >= 1 ? '2 golpes' : '(⚡1+)';
 }
 /* submenu de ataques especiais (troca o conteúdo da caixa de comandos) */
 function openSpec(){
@@ -1647,19 +1651,60 @@ async function useFireFury(){
   if (phase !== 'player' || fireFury) return;
   phase = 'busy'; closeSpec(); setCmds(false); setTurn('player');
   fireFury = true;
-  fury = 100;
+  fury = 5;
   renderHUD();
   SFX.play('magic');
   showMoveName('🔥 Fúria do Fogo');
   player.flash = 1;
   addFloat(player, '🔥 FÚRIA DO FOGO!', '#f59e0b', true);
-  log('🔥 Fúria do Fogo! Ataques ×1.2 e fúria cheia até usar um especial — você passa a vez.');
+  log('🔥 Fúria do Fogo! Ataques ×1.2 e fúria no máximo (⚡5) até usar um especial — você passa a vez.');
   await wait(1000);
   if (aliveIdx().length && hp > 0) enemyPhase();
 }
 
-/* ---- ordem do turno: herói + inimigos vivos, destaque em quem age ---- */
+/* ---- ordem do turno: INICIATIVA POR VELOCIDADE ----
+   Cada unidade tem uma velocidade; a cada rodada rola-se velocidade + sorte
+   (0–5) e a fila é ordenada do maior para o menor. O Servo é ligeiro e pode
+   agir antes do herói; o Chefe é pesado e costuma fechar a rodada.
+   A barra de turnos mostra a fila real: quem já agiu fica apagado. ---- */
 let turnActive = null;   // 'player' | objeto do inimigo | null
+const SPD = { warrior:10, pawn:12, archer:9, monk:8, lancer:7, boss:6 };
+let roundOrder = [], roundPtr = 0;
+function rollInitiative(){
+  const units = [
+    { ref:'player', init: SPD.warrior + rnd(0, 5) },
+    ...enemies.filter(e => !e.dead).map(e => ({ ref:e, init: (SPD[e.kind] || 8) + rnd(0, 5) })),
+  ];
+  units.sort((a, b) => b.init - a.init);
+  return units.map(u => u.ref);
+}
+function startRound(){
+  roundOrder = rollInitiative();
+  roundPtr = 0;
+  renderTurnbar();
+  nextTurn();
+}
+async function nextTurn(){
+  if (TUT) return;                                   // no treino, o tutorial controla os turnos
+  if (hp <= 0) return defeat();
+  if (aliveIdx().length === 0) return void waveCleared();
+  if (roundPtr >= roundOrder.length) return startRound();   // fila esgotada: nova rodada
+  const who = roundOrder[roundPtr++];
+  if (who === 'player') return beginPlayerTurn();
+  if (who.dead) return nextTurn();                   // caiu antes de agir
+  phase = 'busy'; setCmds(false);
+  setTurn(who);
+  if (who.exhausted){                                // derrubado pela exaustão: perde a vez
+    who.exhausted = false;
+    addFloat(who, 'EXAUSTO…', '#60d6ff', true);
+    log('💫 ' + who.name + ' está exausto e não consegue agir!');
+    await wait(900);
+    return nextTurn();
+  }
+  await enemyAttack(who);
+  await wait(250);
+  nextTurn();
+}
 function drawMini(c, unit){
   const x = c.getContext('2d');
   x.imageSmoothingEnabled = false;
@@ -1677,23 +1722,26 @@ function drawMini(c, unit){
 function renderTurnbar(){
   const list = $('#turnlist');
   list.innerHTML = '';
-  const seq = [{ ref:'player' }, ...enemies.filter(e => !e.dead)];
-  for (const it of seq){
+  /* com iniciativa rolada mostra a fila da rodada; senão (treino) a lista simples */
+  const seq = roundOrder.length ? roundOrder : ['player', ...enemies.filter(e => !e.dead)];
+  seq.forEach((ref, i) => {
     const chip = document.createElement('div');
-    const active = it.ref === 'player' ? turnActive === 'player' : turnActive === it;
-    chip.className = 'tchip' + (active ? ' act' : '');
-    if (it.ref === 'player' && UIIMG.avaHero){
+    const active = turnActive === ref;
+    const done = roundOrder.length && !active &&
+                 (i < roundPtr - 1 || (ref !== 'player' && ref.dead));
+    chip.className = 'tchip' + (active ? ' act' : '') + (done ? ' done' : '');
+    if (ref === 'player' && UIIMG.avaHero){
       const im = document.createElement('img');
       im.src = UIIMG.avaHero.src; im.alt = 'Guerreiro';
       chip.appendChild(im);
     } else {
       const c = document.createElement('canvas');
       c.width = 40; c.height = 40;
-      drawMini(c, it.ref === 'player' ? 'warrior' : it.unit);
+      drawMini(c, ref === 'player' ? 'warrior' : ref.unit);
       chip.appendChild(c);
     }
     list.appendChild(chip);
-  }
+  });
 }
 function setTurn(who){ turnActive = who; renderTurnbar(); }
 const aliveIdx = () => enemies.map((e,i) => e.dead ? -1 : i).filter(i => i >= 0);
@@ -1763,6 +1811,7 @@ async function startTutorial(){
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
   stagger = 0; guardBroken = false; fireFury = false;
   rocksLeft = 0; rockDrag = null; rockFly = null;
+  roundOrder = []; roundPtr = 0;                     // treino não usa a fila de iniciativa
   player = makePlayer();
   enemies = [];
   $('#menu').classList.add('hidden');
@@ -1808,7 +1857,7 @@ async function startTutorial(){
     r = await tutDummyAttack('parry');
     if (r !== 'perfect') await tutMsg('Quase! Espere o círculo chegar no <b>final</b> (depois do som da moeda 🪙) e toque. Vamos de novo!');
   }
-  await tutMsg('✨ <b>PARRY PERFEITO!</b> Nenhum dano, +10 de fúria e o boneco se cansou.');
+  await tutMsg('✨ <b>PARRY PERFEITO!</b> Nenhum dano, +1 ⚡ de fúria e o boneco se cansou.');
 
   /* 4 — pulo */
   await tutMsg('🦘 Golpes <b>rasteiros</b> (círculo amarelo ⬆️) não podem ser aparados:<br><b>ARRASTE PARA CIMA</b> para saltar sobre eles!');
@@ -1820,8 +1869,8 @@ async function startTutorial(){
   await tutMsg('🦘 Esquiva perfeita! Defender bem também enche sua <b>fúria</b>.');
 
   /* 5 — ataque especial */
-  fury = Math.max(fury, 60); renderHUD();
-  await tutMsg('⚡ Sua barra de <b>FÚRIA</b> (laranja) encheu!<br>Abra "✨ Ataque especial" e use um golpe — quanto mais fúria, mais forte ele sai.');
+  fury = Math.max(fury, 3); renderHUD();
+  await tutMsg('⚡ Você acumulou pontos de <b>FÚRIA</b> (os pips laranja, de 0 a 5)!<br>Abra "✨ Ataque especial" e use um golpe — quanto mais pontos, mais forte ele sai.');
   tutHint('✨ Abra "Ataque especial" e SEGURE um golpe!');
   phase = 'player'; tutCmds(['cSpec']); setTurn('player');
   await tutWait(['playerActed', 'cleared']);
@@ -1892,7 +1941,7 @@ async function startWave(){
   ]);
   player.anim = 'idle'; player.flip = pFlip();
   enemies.forEach(en => { en.anim = 'idle'; en.frame = 0; });
-  beginPlayerTurn();
+  startRound();                                      // rola a iniciativa da primeira rodada
 }
 
 function beginPlayerTurn(){
@@ -2016,7 +2065,7 @@ async function waveCleared(){
 
 /* ---- golpe especial FÚRIA: consome toda a fúria acumulada ---- */
 async function playerSpecial(){
-  if (phase !== 'player' || fury < 25) return;
+  if (phase !== 'player' || fury < 1) return;
   const sp = specialInfo();
   phase = 'busy'; closeSpec(); setCmds(false);
   fury = 0; exhausted = true;                        // custo: perde a próxima rodada
@@ -2095,7 +2144,7 @@ function runSeqBar(){
 }
 
 async function playerSeq(){
-  if (phase !== 'player' || fury < 50) return;
+  if (phase !== 'player' || fury < 3) return;
   phase = 'seq'; closeSpec(); setCmds(false); setTurn('player');
   fury = 0; exhausted = true;                        // custo: perde a próxima rodada
   renderHUD();
@@ -2178,8 +2227,8 @@ function comboQte(tag){
 }
 
 async function playerCombo(){
-  if (phase !== 'player' || fury < 25) return;
-  const n = fury >= 75 ? 4 : fury >= 50 ? 3 : 2;
+  if (phase !== 'player' || fury < 1) return;
+  const n = fury >= 4 ? 4 : fury >= 3 ? 3 : 2;
   const MULTS = [1.2, 1.4, 1.8, 2];
   phase = 'busy'; closeSpec(); setCmds(false); setTurn('player');
   fury = 0; exhausted = true;                        // custo: perde a próxima rodada
@@ -2249,26 +2298,11 @@ function flee(){
   showOverlay('🗺️ FUGA!', 'Você usou um mapa e escapou pelo túnel secreto.<br>Todo o ouro coletado foi mantido.');
 }
 
-async function enemyPhase(){
+/* fim da ação do herói: devolve o controle à fila de iniciativa */
+function enemyPhase(){
   if (TUT){ tutEvent('playerActed'); return; }       // no treino, o tutorial controla os turnos
   phase = 'busy';
-  for (const en of enemies){
-    if (en.dead) continue;
-    if (hp <= 0) break;
-    setTurn(en);
-    if (en.exhausted){                               // derrubado pela exaustão: perde a rodada
-      en.exhausted = false;
-      addFloat(en, 'EXAUSTO…', '#60d6ff', true);
-      log('💫 ' + en.name + ' está exausto e não consegue agir!');
-      await wait(900);
-      continue;
-    }
-    await enemyAttack(en);
-    await wait(250);
-  }
-  if (hp <= 0) return defeat();
-  if (aliveIdx().length === 0) return void waveCleared();   // contra-ataque limpou a onda
-  beginPlayerTurn();
+  nextTurn();
 }
 
 /* ---- golpes NOMEADOS: cada monstro tem um repertório fixo ----
@@ -2523,8 +2557,8 @@ function applyHit(en, type, result, atk, inCombo){
       dmg = 0;
       SFX.play('whoosh');
       addFloat(player, 'ESQUIVOU!', '#4ade80', true);
-      gainFury(8);                                   // esquiva também gera fúria
-      log('🦘 Você saltou sobre o golpe rasteiro de ' + en.name + ' (+8 de fúria)!');
+      gainFury(1);                                   // esquiva também gera fúria
+      log('🦘 Você saltou sobre o golpe rasteiro de ' + en.name + ' (+1 ⚡)!');
       fieldFx('good');
     } else {
       dmg = atk + rnd(0,3);
@@ -2539,7 +2573,7 @@ function applyHit(en, type, result, atk, inCombo){
     playOnce(player, 'guard');
     SFX.play('parry');
     addFloat(player, 'PARRY!', '#fbbf24', true);
-    gainFury(10);                                    // parry perfeito também dá fúria
+    gainFury(1);                                     // parry perfeito também dá fúria
     enemyStagger(en, 1, 15);                         // e cansa o atacante (+15 de exaustão)
     const gv = gemLv('vital');                       // 💗 Gema Vital: parry perfeito cura HP
     if (gv && hp < S.maxhp){
@@ -2547,15 +2581,15 @@ function applyHit(en, type, result, atk, inCombo){
       hp = Math.min(S.maxhp, hp + heal);
       addFloat(player, '+' + heal + ' 💗', '#4ade80');
     }
-    log('✨ PERFEITO! Aparou o golpe de ' + en.name + ' (+10 de fúria)!');
+    log('✨ PERFEITO! Aparou o golpe de ' + en.name + ' (+1 ⚡)!');
     fieldFx('good');
   } else if (result === 'block'){
     dmg = Math.max(0, atk - S.def);
     playOnce(player, 'guard');
     SFX.play('block');
     addFloat(player, '-' + dmg, '#a78bfa');
-    gainFury(6);                                     // bloqueio também gera fúria
-    log('🛡️ Bloqueado! A defesa absorveu: ' + dmg + ' de dano (+6 de fúria).');
+    gainFury(1);                                     // bloqueio também gera fúria
+    log('🛡️ Bloqueado! A defesa absorveu: ' + dmg + ' de dano (+1 ⚡).');
     fieldFx('good');
   } else {
     dmg = atk + rnd(0,3);
@@ -2565,7 +2599,7 @@ function applyHit(en, type, result, atk, inCombo){
     log(en.name + ' acertou em cheio! ' + dmg + ' de dano.');
     fieldFx('bad'); shakeApp();
   }
-  if (dmg > 0) gainFury(Math.max(6, Math.round(dmg * 160 / S.maxhp)));   // dano sofrido vira fúria
+  if (dmg > 0 && result !== 'block') gainFury(1);    // dano sofrido vira fúria (bloqueio já deu o dele)
   if (dmg > 0) heroStagger(dmg, inCombo);                                // e também exaustão
   hp = Math.max(0, hp - dmg);
   renderHUD();
