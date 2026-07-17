@@ -1127,16 +1127,27 @@ function spawnExplosion(x, y, size){
   if (!img.naturalWidth) return;                     // sheet não carregou: sem efeito
   fxList.push({ img, x, y, size, fs:192, frames:Math.floor(img.width/192), frame:0, acc:0 });
 }
+/* 💀 caveira de morte (Dead.png, 7×2 frames de 128px): surge, quica e afunda */
+const DEAD_IMG = new Image();
+DEAD_IMG.src = (window.EMBED && window.EMBED['fx.Dead.png']) ||
+  'assets/Tiny Swords/Tiny Swords (Update 010)/Factions/Knights/Troops/Dead/Dead.png';
+function spawnSkull(x, y, size){
+  SFX.play('stun');
+  if (!DEAD_IMG.naturalWidth) return;
+  fxList.push({ img:DEAD_IMG, x, y, size, fs:128, cols:7, frames:14, frame:0, acc:0, speed:110 });
+}
 function updateFx(dt){
   fxList = fxList.filter(f => {
     f.acc += dt;
-    while (f.acc >= 70){ f.acc -= 70; f.frame++; }
+    const spd = f.speed || 70;
+    while (f.acc >= spd){ f.acc -= spd; f.frame++; }
     return f.frame < f.frames;
   });
 }
 function drawFx(){
   for (const f of fxList){
-    ctx.drawImage(f.img, f.frame*f.fs, 0, f.fs, f.fs,
+    const cols = f.cols || f.frames;                 // sheets de várias linhas (Dead.png)
+    ctx.drawImage(f.img, (f.frame % cols)*f.fs, Math.floor(f.frame/cols)*f.fs, f.fs, f.fs,
                   f.x - f.size/2, f.y - f.size/2, f.size, f.size);
   }
 }
@@ -2365,11 +2376,12 @@ function slayEnemy(en){
   en.dead = true;
   S.gold += en.gold; save();                         // ouro do abate é seu mesmo morrendo depois
   addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
-  spawnExplosion(en.x, en.y, en.size * 1.5);
-  en.gone = true;                                    // remove o sprite: só a explosão fica
+  if (en.fire) spawnExplosion(en.x, en.y, en.size * 1.5);     // 🔥 goblins explodem
+  else spawnSkull(en.x, en.y + en.size*0.05, en.size * 1.1);  // 💀 os demais deixam a caveira
+  en.gone = true;                                    // remove o sprite: só o efeito fica
   shakeApp();
   renderHUD(); renderTurnbar();
-  if (en.fire && !TUT) pendingBooms.push(en);        // 🔥 goblins explodem ao morrer
+  if (en.fire && !TUT) pendingBooms.push(en);        // 🔥 e detonam a Explosão Final
 }
 
 /* ---- 💥 EXPLOSÃO FINAL dos goblins de fogo: ao morrer, o corpo detona.
