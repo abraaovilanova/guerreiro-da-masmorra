@@ -86,7 +86,25 @@
     display:inline-block;width:24px;height:24px;vertical-align:-5px;
     background-repeat:no-repeat;background-size:144px 144px;image-rendering:pixelated;
   }
-  #menuRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  #menuRow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  /* 🦸 troca de herói no acampamento */
+  #herocard{position:relative}
+  .heroArr{
+    position:absolute;top:50%;translate:0 -50%;z-index:2;width:34px;height:48px;
+    font-size:16px;padding:0;background:rgba(35,39,66,.7);border-radius:9px;
+  }
+  #heroPrev{left:6px} #heroNext{right:6px}
+  #heroDots{display:flex;gap:5px;justify-content:center;margin-top:4px}
+  #heroDots .dot{width:6px;height:6px;border-radius:99px;background:var(--border)}
+  #heroDots .dot.on{background:var(--accent)}
+  #heroDots .dot.lock{background:#2a2e48}
+  /* 🦸 tela de recrutar */
+  #recruit{justify-content:flex-start;gap:10px;overflow-y:auto}
+  #recRow .ico{font-size:22px}
+  .recbtn{flex:none;min-width:96px;text-align:center;font-weight:700;font-size:12px;padding:8px 10px;
+    background:linear-gradient(180deg,#16a34a,#15803d);border-color:#4ade80}
+  .recbtn:disabled{opacity:.4}
+  .recadge{font-size:10px;color:var(--ink-dim)}
   #menuRow button{text-align:center;font-weight:700;font-size:14px;padding:8px 10px}
   #menuRow button small{display:block;font-weight:400;font-size:11px;color:var(--ink-dim);margin-top:2px}
   #chestBtn:not(:disabled) small{color:var(--gold)}
@@ -268,6 +286,39 @@
   }
   #cmds button.hold.holding::after{transform:scaleX(1);transition:transform .9s linear}
 
+  /* ============ 🃏 MAGO ARCANISTA — mão de cartas na base da tela ============ */
+  #hand{
+    position:absolute;left:0;right:0;bottom:6px;z-index:7;
+    display:flex;justify-content:center;align-items:flex-end;gap:6px;
+    padding:0 8px;pointer-events:none;
+  }
+  #hand .card{
+    pointer-events:auto;position:relative;touch-action:none;
+    width:66px;height:94px;flex:none;border-radius:9px;
+    background:linear-gradient(160deg,#2b2f52,#171a2e);
+    border:2px solid var(--border);box-shadow:0 4px 12px rgba(0,0,0,.5);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    transition:transform .12s, box-shadow .12s, border-color .12s;
+    will-change:transform;user-select:none;
+  }
+  #hand .card:active{transform:translateY(-6px)}
+  #hand .card.dragging{transition:none;z-index:20;box-shadow:0 12px 26px rgba(0,0,0,.6)}
+  #hand .card.fuseTarget{border-color:var(--gold);box-shadow:0 0 16px rgba(251,191,36,.6)}
+  #hand .card.nope{animation:cardnope .3s ease}
+  @keyframes cardnope{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .card .cd-ico{font-size:26px;line-height:1}
+  .card .cd-nome{font-size:9px;font-weight:700;text-align:center;line-height:1.1;padding:0 3px;color:#e7e9f4}
+  .card .cd-dano{font-size:10px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+  .card .cd-el{position:absolute;top:3px;right:5px;font-size:9px}
+  .card[data-el="fogo"]{border-color:#f8717188} .card[data-el="gelo"]{border-color:#38bdf888}
+  .card[data-el="raio"]{border-color:#fbbf2488} .card[data-el="luz"]{border-color:#4ade8088}
+  .card[data-el="vento"]{border-color:#a7f3d088}
+  #magoBar{
+    position:absolute;top:8px;left:8px;z-index:7;font-size:11px;color:var(--ink-dim);
+    background:rgba(15,17,23,.8);border:1px solid var(--border);border-radius:8px;padding:4px 9px;
+  }
+  #magoBar b{color:var(--accent)}
+
   /* overlay de fim de masmorra */
   #overlay{
     position:absolute;inset:0;z-index:10;background:rgba(8,9,15,.85);
@@ -378,9 +429,12 @@
     </div>
 
     <div class="card" id="herocard">
+      <button id="heroPrev" class="heroArr" aria-label="Herói anterior">◀</button>
+      <button id="heroNext" class="heroArr" aria-label="Próximo herói">▶</button>
       <canvas id="heroCv" width="220" height="140"></canvas>
-      <div class="hname"><img id="menuAva" class="ava" alt=""> GUERREIRO</div>
-      <div class="hsub" id="heroSub">Cavaleiro azul do acampamento</div>
+      <div class="hname"><img id="menuAva" class="ava" alt=""> <span id="heroName">GUERREIRO</span></div>
+      <div class="hsub" id="heroSub">Cavaleiro do acampamento</div>
+      <div id="heroDots"></div>
     </div>
 
     <div class="card">
@@ -404,6 +458,7 @@
 
     <div id="menuRow">
       <button id="openShop">🛒 Mercado<small>tochas e gemas</small></button>
+      <button id="openRecruit">🦸 Recrutar<small>heróis</small></button>
       <button id="openMap">🗺️ Mapa<small>mapa-múndi</small></button>
       <button id="chestBtn">🎁 Baú do Dia<small>…</small></button>
     </div>
@@ -436,10 +491,18 @@
       </div>
     </div>
     <div class="card">
-      <div class="label" style="margin-bottom:2px">💎 Gemas — o guerreiro usa 1 por vez</div>
+      <div class="label" style="margin-bottom:2px">💎 Gemas — <span id="gemHeroName">o herói</span> usa 1 por vez</div>
       <div id="gemList"></div>
     </div>
     <button id="shopBack">↩ Voltar ao acampamento</button>
+  </div>
+
+  <!-- ================= 🦸 RECRUTAR ================= -->
+  <div class="screen hidden" id="recruit">
+    <h1>🦸 <em>Recrutar</em></h1>
+    <div class="hsub" style="text-align:center;color:var(--ink-dim);font-size:12px">Desafie heróis nas cidades do mapa. Ao vencer o duelo, recrute-os aqui e troque no acampamento arrastando para o lado.</div>
+    <div class="card"><div id="recruitList"></div></div>
+    <button id="recruitBack">↩ Voltar ao acampamento</button>
   </div>
 
   <!-- ================= 🗺 MAPA-MÚNDI ================= -->
@@ -497,6 +560,10 @@
           <button id="cBack"><span class="cur">▶</span>↩ Voltar</button>
         </div>
       </div>
+
+      <!-- 🃏 Mão do Mago Arcanista (protótipo) -->
+      <div id="magoBar" class="hidden"></div>
+      <div id="hand" class="hidden"></div>
     </div>
 
     <div class="card" id="turnbar">
@@ -595,6 +662,26 @@ UNITS.mino = { fs:96, cont:[0.45, 0.667], vis:0.8, base:'assets/', dir:'', fall:
   anims:{ idle:  { file:'Minotaur - Sprite Sheet.png', row:0, frames:5 },
           run:   { file:'Minotaur - Sprite Sheet.png', row:1, frames:8 },
           attack:{ file:'Minotaur - Sprite Sheet.png', row:3, frames:9 } } };
+
+/* toda unidade ganha uma pose de 'guard' (= idle) para heróis não-guerreiros
+   aparar sem cair no emoji de fallback; o guerreiro mantém seu Guard.png próprio */
+for (const u of Object.values(UNITS)) if (!u.anims.guard) u.anims.guard = u.anims.idle;
+
+/* ================================================================
+   🦸 ROSTER DE HERÓIS (Fase B) — cada herói tem sprite, classe de
+   combate, stats-base e progressão própria (leveling separado).
+   'cls' define o sistema: 'guerreiro' (fúria/parry) ou 'mago' (cartas).
+   'city' = nó de cidade do mapa onde é desafiado para recrutar (Fase C).
+   ================================================================ */
+const HEROES = {
+  guerreiro:{ nome:'Guerreiro',      ico:'⚔️', cls:'guerreiro', sprite:'warrior',     base:{maxhp:60, atk:10, def:3}, sub:'Cavaleiro do acampamento', starter:true },
+  mago:     { nome:'Mago Arcanista', ico:'🃏', cls:'mago',      sprite:'purple_monk', base:{maxhp:45, atk:8,  def:2}, sub:'Conjura cartas arcanas',   city:0, art:'O' },
+  cacadora: { nome:'Caçadora',       ico:'🏹', cls:'guerreiro', sprite:'blue_archer', base:{maxhp:55, atk:12, def:2}, sub:'Arqueira ágil e mortal',   city:2, art:'A' },
+  lanceiro: { nome:'Lanceiro',       ico:'🔱', cls:'guerreiro', sprite:'red_lancer',  base:{maxhp:75, atk:11, def:5}, sub:'Muralha com lança',       city:4, art:'O' },
+  monge:    { nome:'Monge',          ico:'📿', cls:'guerreiro', sprite:'yellow_monk', base:{maxhp:52, atk:9,  def:3}, sub:'Disciplina e equilíbrio', city:6, art:'O' },
+};
+const HERO_IDS = Object.keys(HEROES);
+const RECRUITABLE = HERO_IDS.filter(id => !HEROES[id].starter);
 
 /* pré-carrega todos os sheets; usa data-URI embutido se existir (Artifact) */
 const IMGS = {};
@@ -939,6 +1026,45 @@ if (!S.gemas || !Array.isArray(S.gemas.un)) S.gemas = structuredClone(DEFAULTS.g
 if (S.gemas.eq.length > 1) S.gemas.eq = S.gemas.eq.slice(0, 1);   // regra nova: só 1 gema equipada
 if (S.mapPos === undefined) S.mapPos = -1;
 
+/* ---------- 🦸 progressão por herói (Fase B) ----------
+   Cada herói guarda seus próprios stats/lv/gemas. Os campos "vivos"
+   S.maxhp/atk/def/lv/gemas espelham o herói ATIVO (lv e gemas por
+   referência; primitivos sincronizados no save). ---------- */
+let heroClass = 'guerreiro';                 // 'guerreiro' | 'mago' — derivado do herói ativo
+if (!S.heroes){
+  S.heroes = {};
+  for (const id of HERO_IDS){
+    const b = HEROES[id].base;
+    S.heroes[id] = id === 'guerreiro'
+      ? { maxhp:S.maxhp, atk:S.atk, def:S.def, lv:S.lv, gemas:S.gemas, unlocked:true, wonDuel:false }
+      : { maxhp:b.maxhp, atk:b.atk, def:b.def, lv:{vida:0,atk:0,def:0}, gemas:{un:[],own:{},eq:[]}, unlocked:false, wonDuel:false };
+  }
+  S.activeHero = 'guerreiro';
+}
+/* saves de versões intermediárias: garante todos os heróis e campos */
+for (const id of HERO_IDS){
+  if (!S.heroes[id]){
+    const b = HEROES[id].base;
+    S.heroes[id] = { maxhp:b.maxhp, atk:b.atk, def:b.def, lv:{vida:0,atk:0,def:0}, gemas:{un:[],own:{},eq:[]}, unlocked:!!HEROES[id].starter, wonDuel:false };
+  }
+  const h = S.heroes[id];
+  if (!h.lv) h.lv = {vida:0,atk:0,def:0};
+  if (!h.gemas || !Array.isArray(h.gemas.un)) h.gemas = {un:[],own:{},eq:[]};
+}
+if (!S.heroes[S.activeHero] || !S.heroes[S.activeHero].unlocked) S.activeHero = 'guerreiro';
+
+/* carrega um herói para os campos vivos (lv/gemas por referência) */
+function loadHero(id){
+  const h = S.heroes[id];
+  S.maxhp = h.maxhp; S.atk = h.atk; S.def = h.def;
+  S.lv = h.lv; S.gemas = h.gemas;
+  S.activeHero = id;
+  heroClass = HEROES[id].cls;
+}
+/* heróis já disponíveis para jogar (na equipe) */
+const rosterUnlocked = () => HERO_IDS.filter(id => S.heroes[id].unlocked);
+loadHero(S.activeHero);
+
 /* ---------- tochas: a "chave" da masmorra (1 por entrada, recarga por tempo) ---------- */
 const TORCH_MAX = 20, TORCH_REGEN_MS = 10 * 60 * 1000;   // 10 min por tocha faltante
 function regenTorches(){
@@ -960,7 +1086,13 @@ function spendTorch(){
   save();
   return true;
 }
-const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch(e){} };
+const save = () => {
+  if (S.heroes && S.heroes[S.activeHero]){            // 🦸 grava os stats vivos no herói ativo
+    const h = S.heroes[S.activeHero];
+    h.maxhp = S.maxhp; h.atk = S.atk; h.def = S.def;  // lv/gemas já são referências compartilhadas
+  }
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch(e){}
+};
 
 /* ---------- estado da run ---------- */
 let hp = S.maxhp, wave = 1, potions = 3;
@@ -1083,6 +1215,11 @@ function makeWave(w){
     anim:'idle', frame:rnd(0,5), acc:0, dead:false, tween:null, once:null,
     name: base.name + (n > 1 ? ' ' + 'ABC'[i] : ''),
   });
+  if (w === 3 && duel){                       // 🦸 onda final do duelo: o próprio herói
+    const boss = makeDuelBoss();
+    boss.p2 = true;                           // duelos sempre têm fase 2 — luta épica
+    return [boss];
+  }
   if (w === 3){
     const bd = BOSS_DEFS[rnd(0, BOSS_DEFS.length-1)];
     const b = mk(bd, 0, 1);
@@ -1250,7 +1387,8 @@ function layoutActors(){
 }
 
 function makePlayer(){
-  return { unit:'warrior', name:'GUERREIRO', x:0, y:0, homeX:0, homeY:0, size:0,
+  const h = HEROES[S.activeHero] || HEROES.guerreiro;
+  return { unit:h.sprite, name:h.nome.toUpperCase(), x:0, y:0, homeX:0, homeY:0, size:0,
            flip:false, alpha:1, flash:0, warn:false, anim:'idle', frame:0, acc:0,
            dead:false, tween:null, once:null };
 }
@@ -1521,10 +1659,13 @@ function drawMenuHero(dt){
   heroCtx.beginPath();
   heroCtx.ellipse(110, 118, 46, 10, 0, 0, Math.PI*2);
   heroCtx.fill();
-  const img = IMGS['warrior.idle'];
+  const spr = (HEROES[S.activeHero] || HEROES.guerreiro).sprite;
+  const fs = UNITS[spr].fs;
+  const img = IMGS[spr + '.idle'];
   if (img && img.naturalWidth){
-    const n = Math.max(1, Math.floor(img.width/192));
-    heroCtx.drawImage(img, (menuFrame % n)*192, 0, 192, 192, -5, -38, 230, 230);
+    const n = Math.max(1, Math.floor(img.width/fs));
+    const dw = 230 * (fs/192);                        // sheets 320px têm mais margem
+    heroCtx.drawImage(img, (menuFrame % n)*fs, 0, fs, fs, 110 - dw/2, 118 - dw*0.678, dw, dw);
   }
 }
 
@@ -1574,8 +1715,7 @@ function renderMenu(){
   $('#nTocha').textContent = S.tochas;
   $('#nMapa').textContent = S.mapas;
   $('#bestTag').textContent = 'Masmorras conquistadas: ' + S.wins;
-  const eqGems = S.gemas.eq.map(id => GEMS[id].ico + ' ' + GEMS[id].nome + ' Nv.' + (S.gemas.own[id] || 1));
-  $('#heroSub').textContent = eqGems.length ? eqGems.join(' · ') : 'Cavaleiro azul do acampamento';
+  renderHeroCard();
   document.querySelectorAll('.upbtn').forEach(b => {
     b.querySelector('small .num').textContent = upCost(b.dataset.up);
     b.disabled = S.gold < upCost(b.dataset.up);
@@ -1729,8 +1869,8 @@ $('#sndToggle').addEventListener('click', () => {
 renderSnd();
 $('#reset').addEventListener('click', () => {
   if (!confirm('Apagar todo o progresso?')) return;
-  S = structuredClone(DEFAULTS);
-  save(); renderMenu();
+  try { localStorage.removeItem(SAVE_KEY); } catch(e){}
+  location.reload();                                  // recria o save do zero (inclui o roster)
 });
 
 /* ================================================================
@@ -1767,9 +1907,14 @@ function ensureMapPos(){
 }
 function updateMapEnter(){
   const b = $('#mapEnter');
-  const on = !mapWalk && S.mapPos === frontierIdx();
+  const challenge = !mapWalk ? challengeHere() : null;   // 🦸 parado na cidade de um herói?
+  const onDoor = !mapWalk && S.mapPos === frontierIdx();
+  const on = onDoor || challenge;
   b.classList.toggle('hidden', !on);
-  if (on){
+  if (challenge){
+    b.textContent = '⚔ Desafiar ' + HEROES[challenge].nome + ' (2 ondas + duelo) · 🔥1';
+    b.disabled = S.tochas <= 0;
+  } else if (onDoor){
     const cfg = DG_COLORS[S.dgColor];
     b.textContent = '⚔ Entrar na Masmorra ' + cfg.nome + ' (Nv. ' + S.dgLv + ') · 🔥1';
     b.disabled = S.tochas <= 0 && S.tutDone;
@@ -1908,7 +2053,124 @@ $('#mapBack').addEventListener('click', () => {
 $('#mapEnter').addEventListener('click', () => {
   $('#worldmap').classList.add('hidden');
   $('#menu').classList.remove('hidden');             // se faltar tocha, cai no acampamento
-  startRun();
+  if (challengeHere()) startDuel(challengeHere());   // 🦸 na cidade de um herói → duelo
+  else startRun();
+});
+
+/* ================================================================
+   🦸 FASE B — troca de herói no acampamento (arraste para o lado)
+   ================================================================ */
+function renderHeroCard(){
+  const h = HEROES[S.activeHero];
+  $('#heroName').textContent = h.nome.toUpperCase();
+  const eqGems = S.gemas.eq.map(id => GEMS[id].ico + ' ' + GEMS[id].nome + ' Nv.' + (S.gemas.own[id] || 1));
+  $('#heroSub').textContent = eqGems.length ? eqGems.join(' · ') : h.sub;
+  const gn = $('#gemHeroName'); if (gn) gn.textContent = h.nome;
+  /* pontinhos: 1 por herói recrutado, destacando o ativo */
+  const roster = rosterUnlocked();
+  $('#heroDots').innerHTML = roster.map(id =>
+    '<span class="dot' + (id === S.activeHero ? ' on' : '') + '"></span>').join('');
+  const multi = roster.length > 1;
+  $('#heroPrev').classList.toggle('hidden', !multi);
+  $('#heroNext').classList.toggle('hidden', !multi);
+  menuFrame = 0;                                      // reinicia a animação do novo sprite
+}
+function switchHero(dir){
+  const roster = rosterUnlocked();
+  if (roster.length < 2) return;
+  save();                                             // grava o herói atual
+  let i = roster.indexOf(S.activeHero);
+  i = (i + dir + roster.length) % roster.length;
+  loadHero(roster[i]);
+  save();
+  SFX.play('whoosh');
+  renderMenu();
+}
+$('#heroPrev').addEventListener('click', e => { e.stopPropagation(); switchHero(-1); });
+$('#heroNext').addEventListener('click', e => { e.stopPropagation(); switchHero(1); });
+/* swipe horizontal no card do herói troca de personagem */
+let heroSwX = null;
+$('#herocard').addEventListener('pointerdown', e => { heroSwX = e.clientX; });
+$('#herocard').addEventListener('pointerup', e => {
+  if (heroSwX === null) return;
+  const dx = e.clientX - heroSwX; heroSwX = null;
+  if (Math.abs(dx) > 50) switchHero(dx < 0 ? 1 : -1);
+});
+
+/* ================================================================
+   🦸 FASE C — recrutamento: duelo nas cidades + menu Recrutar
+   ================================================================ */
+let duel = null;                                     // id do herói sendo desafiado (ou null)
+/* herói estacionado na cidade onde o token está parado, se ainda não recrutado */
+function challengeHere(){
+  const id = RECRUITABLE.find(h => HEROES[h].city === S.mapPos && !S.heroes[h].unlocked);
+  return id || null;
+}
+function startDuel(id){
+  if (!spendTorch()){ renderMenu(); return; }
+  duel = id;
+  $('#menu').classList.add('hidden');
+  $('#battle').classList.remove('hidden');
+  hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
+  stagger = 0; guardBroken = false; fireFury = false;
+  rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
+  dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
+  if (heroClass === 'mago') magoInitDeck();
+  player = makePlayer(); enemies = [];
+  resizeCanvas(); setCmds(false); magoHideHand();
+  log('⚔ Duelo pela lealdade de ' + HEROES[id].nome + ' — 2 ondas e o confronto final!');
+  loadPromise.then(startWave);
+}
+/* monta o herói-chefe do duelo (onda 3) com o sprite/porte de herói */
+function makeDuelBoss(){
+  const H = HEROES[duel], b = H.base;
+  const L = S.dgLv, mult = 1 + (L-1)*0.18;
+  const kind = { blue_archer:'archer', red_lancer:'lancer', yellow_monk:'monk', purple_monk:'monk' }[H.sprite] || 'monk';
+  return {
+    kind, unit:H.sprite, boss:true, duelHero:duel,
+    name:H.nome, art:H.art || 'O', hp:Math.round((90 + b.maxhp)*mult), maxhp:Math.round((90 + b.maxhp)*mult),
+    atk:Math.round((b.atk + 6)*mult), def:Math.round((b.def + 2)*mult),
+    shield:0, stagger:0, gold:Math.round((60 + 20*L)),
+    x:0, y:0, homeX:0, homeY:0, size:0, flip:true, alpha:1, flash:0, warn:false,
+    anim:'idle', frame:rnd(0,3), acc:0, dead:false, tween:null, once:null,
+  };
+}
+/* --- menu Recrutar --- */
+function renderRecruit(){
+  $('#recruitList').innerHTML = RECRUITABLE.map(id => {
+    const H = HEROES[id], h = S.heroes[id];
+    const cidade = MAP_CITIES[HEROES[id].city / 2].nome;
+    let btn, badge;
+    if (h.unlocked){ btn = '<button class="recbtn" disabled>✅ Na equipe</button>'; badge = 'recrutado'; }
+    else if (h.wonDuel){ btn = '<button class="recbtn" data-rec="' + id + '">🤝 Recrutar</button>'; badge = 'duelo vencido!'; }
+    else { btn = '<button class="recbtn" disabled>🔒 Desafie no mapa</button>'; badge = '📍 ' + cidade; }
+    return '<div class="uprow"><div class="ico">' + H.ico + '</div><div class="info">' +
+      '<div class="val">' + H.nome + '</div><div class="desc">' + H.sub + ' · <span class="recadge">' + badge + '</span></div>' +
+      '<div class="desc">❤ ' + H.base.maxhp + ' · ⚔ ' + H.base.atk + ' · 🛡 ' + H.base.def +
+      (H.cls === 'mago' ? ' · 🃏 cartas' : '') + '</div></div>' + btn + '</div>';
+  }).join('');
+}
+$('#recruitList').addEventListener('click', e => {
+  const b = e.target.closest('button[data-rec]'); if (!b) return;
+  const id = b.dataset.rec, h = S.heroes[id];
+  if (!h.wonDuel || h.unlocked) return;
+  h.unlocked = true;
+  save();
+  SFX.play('coin');
+  renderRecruit();
+  showOverlay('🤝 ' + HEROES[id].nome.toUpperCase() + ' RECRUTADO!',
+    HEROES[id].nome + ' juntou-se à sua equipe!<br>No acampamento, <b>arraste para o lado</b> para trocar de herói.<br>' +
+    'Ela começa no Nv. 1 — vale voltar às masmorras iniciais para treiná-la.');
+});
+$('#openRecruit').addEventListener('click', () => {
+  renderRecruit();
+  $('#menu').classList.add('hidden');
+  $('#recruit').classList.remove('hidden');
+});
+$('#recruitBack').addEventListener('click', () => {
+  $('#recruit').classList.add('hidden');
+  $('#menu').classList.remove('hidden');
+  renderMenu();
 });
 
 /* ================================================================
@@ -2274,6 +2536,7 @@ async function startTutorial(){
 async function startRun(){
   if (!S.tutDone) return startTutorial();            // primeira vez: Campo de Treinamento
   if (!spendTorch()){ renderMenu(); return; }        // sem tocha não entra
+  duel = null;                                       // masmorra normal (não é duelo de recrutamento)
   /* a cada 5 entradas na masmorra, um vídeo de propaganda */
   S.entries = (S.entries || 0) + 1; save();
   if (S.entries % 5 === 0) await ADS.showInterstitial();
@@ -2281,12 +2544,14 @@ async function startRun(){
   stagger = 0; guardBroken = false; fireFury = false;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
+  if (heroClass === 'mago') magoInitDeck();          // 🃏 deck novo a cada masmorra
   player = makePlayer();
   enemies = [];
   $('#menu').classList.add('hidden');
   $('#battle').classList.remove('hidden');
   resizeCanvas();
   setCmds(false);
+  magoHideHand();
   log('Descendo à masmorra…');
   await loadPromise;
   startWave();
@@ -2361,6 +2626,7 @@ function beginPlayerTurn(){
     setTimeout(() => { if (aliveIdx().length && hp > 0) enemyPhase(); }, 1100);
     return;
   }
+  if (heroClass === 'mago') return magoBeginTurn();  // 🃏 mão de cartas no lugar do menu
   phase = 'player';
   guardBroken = false;                               // recuperou a guarda ao voltar a agir
   rocksLeft = rocksPerRound();                       // nova rodada: pedradas disponíveis
@@ -3165,7 +3431,17 @@ function trySide(){
 }
 
 /* ---------- fim de masmorra ---------- */
+function duelVictory(){
+  phase = 'menu';
+  const id = duel; duel = null;
+  S.heroes[id].wonDuel = true;
+  save();
+  showOverlay('🏆 DUELO VENCIDO!',
+    'Você provou seu valor contra <b>' + HEROES[id].nome + '</b>!<br>' +
+    'Vá ao menu <b>🦸 Recrutar</b> (ao lado do Mercado) para trazê-lo para a equipe.');
+}
 function victory(){
+  if (duel) return duelVictory();                     // 🦸 vitória de duelo não conta como masmorra
   phase = 'menu';
   const bonus = 150 + 60*(S.dgLv-1);
   /* 📜 o chefe da masmorra 1 e os das masmorras 5, 10, 15 derrubam um pergaminho de gema */
@@ -3210,7 +3486,13 @@ function offerDoubleReward(bonus){
 function defeat(){
   if (player && player.dead) return;                 // já derrotado (evita overlay duplo)
   phase = 'menu';
+  const wasDuel = duel; duel = null;
   player.dead = true;
+  if (wasDuel){
+    showOverlay('☠ DERROTA NO DUELO…',
+      HEROES[wasDuel].nome + ' foi forte demais desta vez.<br>Fortaleça seu herói e volte para o duelo!');
+    return;
+  }
   showOverlay('☠ DERROTA…',
     'O guerreiro caiu na onda ' + wave + '.<br>' +
     'O ouro coletado (<b>🪙 ' + S.gold + '</b> no total) foi mantido.<br>Fortaleça-se e tente de novo!');
@@ -3227,6 +3509,322 @@ $('#ovBack').addEventListener('click', () => {
   $('#menu').classList.remove('hidden');
   renderMenu();
 });
+
+/* ================================================================
+   🃏 MAGO ARCANISTA DE CARTAS — protótipo de combate (Fase A)
+   Deckbuilding + gerenciamento de mão + QTEs rítmicos por toque,
+   plugado na mesma máquina de turnos do guerreiro (phase/enemies).
+   Teste: abra o jogo com #mago na URL.
+   ================================================================ */
+
+/* --- CATÁLOGO (declarativo: nova carta = nova entrada) --- */
+const CARDS = {
+  fogo:    { nome:'Fogo',             ico:'🔥', el:'fogo',  qte:'tap',    base:8,  taps:4 },
+  gelo:    { nome:'Lasca de Gelo',    ico:'❄️', el:'gelo',  qte:'circle', base:11 },
+  raio:    { nome:'Faísca',           ico:'⚡', el:'raio',  qte:'tap',    base:7,  taps:5 },
+  vento:   { nome:'Corte de Vento',   ico:'🌬️', el:'vento', qte:'circle', base:9 },
+  cura:    { nome:'Bênção',           ico:'💚', el:'luz',   qte:'hold',   base:14, alvo:'aliado' },
+  // resultados de fusão (não entram no deck inicial)
+  labareda:{ nome:'Grande Labareda',  ico:'🔥', el:'fogo',  qte:'hold',   base:24, fused:true },
+  plasma:  { nome:'Plasma',           ico:'🌩️', el:'raio',  qte:'hold',   base:26, fused:true },
+  nevasca: { nome:'Nevasca',          ico:'🌨️', el:'gelo',  qte:'circle', base:22, fused:true },
+  vapor:   { nome:'Explosão de Vapor',ico:'♨️', el:'vento', qte:'tap',    base:18, taps:6, fused:true },
+};
+/* RECEITAS de fusão — tabela à parte (escala melhor que espalhar no catálogo) */
+const FUSIONS = {
+  'fogo+fogo':'labareda', 'fogo+raio':'plasma', 'gelo+gelo':'nevasca',
+  'fogo+gelo':'vapor',    'gelo+vento':'nevasca',
+};
+const fuseKey = (a, b) => [a, b].sort().join('+');
+let _cuid = 0;
+const makeCard = id => ({ uid:++_cuid, id, ...CARDS[id] });
+
+/* --- DECK / MÃO (estado puro) --- */
+const STARTER_DECK = ['fogo','fogo','gelo','raio','raio','gelo','vento','cura'];
+const HAND_SIZE = 4, DISCARDS_PER_TURN = 1, CASTS_PER_TURN = 1;
+let drawPile = [], discardPile = [], hand = [];
+let magoDiscards = 0, magoCasts = 0;
+const shuffle = a => { for (let i=a.length-1;i>0;i--){ const j=rnd(0,i); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+function magoInitDeck(){ drawPile = shuffle(STARTER_DECK.slice()); discardPile = []; hand = []; _cuid = 0; }
+function drawOne(){
+  if (!drawPile.length){                     // recicla o descarte quando o deck esvazia
+    if (!discardPile.length) return null;
+    drawPile = shuffle(discardPile); discardPile = [];
+  }
+  return makeCard(drawPile.pop());
+}
+function drawHand(n){ for (let i=0;i<n && hand.length<HAND_SIZE;i++){ const c = drawOne(); if (c) hand.push(c); } }
+
+/* --- FUSÃO DE CARTAS NA MÃO (entregável pedido) --- */
+function tryFuse(dragged, target){
+  if (!dragged || !target || dragged.uid === target.uid) return false;
+  const out = FUSIONS[fuseKey(dragged.id, target.id)];
+  if (!out){ bumpCard(target.uid); return false; }       // sem receita: recusa com feedback
+  hand = hand.filter(c => c.uid !== dragged.uid && c.uid !== target.uid);
+  hand.push(makeCard(out));
+  SFX.play('magic');
+  addFloat(player, CARDS[out].ico + ' ' + CARDS[out].nome + '!', '#a78bfa', true);
+  renderHand();
+  return true;
+}
+function bumpCard(uid){
+  const el = handEl(uid); if (!el) return;
+  el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope');
+  SFX.play('block');
+}
+
+/* --- CÁLCULO DE SUCESSO DO QTE RÍTMICO (entregável pedido) ---
+   Casa cada tap com a batida livre mais próxima; retorna fração e multiplicador. */
+function scoreRhythm(beatTimes, tapTimes, perfWin = 60, goodWin = 130){
+  const usada = new Set();
+  let bons = 0, perfeitos = 0;
+  for (const tap of tapTimes){
+    let iBest = -1, dBest = Infinity;
+    beatTimes.forEach((b, i) => {
+      if (usada.has(i)) return;
+      const d = Math.abs(tap - b);
+      if (d < dBest){ dBest = d; iBest = i; }
+    });
+    if (iBest >= 0 && dBest <= goodWin){ usada.add(iBest); bons++; if (dBest <= perfWin) perfeitos++; }
+  }
+  const frac = bons / beatTimes.length, allPerf = perfeitos === beatTimes.length && beatTimes.length > 0;
+  return { frac, perfeitos, mult: 0.3 + frac * (allPerf ? 1.7 : 1.2) };   // 0 acertos→0.3 · perfeito→2.0
+}
+
+/* --- RENDER DA MÃO (DOM sobre o campo) --- */
+const EL_ICO = { fogo:'🔥', gelo:'❄️', raio:'⚡', luz:'✨', vento:'🌬️' };
+function handEl(uid){ return document.querySelector('#hand .card[data-uid="' + uid + '"]'); }
+function renderHand(){
+  const box = $('#hand');
+  box.innerHTML = '';
+  for (const c of hand){
+    const el = document.createElement('div');
+    el.className = 'card'; el.dataset.uid = c.uid; el.dataset.el = c.el;
+    el.innerHTML = '<span class="cd-el">' + (EL_ICO[c.el] || '') + '</span>' +
+      '<span class="cd-ico">' + c.ico + '</span>' +
+      '<span class="cd-nome">' + c.nome + '</span>' +
+      '<span class="cd-dano">' + (c.alvo === 'aliado' ? '+' : '') + c.base + '</span>';
+    bindCardDrag(el, c);
+    box.appendChild(el);
+  }
+  updateMagoBar();
+}
+function updateMagoBar(){
+  $('#magoBar').innerHTML = '🃏 Deck <b>' + drawPile.length + '</b> · Descarte <b>' + discardPile.length + '</b>' +
+    ' · Conjurar <b>' + (CASTS_PER_TURN - magoCasts) + '</b> · Descarte <b>' + (DISCARDS_PER_TURN - magoDiscards) + '</b>';
+}
+
+/* --- GESTOS: drag-play / drag-fuse / swipe-descarte --- */
+function bindCardDrag(el, card){
+  let sx = 0, sy = 0, dragging = false, hoverFuse = null;
+  el.addEventListener('pointerdown', e => {
+    if (phase !== 'mago_mao') return;
+    e.stopPropagation(); e.preventDefault();
+    try { el.setPointerCapture(e.pointerId); } catch(_){}
+    sx = e.clientX; sy = e.clientY; dragging = true;
+    el.classList.add('dragging');
+  });
+  el.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    el.style.transform = 'translate(' + (e.clientX - sx) + 'px,' + (e.clientY - sy) + 'px) scale(1.05)';
+    el.style.pointerEvents = 'none';
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    el.style.pointerEvents = '';
+    const overCard = under && under.closest && under.closest('#hand .card');
+    if (hoverFuse && hoverFuse !== overCard) hoverFuse.classList.remove('fuseTarget');
+    hoverFuse = (overCard && overCard !== el) ? overCard : null;
+    if (hoverFuse) hoverFuse.classList.add('fuseTarget');
+  });
+  const end = e => {
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove('dragging');
+    el.style.transform = ''; el.style.pointerEvents = '';
+    const fuseEl = hoverFuse; if (hoverFuse){ hoverFuse.classList.remove('fuseTarget'); hoverFuse = null; }
+    const other = fuseEl && hand.find(c => c.uid == fuseEl.dataset.uid);
+    if (other){ tryFuse(card, other); return; }                        // 1) fusão
+    const rct = $('#field').getBoundingClientRect();
+    if (e.clientX < rct.left + 34 || e.clientX > rct.right - 34){ magoDiscard(card); return; }   // 2) descarte lateral
+    if (card.alvo === 'aliado'){ magoCast(card, null); return; }       // 3a) cura: solta no campo
+    const en = enemyAtClient(e.clientX, e.clientY);
+    if (en){ magoCast(card, en); return; }                             // 3b) jogar sobre inimigo
+    // senão: volta pra mão (snap automático ao limpar o transform)
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+function enemyAtClient(cx, cy){
+  const r = cv.getBoundingClientRect();
+  const x = cx - r.left, y = cy - r.top;
+  return enemies.find(e => !e.dead && !e.gone &&
+    Math.abs(x - e.x) < e.size*0.55 && Math.abs(y - e.y) < e.size*0.6);
+}
+function magoDiscard(card){
+  if (magoDiscards >= DISCARDS_PER_TURN){ bumpCard(card.uid); return; }
+  magoDiscards++;
+  hand = hand.filter(c => c.uid !== card.uid);
+  discardPile.push(card.id);
+  const nova = drawOne(); if (nova) hand.push(nova);
+  SFX.play('whoosh');
+  renderHand();
+}
+
+/* --- MÁQUINA DE TURNO DO MAGO: Compra → Decisão/Fusão → QTE → Resolução → Fim --- */
+function magoBeginTurn(){
+  if (!drawPile.length && !discardPile.length && !hand.length) magoInitDeck();
+  phase = 'mago_mao';
+  rocksLeft = 0;                             // mago não arremessa pedra
+  magoDiscards = 0; magoCasts = 0;
+  setCmds(false);                            // esconde o menu do guerreiro
+  const alive = aliveIdx();
+  if (!alive.includes(targetIdx)) targetIdx = alive[0];
+  drawHand(HAND_SIZE);                       // repõe a mão até HAND_SIZE (mantém sobras)
+  renderHand();
+  $('#hand').classList.remove('hidden');
+  $('#magoBar').classList.remove('hidden');
+  setTurn('player');
+  log('🃏 Sua mão está pronta — arraste a carta sobre o alvo, sobre outra carta (fundir) ou para a lateral (descartar).');
+}
+function magoHideHand(){ $('#hand').classList.add('hidden'); $('#magoBar').classList.add('hidden'); }
+async function magoCast(card, en){
+  if (phase !== 'mago_mao' || magoCasts >= CASTS_PER_TURN){ bumpCard(card.uid); return; }
+  magoCasts++;
+  phase = 'busy';
+  hand = hand.filter(c => c.uid !== card.uid);
+  renderHand(); magoHideHand();
+  if (en) targetIdx = enemies.indexOf(en);
+  showMoveName(card.ico + ' ' + card.nome);
+  playOnce(player, 'attack');
+  await wait(160);
+  let mult;
+  if (card.qte === 'tap')         mult = await runTapQte(card.taps || 4);
+  else if (card.qte === 'circle') mult = await runMagoCircle();
+  else                            mult = await runMagoHold();
+  if (card.alvo === 'aliado'){
+    const heal = Math.round(card.base * mult);
+    hp = Math.min(S.maxhp, hp + heal); player.flash = 1;
+    SFX.play('heal');
+    addFloat(player, '+' + heal + ' 💚', '#4ade80', true);
+    log('💚 ' + card.nome + ' ×' + mult.toFixed(1) + ' — curou ' + heal + ' de HP!');
+  } else magoDamage(card, mult);
+  discardPile.push(card.id);
+  renderHUD(); renderTurnbar();
+  await wait(500);
+  if (await processBooms()){ magoEndTurn(); return; }
+  if (await waveCleared()) return;
+  magoEndTurn();
+}
+function magoDamage(card, mult){
+  const en = enemies[targetIdx];
+  if (!en || en.dead) return;
+  const raw = Math.round(card.base * mult);
+  if (en.shield > 0){
+    breakShield(en, mult >= 1.5 ? 2 : 1, mult >= 2);
+    log('🃏 ' + card.nome + ' ×' + mult.toFixed(1) + ' estilhaçou o escudo de ' + en.name + '!');
+    return;
+  }
+  en.hp = Math.max(0, en.hp - raw);
+  en.flash = 1; SFX.play(mult >= 2 ? 'crit' : 'magic');
+  addFloat(en, raw, mult >= 2 ? '#fbbf24' : '#fff', mult >= 1.5);
+  log('🃏 ' + card.nome + ' ×' + mult.toFixed(1) + '! ' + raw + ' de dano em ' + en.name + '.');
+  if (mult >= 1.5) shakeApp();
+  if (en.hp <= 0){ slayEnemy(en); log('💥 ' + en.name + ' foi consumido pela magia!'); }
+}
+function magoEndTurn(){
+  if (hp <= 0) return defeat();
+  if (aliveIdx().length === 0) return void waveCleared();
+  magoHideHand();
+  enemyPhase();
+}
+
+/* --- QTE 1: taps rítmicos (Cartas de Ataque Rápido) --- */
+let magoTap = null;
+function runTapQte(nTaps){
+  return new Promise(resolve => {
+    phase = 'mago_tap';
+    const qte = $('#qte'), tgt = qte.querySelector('.target'), tip = qte.querySelector('.tip'), ring = qte.querySelector('.shrink');
+    qte.classList.remove('perfect','blocked','dodged','jump','lateral','side');
+    qte.classList.add('atk'); tgt.textContent = '🎵'; ring.style.animation = 'none';
+    tip.textContent = 'TOQUE NO RITMO! (' + nTaps + '×)';
+    qte.classList.add('on');
+    const interval = 500, start = performance.now() + 650;
+    const beats = Array.from({ length:nTaps }, (_, i) => start + i*interval);
+    const taps = [];
+    let idx = 0;
+    beats.forEach(b => setTimeout(() => {                     // pulso visual + som na batida
+      tgt.style.transform = 'scale(1.5)'; SFX.play('parry');
+      setTimeout(() => { tgt.style.transform = ''; }, 120);
+      tip.textContent = '● '.repeat(++idx) + '○ '.repeat(Math.max(0, nTaps - idx));
+    }, Math.max(0, b - performance.now())));
+    magoTap = () => { taps.push(performance.now()); tgt.style.transform = 'scale(1.25)'; setTimeout(() => { tgt.style.transform = ''; }, 90); };
+    setTimeout(() => {
+      magoTap = null;
+      const res = scoreRhythm(beats, taps);
+      tgt.textContent = res.perfeitos === nTaps ? '✨' : res.frac > 0.5 ? '👍' : '💨';
+      tip.textContent = 'RITMO ×' + res.mult.toFixed(1) + ' (' + res.perfeitos + '/' + nTaps + ' no tempo)';
+      setTimeout(() => { qte.classList.remove('on','atk'); tgt.style.transform = ''; phase = 'busy'; resolve(res.mult); }, 600);
+    }, (beats[beats.length-1] - performance.now()) + 340);
+  });
+}
+
+/* --- QTE 2: círculo de impacto, tap preciso (Cartas de Impacto/Área) --- */
+let magoCircleTap = null;
+function runMagoCircle(){
+  return new Promise(resolve => {
+    phase = 'mago_circle';
+    const qte = $('#qte'), ring = qte.querySelector('.shrink'), tgt = qte.querySelector('.target'), tip = qte.querySelector('.tip');
+    qte.classList.remove('perfect','blocked','dodged','jump','lateral','side');
+    qte.classList.add('atk'); tgt.textContent = '🎯';
+    tip.textContent = 'TOQUE NO CENTRO EXATO!';
+    ring.style.animation = 'none'; void ring.offsetWidth; ring.style.animation = '';
+    ring.style.animationDuration = QTE_MS + 'ms'; ring.style.animationTimingFunction = 'linear';
+    qte.classList.add('on');
+    const t0 = performance.now(); let result = null;
+    const cue = setTimeout(() => { if (result === null) SFX.play('coin'); }, QTE_MS*0.72);
+    magoCircleTap = () => {
+      if (result !== null) return;
+      const k = (performance.now() - t0) / QTE_MS;
+      result = k >= 0.88 ? 2 : k >= 0.68 ? 1.5 : k >= 0.4 ? 1 : 0.5;
+      qte.classList.add(result >= 2 ? 'perfect' : 'blocked');
+      tip.textContent = result >= 2 ? '✨ PERFEITO ×2!' : result >= 1.5 ? '👍 ÓTIMO ×1.5' : '×' + result;
+    };
+    setTimeout(() => {
+      clearTimeout(cue); magoCircleTap = null;
+      qte.classList.remove('on','atk','perfect','blocked');
+      phase = 'busy'; resolve(result === null ? 0.4 : result);
+    }, QTE_MS + 140);
+  });
+}
+
+/* --- QTE 3: canalização, segurar e soltar na zona (Cartas de Canalização) --- */
+let magoHoldStart = null, magoHoldStop = null;
+function runMagoHold(){
+  return new Promise(resolve => {
+    phase = 'mago_hold';
+    const seq = $('#seq'), cur = $('#seqCur'), tip = seq.querySelector('.tip');
+    tip.textContent = 'SEGURE para canalizar, SOLTE na zona ×2!';
+    cur.classList.remove('lock'); cur.style.left = '0%';
+    seq.classList.add('on');
+    let raf = 0, t0 = 0, charging = false, done = false, charge = 0;
+    const zone = c => c < 0.6 ? 1.1 : c <= 0.9 ? 1.5 : c <= 1.0 ? 2 : 0.5;   // >1 = sobrecarga
+    function step(t){
+      if (done) return;
+      charge = (t - t0) / 950;
+      cur.style.left = Math.min(100, charge*100) + '%';
+      if (charge >= 1.15){ magoHoldStop(); return; }
+      raf = requestAnimationFrame(step);
+    }
+    magoHoldStart = () => { if (charging || done) return; charging = true; t0 = performance.now(); raf = requestAnimationFrame(step); };
+    magoHoldStop = () => {
+      if (done) return; done = true; cancelAnimationFrame(raf);
+      const mult = charging ? zone(charge) : 0.4;
+      cur.classList.add('lock');
+      tip.textContent = mult >= 2 ? '✨ CANALIZAÇÃO PERFEITA ×2!' : mult < 1 ? '💥 SOBRECARREGOU!' : 'CANALIZOU ×' + mult;
+      setTimeout(() => { cur.classList.remove('lock'); seq.classList.remove('on'); magoHoldStart = magoHoldStop = null; phase = 'busy'; resolve(mult); }, 560);
+    };
+    setTimeout(() => { if (!charging && !done) magoHoldStop(); }, 4000);   // nunca segurou
+  });
+}
 
 /* ================================================================
    ENTRADAS: toque, swipe, setas, teclado
@@ -3278,10 +3876,14 @@ $('#battle').addEventListener('pointerdown', e => {
   if (phase === 'qte' && qteType === 'parry') tryParry();
   if (phase === 'seq' && seqStop) seqStop();
   if (phase === 'combo' && comboTap) comboTap();
+  if (phase === 'mago_tap' && magoTap) magoTap();            // 🃏 QTE rítmico
+  if (phase === 'mago_circle' && magoCircleTap) magoCircleTap();
+  if (phase === 'mago_hold' && magoHoldStart) magoHoldStart();
 });
 $('#battle').addEventListener('pointerup', e => {
   if (gY !== null && phase === 'qte' && qteType === 'jump' && (gY - e.clientY) > 50) tryJump();
   if (gX !== null && phase === 'qte' && qteType === 'side' && Math.abs(e.clientX - gX) > 50) trySide();
+  if (phase === 'mago_hold' && magoHoldStop) magoHoldStop();  // 🃏 solta a canalização
   gX = null; gY = null;
 });
 
@@ -3380,6 +3982,13 @@ document.addEventListener('keydown', e => {
 
 renderMenu();
 if (location.hash === '#batalha') startRun();   // atalho para testes
+if (location.hash === '#mago'){                 // 🃏 protótipo do Mago Arcanista
+  S.heroes.mago.unlocked = true; loadHero('mago'); S.tutDone = true; startRun();
+}
+if (location.hash === '#recrutar'){             // atalho de teste: já com todos recrutados
+  RECRUITABLE.forEach(id => { S.heroes[id].wonDuel = true; S.heroes[id].unlocked = true; });
+  S.tutDone = true; renderMenu();
+}
 </script>
 <!--/ARTIFACT-B-->
 </body>
