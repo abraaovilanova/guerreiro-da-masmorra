@@ -268,6 +268,20 @@
   #seqCur.lock{background:var(--gold);animation:none;box-shadow:0 0 16px var(--gold)}
   @keyframes curpulse{from{box-shadow:0 0 5px #fff}to{box-shadow:0 0 18px #fff}}
 
+  /* ---- 🦅 botão de ATAQUE AÉREO (aparece após pular o rasteiro) ---- */
+  #quickAtk{
+    position:absolute;left:50%;top:60%;translate:-50% -50%;z-index:8;
+    font-size:18px;font-weight:800;letter-spacing:.03em;padding:16px 26px;
+    color:#1a1206;background:linear-gradient(180deg,#fde68a,#fbbf24);
+    border:2px solid #fff7d6;border-radius:14px;
+    box-shadow:0 8px 26px rgba(251,191,36,.5), 0 0 0 4px rgba(251,191,36,.18);
+    text-shadow:0 1px 0 rgba(255,255,255,.4);white-space:nowrap;
+  }
+  #quickAtk.show{animation:qapop .18s ease, qapulse .5s ease-in-out .18s infinite alternate}
+  @keyframes qapop{from{transform:translate(-50%,-50%) scale(.6);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+  @keyframes qapulse{from{box-shadow:0 8px 26px rgba(251,191,36,.4), 0 0 0 3px rgba(251,191,36,.15)}
+                     to{box-shadow:0 8px 30px rgba(251,191,36,.7), 0 0 0 8px rgba(251,191,36,.28)}}
+
   /* ordem do turno */
   #turnbar{display:flex;align-items:center;gap:10px;padding:7px 12px}
   #turnbar .label{flex:none}
@@ -557,6 +571,7 @@
         </div>
         <div class="sub" id="seqTrips">3 idas e voltas</div>
       </div>
+      <button id="quickAtk" class="hidden">⚡ ATAQUE RÁPIDO!</button>
 
       <div class="card" id="cmds">
         <div id="cmdMain">
@@ -1375,19 +1390,71 @@ function loadDecor(path){
   img.src = (window.EMBED && window.EMBED[path]) || path;
 }
 let scenery = [], tileSrc = null;
+
+/* ---------- 🌍 BIOMAS: cada masmorra ganha um cenário diferente ----------
+   Sprites recortados das folhas do pacote Texture (TX Plant / TX Props).
+   O chão continua sendo a plataforma colorida da cor da masmorra. ---------- */
+const TXPLANT = 'assets/Texture/TX Plant.png';
+const TXPROPS = 'assets/Texture/TX Props.png';
+const SPR = {   // [folha, sx, sy, sw, sh]
+  treeBig:[TXPLANT,24,14,113,139], treeMed:[TXPLANT,161,17,95,136], treeSm:[TXPLANT,295,31,79,120],
+  bush:[TXPLANT,216,185,47,42],
+  crate:[TXPROPS,160,18,32,46], statue:[TXPROPS,445,21,37,72], rockBig:[TXPROPS,3,430,57,42],
+  cross:[TXPROPS,227,303,26,40], altar:[TXPROPS,353,269,94,72],
+};
+/* item de cenário recortado: (sprite, x, y, largura-fração, opções) */
+const item = (key, x, y, w, opt = {}) => {
+  const [src, sx, sy, sw, sh] = SPR[key];
+  return { src, sx, sy, sw, sh, x, y, w, alpha: opt.alpha ?? 0.9, mirror: !!opt.mirror, bg: !!opt.bg };
+};
+const treeKey = () => ['treeBig','treeMed','treeSm'][rnd(0,2)];
+const BIOMES = {
+  castelo: { nome:'Castelo', build(cfg){
+    const B = 'Tiny Swords (Free Pack)/Buildings/' + cfg.bdir;
+    const D = 'Tiny Swords (Free Pack)/Terrain/Decorations/';
+    return [
+      { src:B+'Castle.png', x:0.76,y:0.14,w:0.52,alpha:0.85,mirror:true,bg:true },
+      { src:B+'Tower.png',  x:0.16,y:0.22,w:0.16,alpha:0.50,mirror:true,bg:true },
+      { src:D+'Rocks/Rock'+rnd(1,4)+'.png',   x:0.10,y:0.56,w:0.14,alpha:0.55 },
+      { src:D+'Bushes/Bushe'+rnd(1,4)+'.png', x:0.90,y:0.66,w:0.16,alpha:0.55 },
+      { src:D+'Rocks/Rock'+rnd(1,4)+'.png',   x:0.46,y:0.90,w:0.13,alpha:0.45 },
+    ];
+  }},
+  floresta: { nome:'Floresta', tint:'rgba(30,74,28,.16)', build(){ return [
+    item('treeBig', 0.82,0.18,0.30,{mirror:true,bg:true,alpha:0.95}),
+    item('treeMed', 0.14,0.16,0.22,{bg:true,alpha:0.85}),
+    item(treeKey(), 0.60,0.10,0.17,{mirror:true,bg:true,alpha:0.7}),
+    item('bush', 0.10,0.58,0.13,{alpha:0.9}),
+    item('bush', 0.90,0.64,0.15,{mirror:false,alpha:0.9}),
+    item('bush', 0.46,0.92,0.12,{alpha:0.8}),
+  ];}},
+  cemiterio: { nome:'Cemitério', tint:'rgba(64,64,96,.20)', build(){ return [
+    item('statue', 0.80,0.16,0.15,{mirror:true,bg:true,alpha:0.9}),
+    item('cross',  0.15,0.20,0.09,{bg:true,alpha:0.85}),
+    item('cross',  0.62,0.12,0.07,{mirror:true,bg:true,alpha:0.7}),
+    item('altar',  0.50,0.33,0.26,{bg:true,alpha:0.6}),
+    item('rockBig',0.10,0.60,0.13,{alpha:0.85}),
+    item('cross',  0.90,0.66,0.10,{alpha:0.85}),
+  ];}},
+  ruinas: { nome:'Ruínas', tint:'rgba(76,58,40,.18)', build(){ return [
+    item('statue', 0.82,0.17,0.14,{mirror:true,bg:true,alpha:0.85}),
+    item(treeKey(),0.14,0.13,0.18,{bg:true,alpha:0.5}),
+    item('crate',  0.60,0.14,0.08,{mirror:true,bg:true,alpha:0.9}),
+    item('altar',  0.48,0.90,0.24,{alpha:0.55}),
+    item('rockBig',0.10,0.58,0.14,{alpha:0.9}),
+    item('crate',  0.90,0.64,0.09,{alpha:0.9}),
+  ];}},
+};
+const BIOME_KEYS = Object.keys(BIOMES);
+let battleBiome = 'castelo';
+const pickBiome = () => BIOME_KEYS[rnd(0, BIOME_KEYS.length-1)];
+
 function buildScenery(){
   const cfg = DG_COLORS[S.dgColor];
-  const B = 'Tiny Swords (Free Pack)/Buildings/' + cfg.bdir;
-  const D = 'Tiny Swords (Free Pack)/Terrain/Decorations/';
   tileSrc = 'Tiny Swords (Free Pack)/Terrain/Tileset/' + cfg.tiles;
   loadDecor(tileSrc);
-  scenery = [   // x/y em fração do campo; mirror acompanha o lado dos inimigos
-    { src:B + 'Castle.png',                    x:0.76, y:0.14, w:0.52, alpha:0.85, mirror:true, bg:true },
-    { src:B + 'Tower.png',                     x:0.16, y:0.22, w:0.16, alpha:0.50, mirror:true, bg:true },
-    { src:D + 'Rocks/Rock' + rnd(1,4) + '.png',  x:0.10, y:0.56, w:0.14, alpha:0.55 },
-    { src:D + 'Bushes/Bushe' + rnd(1,4) + '.png',x:0.90, y:0.66, w:0.16, alpha:0.55 },
-    { src:D + 'Rocks/Rock' + rnd(1,4) + '.png',  x:0.46, y:0.90, w:0.13, alpha:0.45 },
-  ];
+  const b = BIOMES[battleBiome] || BIOMES.castelo;
+  scenery = b.build(cfg);
   scenery.forEach(s => loadDecor(s.src));
 }
 /* plataforma 9-slice com o autotile 3×3 (canto sup. esquerdo do tileset) */
@@ -1406,11 +1473,13 @@ function drawPlatform(img, cx, cy, w, h){
 function drawSceneryItems(list){
   for (const s of list){
     const img = DECOR_IMGS[s.src];
-    if (!img) continue;
-    const w = W * s.w, h = w * img.height / img.width;
+    if (!img || !img.naturalWidth) continue;
+    const sx = s.sx || 0, sy = s.sy || 0;             // recorte da folha (ou imagem inteira)
+    const sw = s.sw || img.width, sh = s.sh || img.height;
+    const w = W * s.w, h = w * sh / sw;
     const x = (s.mirror ? mirrorX(W * s.x) : W * s.x) - w/2;
     ctx.globalAlpha = s.alpha;
-    ctx.drawImage(img, x, H * s.y - h/2, w, h);
+    ctx.drawImage(img, sx, sy, sw, sh, x, H * s.y - h/2, w, h);
     ctx.globalAlpha = 1;
   }
 }
@@ -1420,7 +1489,9 @@ function drawScenery(){
     drawPlatform(timg, mirrorX(W*0.70), H*0.34, W*0.64, H*0.38);   // arena dos monstros
     drawPlatform(timg, mirrorX(W*0.26), H*0.76, W*0.46, H*0.20);   // arena do herói
   }
-  drawSceneryItems(scenery.filter(s => s.bg));       // castelo/torre em pé sobre o terreno
+  const b = BIOMES[battleBiome];                     // 🌍 clima do bioma (leve tinta de cor)
+  if (b && b.tint){ ctx.fillStyle = b.tint; ctx.fillRect(0, 0, W, H); }
+  drawSceneryItems(scenery.filter(s => s.bg));       // estruturas/árvores ao fundo
   drawSceneryItems(scenery.filter(s => !s.bg));      // pedras/arbustos na frente
 }
 
@@ -2185,6 +2256,7 @@ function challengeHere(){
 function startDuel(id){
   if (!spendTorch()){ renderMenu(); return; }
   duel = id;
+  battleBiome = pickBiome();                           // 🌍 cenário sorteado para o duelo
   $('#menu').classList.add('hidden');
   $('#battle').classList.remove('hidden');
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
@@ -2256,9 +2328,10 @@ const log = m => { $('#logwin').textContent = m; };
 function renderHUD(){
   $('#potN').textContent = '×' + potions;
   $('#mapN').textContent = '×' + S.mapas;
+  const bnome = (BIOMES[battleBiome] || BIOMES.castelo).nome;
   $('#wavechip').textContent = TUT
     ? '🎓 CAMPO DE TREINAMENTO'
-    : 'MASMORRA NV. ' + S.dgLv + ' · ONDA ' + wave + '/3' +
+    : (duel ? '⚔ DUELO' : 'MASMORRA NV. ' + S.dgLv) + ' · ' + bnome + ' · ONDA ' + wave + '/3' +
       (wave === 3 ? ' · BOSS' : '') + ' · 🪙 ' + S.gold;
 }
 /* multiplicador do golpe especial conforme os pontos de fúria (0–5) */
@@ -2518,6 +2591,7 @@ async function tutDummyAttack(type){
 }
 
 async function startTutorial(){
+  battleBiome = 'castelo';                            // treino no cenário familiar
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
   stagger = 0; guardBroken = false; fireFury = false;
   rocksLeft = 0; rockDrag = null; rockFly = null;
@@ -2613,6 +2687,7 @@ async function startRun(){
   if (!S.tutDone) return startTutorial();            // primeira vez: Campo de Treinamento
   if (!spendTorch()){ renderMenu(); return; }        // sem tocha não entra
   duel = null;                                       // masmorra normal (não é duelo de recrutamento)
+  battleBiome = pickBiome();                          // 🌍 cenário sorteado para esta masmorra
   /* a cada 5 entradas na masmorra, um vídeo de propaganda */
   S.entries = (S.entries || 0) + 1; save();
   if (S.entries % 5 === 0) await ADS.showInterstitial();
@@ -2635,6 +2710,7 @@ async function startRun(){
 
 async function startWave(){
   phase = 'busy'; setCmds(false);
+  $('#quickAtk').classList.add('hidden');            // reseta o botão de ataque aéreo
   enemySide = rnd(0,1) ? 'right' : 'left';           // sorteia o canto dos inimigos
   buildScenery();                                    // cenário da cor da masmorra
   const px = player.x, py = player.y;
@@ -3319,10 +3395,19 @@ async function enemyAttack(en){
     const ok = (type === 'jump' && result === 'dodge') || (type === 'parry' && result === 'perfect') ||
                (type === 'side' && result === 'side');
     if (!ok) allDefended = false;
+    /* 🦅 esquivou o rasteiro pulando → janela para o botão de ataque aéreo */
+    if (type === 'jump' && result === 'dodge' && !en.dead && hp > 0) await jumpAttackWindow(en);
+    if (en.dead || hp <= 0) break;                   // riposte/ataque aéreo pode ter matado
     if (i < combo.length - 1) await wait(260);
   }
+  /* inimigo morto no meio do golpe (riposte do parry ou ataque aéreo) */
+  if (en.dead){
+    en.warn = false;
+    await processBooms();
+    return;
+  }
   /* sequência inteira defendida → contra-ataque no fim do combo */
-  if (allDefended && hp > 0 && !en.dead){
+  if (allDefended && hp > 0){
     log('✨ Combo inteiro defendido!');
     await wait(350);
     await counterAttack(en);
@@ -3433,13 +3518,18 @@ function applyHit(en, type, result, atk, inCombo){
     addFloat(player, 'PARRY!', '#fbbf24', true);
     gainFury(1);                                     // parry perfeito também dá fúria
     enemyStagger(en, 1, 15);                         // e cansa o atacante (+15 de exaustão)
+    /* 🗡 RIPOSTE: o parry perfeito revida um pouco de dano (não é combo) */
+    const rip = Math.max(1, Math.round(S.atk * 0.5 * atkMul()) - en.def);
+    if (en.shield > 0){ breakShield(en, 1, false); pierceDamage(en, rip); }
+    else { en.hp = Math.max(0, en.hp - rip); en.flash = 1; addFloat(en, rip, '#fde68a'); }
     const gv = gemLv('vital');                       // 💗 Gema Vital: parry perfeito cura HP
     if (gv && hp < S.maxhp){
       const heal = Math.max(1, Math.round(S.maxhp * (0.03 + 0.02 * gv)));   // Nv.1 5% … Nv.5 13%
       hp = Math.min(S.maxhp, hp + heal);
       addFloat(player, '+' + heal + ' 💗', '#4ade80');
     }
-    log('✨ PERFEITO! Aparou o golpe de ' + en.name + ' (+1 ⚡)!');
+    if (en.hp <= 0 && !TUT) slayEnemy(en);
+    log('✨ PERFEITO! Aparou e revidou ' + rip + ' de dano em ' + en.name + ' (+1 ⚡)!');
     fieldFx('good');
   } else if (result === 'block'){
     dmg = Math.max(0, atk - S.def);
@@ -3484,13 +3574,48 @@ function tryJump(){
   qteResult = 'dodge';
   const qte = $('#qte');
   qte.classList.add('dodged');
-  qte.querySelector('.tip').textContent = '🦘 ESQUIVA!';
+  qte.querySelector('.tip').textContent = '🦘 ESQUIVA! ATAQUE NO AR!';
   (async () => {                                     // animação: salto rápido
     await tween(player, player.x, player.homeY - player.size*0.55, 150, 'run');
     await tween(player, player.x, player.homeY, 180, 'run');
     player.anim = 'idle';
   })();
 }
+/* 🦅 ATAQUE AÉREO: depois de pular o rasteiro, aparece o botão de ataque rápido.
+   Tocar a tempo faz o herói golpear do alto e causar dano; ignorar só mantém a esquiva. */
+let quickAtkTap = null;
+function jumpAttackWindow(en){
+  return new Promise(resolve => {
+    if (!en || en.dead || hp <= 0){ resolve(false); return; }
+    phase = 'quickatk';
+    const btn = $('#quickAtk');
+    btn.classList.remove('hidden'); void btn.offsetWidth; btn.classList.add('show');
+    let done = false;
+    const timer = setTimeout(() => end(false), 1100);   // janela para tocar
+    async function end(tapped){
+      if (done) return; done = true;
+      clearTimeout(timer); quickAtkTap = null;
+      btn.classList.remove('show'); btn.classList.add('hidden');
+      if (tapped){
+        const swing = playOnce(player, 'attack');
+        await wait(150); shakeApp(); SFX.play('crit');
+        const dmg = Math.max(1, Math.round(S.atk * 0.9 * atkMul()) - en.def);
+        if (en.shield > 0){ breakShield(en, 1, true); pierceDamage(en, dmg); }
+        else { en.hp = Math.max(0, en.hp - dmg); en.flash = 1; addFloat(en, dmg, '#fbbf24', true); }
+        log('🦅 ATAQUE AÉREO! ' + dmg + ' de dano em ' + en.name + '!');
+        if (en.hp <= 0 && !TUT) slayEnemy(en);
+        await swing;
+      }
+      phase = 'busy';
+      resolve(tapped);
+    }
+    quickAtkTap = () => end(true);
+  });
+}
+$('#quickAtk').addEventListener('click', e => {
+  e.stopPropagation();
+  if (phase === 'quickatk' && quickAtkTap) quickAtkTap();
+});
 /* esquiva lateral (deslizar ⬅➡): só evita o dano — não gera fúria nem cansa o inimigo */
 function trySide(){
   if (phase !== 'qte' || qteType !== 'side' || qteResult) return;
