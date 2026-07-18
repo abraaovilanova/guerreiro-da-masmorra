@@ -4,3 +4,7 @@ www/
 android/
 .claude/
 
+
+# card art packs pesados (grandes demais para o GitHub — ficam só no disco)
+assets/FreePack/
+assets/free_pixel_art_card_pack.png

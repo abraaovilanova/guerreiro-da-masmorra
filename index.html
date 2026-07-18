@@ -31,7 +31,10 @@
   html,body{height:100%}
   body{
     background:var(--bg);color:var(--ink);font-family:var(--sans);
-    overflow:hidden;-webkit-user-select:none;user-select:none;
+    /* rolagem vertical liberada para a seção "Sobre" (conteúdo editorial p/ AdSense);
+       horizontal travada e sem bounce para não atrapalhar o jogo */
+    overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;
+    -webkit-user-select:none;user-select:none;
     -webkit-tap-highlight-color:transparent;
   }
   #app{
@@ -39,6 +42,20 @@
     display:flex;flex-direction:column;
     background:radial-gradient(ellipse 130% 55% at 50% -12%, #241d45 0%, transparent 60%), var(--bg);
   }
+  /* ============ SEÇÃO "SOBRE" — conteúdo de texto real para SEO/AdSense ============ */
+  .about{
+    max-width:520px;margin:0 auto;padding:22px 18px 40px;
+    color:var(--ink-dim);font-size:14px;line-height:1.65;
+    -webkit-user-select:text;user-select:text;
+    border-top:1px solid var(--border);
+  }
+  .about h2{font-size:20px;color:var(--ink);margin-bottom:10px}
+  .about h3{font-size:15px;color:var(--accent);margin:18px 0 6px}
+  .about p{margin-bottom:10px}
+  .about strong{color:var(--ink)}
+  .about ul{margin:0 0 10px 18px}
+  .about li{margin-bottom:5px}
+  .about a{color:var(--accent)}
   .screen{position:absolute;inset:0;display:flex;flex-direction:column;padding:16px;gap:12px}
   .hidden{display:none!important}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px}
@@ -592,6 +609,65 @@
     </div>
   </div>
 </div>
+
+<!-- ============================================================
+     SEÇÃO "SOBRE" — conteúdo editorial legível (SEO + AdSense).
+     Fica abaixo do jogo (role a tela para ler). Descreve o jogo,
+     as classes, as mecânicas e a progressão de forma detalhada.
+     ============================================================ -->
+<main class="about">
+  <h2>Guerreiro da Masmorra — RPG de combate tático em turnos</h2>
+  <p><strong>Guerreiro da Masmorra</strong> é um jogo de RPG tático por turnos, gratuito e feito
+  inteiramente para navegadores web e dispositivos móveis. Desça a masmorra, enfrente hordas de
+  goblins, arqueiros, lanceiros, minotauros e chefes épicos — como o Rei Slime e a Árvore Anciã —
+  e prove seu valor a cada onda de inimigos. Cada masmorra é dividida em três ondas: monstros comuns,
+  monstros reforçados e, por fim, um confronto contra o Chefe.</p>
+
+  <h3>Como jogar</h3>
+  <p>O combate é ativo e depende do seu tempo de reação. Em vez de simplesmente escolher um comando e
+  esperar, você participa de cada golpe com eventos de tempo (QTE): toque na hora certa para executar
+  um <strong>parry</strong> perfeito, arraste para cima para <strong>saltar</strong> sobre golpes
+  rasteiros e deslize para os lados para a <strong>esquiva lateral</strong>. Defender bem enche sua
+  barra de fúria e cansa o inimigo, abrindo espaço para contra-ataques devastadores.</p>
+
+  <h3>Heróis e classes</h3>
+  <p>Você começa com o <strong>Guerreiro</strong>, um cavaleiro que acumula fúria e liberta ataques
+  especiais como a Sequência Mortal e o Combo. Ao longo da jornada é possível recrutar novos heróis,
+  cada um com identidade própria:</p>
+  <ul>
+    <li><strong>Mago Arcanista</strong> — usa um baralho de cartas mágicas: compre a mão, funda cartas
+    de mesmo elemento (Fogo + Fogo = Grande Labareda) e acerte o ritmo dos feitiços.</li>
+    <li><strong>Caçadora</strong> — arqueira ágil, com ataque alto e muita mobilidade.</li>
+    <li><strong>Lanceiro</strong> — uma muralha de vida e defesa, ideal para segurar chefes.</li>
+    <li><strong>Monge</strong> — equilíbrio entre disciplina, cura e resistência.</li>
+  </ul>
+  <p>Cada herói evolui de forma independente: recrutou alguém novo? Vale voltar às masmorras iniciais
+  para treiná-lo do zero. Troque de herói no acampamento simplesmente arrastando a tela para o lado.</p>
+
+  <h3>Mecânicas de combate</h3>
+  <p>Alguns chefes entram em <strong>Fase 2</strong> ao perder metade da vida: ficam mais rápidos, mais
+  fortes e ganham turnos extras. Goblins de fogo grudam dinamites que explodem no início do seu turno,
+  e monstros explosivos detonam ao morrer, exigindo esquiva. A ordem dos turnos segue a iniciativa —
+  a velocidade de cada unidade decide quem age primeiro.</p>
+
+  <h3>Progressão: mercado, gemas e recrutamento</h3>
+  <p>Derrotar inimigos rende <strong>ouro</strong>, usado no Mercado do acampamento para melhorar vida,
+  ataque e defesa, comprar tochas (a chave para entrar nas masmorras) e mapas de fuga. Chefes especiais
+  liberam <strong>Gemas</strong> — como a Gema do Arremesso, a Gema Vital e a Gema Perfurante — que
+  concedem poderes passivos e podem ser evoluídas até o nível máximo. No <strong>mapa-múndi</strong>,
+  navegue entre cidades no estilo Final Fantasy Tactics e desafie heróis em duelos para recrutá-los.</p>
+
+  <h3>Dicas para evoluir mais rápido</h3>
+  <ul>
+    <li>Priorize o parry perfeito: dano zero, mais fúria e o inimigo cansado.</li>
+    <li>Gaste ouro cedo em Vida e Defesa para sobreviver às primeiras masmorras.</li>
+    <li>Abra o Baú do Dia todos os dias para um bônus grátis de ouro.</li>
+    <li>Equipe a gema certa para o seu estilo antes de encarar os chefes.</li>
+  </ul>
+
+  <p>Guerreiro da Masmorra é jogável direto no navegador, sem instalação, e também disponível como
+  aplicativo. Bom jogo e boa sorte na masmorra!</p>
+</main>
 
 <script>
 'use strict';
