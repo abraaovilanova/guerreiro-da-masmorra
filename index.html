@@ -320,19 +320,19 @@
   .tchip.done{opacity:.18;filter:grayscale(1)}
   .tchip canvas,.tchip img{width:30px;height:30px;image-rendering:pixelated}
 
-  /* menu flutuante ao lado do herói, estilo Clair Obscur / Metaphor */
-  #cmds{
-    position:absolute;z-index:4;min-width:112px;max-width:150px;padding:6px 9px;
-    background:rgba(22,25,44,.92);backdrop-filter:blur(3px);
-    box-shadow:0 10px 30px rgba(0,0,0,.5);
-  }
-  #cmdMain,#cmdSpec,#cmdHab{display:flex;flex-direction:column;gap:3px}
+  /* menu em arco ao lado do herói, estilo Clair Obscur: Expedition 33 —
+     #cmds é só um ponto-âncora (sem fundo); cada botão flutua isolado,
+     posicionado em arco por arcLayout() (left/top em px, calculados por JS). */
+  #cmds{ position:absolute;z-index:4; }
+  #cmdMain,#cmdSpec,#cmdHab{ position:absolute;inset:0; }
   #cmds button{
-    font-size:12.5px;padding:4px 7px;background:none;border:none;text-align:left;
-    position:relative;overflow:hidden;border-radius:8px;
+    position:absolute;left:0;top:0;translate:-50% -50%;
+    font-size:12px;font-weight:700;padding:7px 10px;background:none;border:none;
+    text-align:center;overflow:hidden;border-radius:8px;white-space:nowrap;
+    transition:left .16s ease,top .16s ease;
   }
   #cmds button:not(:disabled):active{color:var(--accent)}
-  #cmds .cur{color:var(--accent);margin-right:4px}
+  #cmds .cur{display:none}                            /* seta ▶ não cabe/não combina no arco */
   /* barra de carga: segure o comando para ativar */
   #cmds button.hold::after{
     content:"";position:absolute;inset:0;pointer-events:none;
@@ -459,13 +459,18 @@
   .skinned #cmds button{
     background:none;border-radius:0;border:10px solid transparent;
     border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
-    image-rendering:pixelated;color:#3b2a16;text-shadow:none;margin:2px 0;
+    image-rendering:pixelated;color:#3b2a16;text-shadow:none;
   }
   .skinned #cmds button:not(:disabled):active{color:#7c2d12}
-  .skinned #cmds .cur{color:#92400e}
   .skinned #cmds .num{color:#7c2d12}
   .skinned #cmds button.hold::after{
     background:linear-gradient(90deg,rgba(146,64,14,.12),rgba(146,64,14,.34));
+  }
+  /* mesmo pergaminho no botão de Ataque Aéreo (após esquivar um golpe rasteiro) */
+  .skinned #quickAtk{
+    background:none;border-radius:0;border:14px solid transparent;
+    border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
+    image-rendering:pixelated;color:#3b2a16;text-shadow:none;box-shadow:none;
   }
   .ribboned{
     border-style:solid;border-color:transparent;border-width:0 46px;
@@ -2427,21 +2432,37 @@ function shakeApp(){ $('#app').classList.add('shake'); setTimeout(() => $('#app'
 function placeCmds(){
   if (!player || !W) return;
   const c = $('#cmds');
+  const arcRight = enemySide === 'right';             // herói à esquerda → arco abre p/ direita (e vice-versa)
+  c.classList.toggle('arcRight', arcRight);
+  c.classList.toggle('arcLeft', !arcRight);
   c.style.top = Math.round(player.homeY) + 'px';
-  if (enemySide === 'right'){                        // herói à esquerda → menu à direita dele
-    c.style.left = Math.round(player.homeX + player.size*0.62) + 'px';
-    c.style.transform = 'translateY(-60%)';
-  } else {                                           // herói à direita → menu à esquerda dele
-    c.style.left = Math.round(player.homeX - player.size*0.62) + 'px';
-    c.style.transform = 'translate(-100%,-60%)';
-  }
+  c.style.left = Math.round(player.homeX + (arcRight ? 1 : -1) * player.size*0.62) + 'px';
+}
+/* 🎯 dispõe os botões de uma submenu em arco ao redor da âncora de #cmds
+   (estilo Clair Obscur: Expedition 33); espelha o ângulo quando o arco abre p/ esquerda. */
+function arcLayout(menuSel, spread, radius){
+  const btns = $(menuSel).querySelectorAll('button');
+  const n = btns.length;
+  const arcRight = $('#cmds').classList.contains('arcRight');
+  btns.forEach((b, i) => {
+    const t = n > 1 ? (i/(n-1) - 0.5) : 0;
+    const deg = t * spread;
+    const a = (arcRight ? deg : 180 - deg) * Math.PI/180;
+    b.style.left = Math.round(Math.cos(a) * radius) + 'px';
+    b.style.top  = Math.round(Math.sin(a) * radius) + 'px';
+  });
 }
 function setCmds(on){
   if (on) updateHabBtn();                       // rótulo da Habilidade conforme o herói ativo
   $('#cmds').classList.toggle('hidden', !on);   // menu de ataque só na vez do herói
   $('#arrL').classList.toggle('hidden', !on);   // setas de alvo idem
   $('#arrR').classList.toggle('hidden', !on);
-  if (on) placeCmds();
+  if (on){
+    placeCmds();
+    arcLayout('#cmdMain', 150, 100);
+    arcLayout('#cmdSpec', 120, 95);
+    arcLayout('#cmdHab', 70, 85);
+  }
   $('#cAtk').disabled = !on;
   $('#cSpec').disabled = !on || fury < 1;     // habilita se algum especial está disponível
   $('#cPot').disabled = !on || potions <= 0 || hp >= S.maxhp;
