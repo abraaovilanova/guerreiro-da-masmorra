@@ -705,6 +705,8 @@
 
   <p>Guerreiro da Masmorra é jogável direto no navegador, sem instalação, e também disponível como
   aplicativo. Bom jogo e boa sorte na masmorra!</p>
+
+  <p><a href="/privacidade.html">Política de Privacidade</a></p>
 </main>
 
 <script>
@@ -2357,9 +2359,12 @@ function renderHUD(){
     : (duel ? '⚔ DUELO' : 'MASMORRA NV. ' + S.dgLv) + ' · ' + bnome + ' · ONDA ' + wave + '/3' +
       (wave === 3 ? ' · BOSS' : '') + ' · 🪙 ' + S.gold;
 }
-/* multiplicador do golpe especial conforme os pontos de fúria (0–5) */
+/* multiplicador do golpe especial conforme os pontos de fúria (0–5)
+   Lanceiro: já tem a Investida em Leque para golpear todos, então seu especial
+   fica sempre focado em um único alvo (mesmo com fúria máxima). */
 function specialInfo(){
-  if (fury >= 5) return { m:1.5, aoe:true,  tag:'×1.5 TODOS' };
+  const aoeOK = S.activeHero !== 'lanceiro';
+  if (fury >= 5) return { m:1.5, aoe:aoeOK, tag: aoeOK ? '×1.5 TODOS' : '×1.5' };
   if (fury >= 3) return { m:1.5, aoe:false, tag:'×1.5' };
   if (fury >= 2) return { m:1.2, aoe:false, tag:'×1.2' };
   if (fury >= 1) return { m:1.1, aoe:false, tag:'×1.1' };
@@ -2408,6 +2413,7 @@ function placeCmds(){
   }
 }
 function setCmds(on){
+  if (on) updateHabBtn();                       // rótulo da Habilidade conforme o herói ativo
   $('#cmds').classList.toggle('hidden', !on);   // menu de ataque só na vez do herói
   $('#arrL').classList.toggle('hidden', !on);   // setas de alvo idem
   $('#arrR').classList.toggle('hidden', !on);
@@ -2458,6 +2464,95 @@ async function useFireFury(){
   log('🔥 Fúria do Fogo! Ataques ×1.2 e fúria no máximo (⚡5) até usar um especial — você passa a vez.');
   await wait(1000);
   if (aliveIdx().length && hp > 0) enemyPhase();
+}
+
+/* 🔱 INVESTIDA EM LEQUE (Lanceiro): a lança alcança toda a linha inimiga de
+   uma vez, mas cada golpe é bem mais fraco que um ataque focado. Sem custo
+   de fúria — é a marca registrada da classe, disponível todo turno. */
+async function useSpearSweep(){
+  if (phase !== 'player') return;
+  phase = 'busy'; closeSpec(); setCmds(false); setTurn('player');
+  const targets = aliveIdx().map(i => enemies[i]);
+  log('🔱 Investida em Leque! A lança varre toda a linha de inimigos.');
+  await tween(player, mirrorX(W*0.55), H*0.38, 320, 'run');
+  const hit = playOnce(player, 'attack');
+  await wait(200);
+  SFX.play('hit');
+  for (const en of targets){
+    enemyStagger(en, 1, 15);                        // golpe fraco: enche pouco a exaustão
+    if (en.shield > 0){
+      breakShield(en, 1, false);
+      pierceDamage(en, S.atk * 0.55 * atkMul() - en.def);
+      continue;
+    }
+    const dmg = Math.max(1, Math.round(S.atk * 0.55 * atkMul()) - en.def + rnd(-1,2));
+    en.hp = Math.max(0, en.hp - dmg);
+    en.flash = 1;
+    addFloat(en, dmg, '#fff');
+    if (en.hp <= 0) slayEnemy(en);
+  }
+  log('🔱 Todos os inimigos vivos foram atingidos!');
+  gainFury(1);
+  renderHUD(); renderTurnbar();
+  await hit;
+  if (await processBooms()) return;
+  await playerReturn();
+  if (await waveCleared()) return;
+  enemyPhase();
+}
+
+/* 🎯 TIRO CERTEIRO (Caçadora): flecha precisa que ignora a defesa do alvo
+   (perfura a armadura) e tem chance de crítico bem maior — sempre em um
+   único inimigo, o oposto da Investida em Leque do Lanceiro. */
+async function useAimedShot(){
+  if (phase !== 'player') return;
+  phase = 'busy'; closeSpec(); setCmds(false); setTurn('player');
+  const en = enemies[targetIdx];
+  log('🎯 Tiro Certeiro! Mira no ponto fraco de ' + en.name + '.');
+  await tween(player, frontOfEnemy(en), en.y, 300, 'run');
+  const hit = playOnce(player, 'attack');
+  await wait(200);
+  const crit = Math.random() < 0.45;
+  SFX.play(crit ? 'crit' : 'hit');
+  if (en.shield > 0){
+    const broke = breakShield(en, crit ? 2 : 1, crit);
+    log((crit ? 'CRÍTICO! ' : '') + 'Estilhaçou ' + broke + (broke > 1 ? ' escudos' : ' escudo') +
+        ' de ' + en.name + '! Restam ' + en.shield + '.');
+    pierceDamage(en, S.atk * 1.1 * atkMul());       // ignora a defesa: perfura a armadura
+  } else {
+    let dmg = Math.max(1, Math.round(S.atk * 1.1 * atkMul()) + rnd(-1,3));   // sem desconto de en.def
+    if (crit) dmg *= 2;
+    en.hp = Math.max(0, en.hp - dmg);
+    en.flash = 1;
+    addFloat(en, dmg, crit ? '#fbbf24' : '#fff', crit);
+    log((crit ? 'CRÍTICO! ' : '') + dmg + ' de dano perfurante em ' + en.name + '.');
+  }
+  if (en.hp <= 0){
+    slayEnemy(en);
+    log('💥 ' + en.name + ' caiu! +' + en.gold + ' de ouro.');
+  }
+  gainFury(1);
+  renderHUD(); renderTurnbar();
+  await hit;
+  if (await processBooms()) return;
+  await playerReturn();
+  if (await waveCleared()) return;
+  enemyPhase();
+}
+
+/* despacha o botão de Habilidade conforme o herói ativo */
+function useHabilidade(){
+  if (S.activeHero === 'lanceiro') return useSpearSweep();
+  if (S.activeHero === 'cacadora') return useAimedShot();
+  return useFireFury();
+}
+function updateHabBtn(){
+  const HAB = {
+    lanceiro: '🔱 Investida em Leque',
+    cacadora: '🎯 Tiro Certeiro',
+  };
+  $('#cFire').innerHTML = '<span class="cur">▶</span>' + (HAB[S.activeHero] || '🔥 Fúria do Fogo') +
+    ' <span class="num" id="fireTag"></span>';
 }
 
 /* ---- ordem do turno: INICIATIVA POR VELOCIDADE ----
@@ -4081,7 +4176,7 @@ bindHold('cSeq', playerSeq);
 bindHold('cCombo', playerCombo);
 bindHold('cPot', usePotion);
 bindHold('cRun', flee);
-bindHold('cFire', useFireFury);
+bindHold('cFire', useHabilidade);
 $('#cSpec').addEventListener('click', openSpec);     // navegação: toque simples
 $('#cBack').addEventListener('click', closeSpec);
 $('#cHab').addEventListener('click', openHab);

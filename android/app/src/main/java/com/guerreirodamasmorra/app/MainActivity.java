@@ -1,4 +1,4 @@
-package com.vilanova.guerreirodamasmorra;
+package com.guerreirodamasmorra.app;
 
 import com.getcapacitor.BridgeActivity;
 
