@@ -306,6 +306,21 @@
   @keyframes qapulse{from{box-shadow:0 8px 26px rgba(251,191,36,.4), 0 0 0 3px rgba(251,191,36,.15)}
                      to{box-shadow:0 8px 30px rgba(251,191,36,.7), 0 0 0 8px rgba(251,191,36,.28)}}
 
+  /* rodapé da batalha: ordem do turno + Fugir lado a lado */
+  #bottomRow{display:flex;gap:8px;align-items:stretch}
+  #bottomRow #turnbar{flex:1;min-width:0}
+  #cRun{
+    flex:none;font-size:12px;font-weight:700;padding:0 14px;white-space:nowrap;
+    background:var(--panel-2);
+  }
+  #cRun .num{color:var(--gold);margin-left:3px}
+  .skinned #cRun{
+    background:none;border-radius:0;border:10px solid transparent;
+    border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
+    image-rendering:pixelated;color:#3b2a16;text-shadow:none;
+  }
+  .skinned #cRun .num{color:#7c2d12}
+
   /* ordem do turno */
   #turnbar{display:flex;align-items:center;gap:10px;padding:7px 12px}
   #turnbar .label{flex:none}
@@ -626,7 +641,6 @@
           <button id="cSpec"><span class="cur">▶</span>✨ Ataque especial</button>
           <button id="cHab"><span class="cur">▶</span>🔥 Habilidade</button>
           <button id="cPot"><span class="cur">▶</span>Poção <span class="num" id="potN">×3</span></button>
-          <button id="cRun"><span class="cur">▶</span>Fugir 🗺️<span class="num" id="mapN">×0</span></button>
         </div>
         <div id="cmdHab" class="hidden">
           <button id="cFire"><span class="cur">▶</span>🔥 Fúria do Fogo <span class="num" id="fireTag"></span></button>
@@ -645,9 +659,12 @@
       <div id="hand" class="hidden"></div>
     </div>
 
-    <div class="card" id="turnbar">
-      <span class="label">Turnos</span>
-      <div id="turnlist"></div>
+    <div id="bottomRow">
+      <div class="card" id="turnbar">
+        <span class="label">Turnos</span>
+        <div id="turnlist"></div>
+      </div>
+      <button id="cRun">Fugir 🗺️<span class="num" id="mapN">×0</span></button>
     </div>
   </div>
 
