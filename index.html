@@ -205,6 +205,12 @@
   @keyframes tappulse{from{opacity:.5}to{opacity:1}}
   #tutbox.hint{pointer-events:none;top:5%;padding:9px 12px;font-size:13px}
   #tutbox.hint .tap{display:none}
+  #tutSkip{
+    position:absolute;top:8px;right:8px;z-index:9;
+    font-size:11px;padding:6px 10px;border-radius:99px;
+    background:rgba(15,17,23,.85);border:1px solid var(--border);color:var(--ink-dim);
+  }
+  #tutSkip:disabled{opacity:.5}
 
   /* ---- QTE: círculo que encolhe ---- */
   #qte{
@@ -449,6 +455,18 @@
     border-image:var(--ui-btn-red) 47 45 47 45 fill stretch;
     image-rendering:pixelated;box-shadow:none;text-shadow:0 1px 2px rgba(0,0,0,.55);
   }
+  /* pergaminho do Tiny Swords no menu de comandos de batalha (Atacar, Habilidade…) */
+  .skinned #cmds button{
+    background:none;border-radius:0;border:10px solid transparent;
+    border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
+    image-rendering:pixelated;color:#3b2a16;text-shadow:none;margin:2px 0;
+  }
+  .skinned #cmds button:not(:disabled):active{color:#7c2d12}
+  .skinned #cmds .cur{color:#92400e}
+  .skinned #cmds .num{color:#7c2d12}
+  .skinned #cmds button.hold::after{
+    background:linear-gradient(90deg,rgba(146,64,14,.12),rgba(146,64,14,.34));
+  }
   .ribboned{
     border-style:solid;border-color:transparent;border-width:0 46px;
     image-rendering:pixelated;padding:14px 4px 20px;
@@ -577,6 +595,7 @@
         <div id="tutTxt"></div>
         <div class="tap">toque para continuar ▸</div>
       </div>
+      <button id="tutSkip" class="hidden">Pular tutorial ⏭</button>
       <div id="qte">
         <div class="zone"><div class="target">🛡️</div><div class="shrink"></div></div>
         <div class="tip">TOQUE QUANDO O CÍRCULO FECHAR!</div>
@@ -834,6 +853,7 @@ const loadPromise = Promise.allSettled(Object.entries(UNITS).flatMap(([u, cfg]) 
 const UIBASE = 'Tiny Swords (Free Pack)/UI Elements/UI Elements/';
 const UIA = {
   paper:   'Papers/SpecialPaper.png',            // painel escuro 9-slice
+  scroll:  'Papers/RegularPaper.png',            // pergaminho claro 9-slice (menu de batalha)
   btnBlue: 'Buttons/BigBlueButton_Regular.png',
   btnRed:  'Buttons/BigRedButton_Regular.png',
   barBase: 'Bars/BigBar_Base.png',
@@ -901,6 +921,7 @@ function cropURL(img, sx, sy, sw, sh){
   try {
     const R = document.documentElement.style;
     if (UIIMG.paper)   R.setProperty('--ui-paper',   nineURL(UIIMG.paper, NINE.paper));
+    if (UIIMG.scroll)  R.setProperty('--ui-scroll',  nineURL(UIIMG.scroll, NINE.paper));
     if (UIIMG.btnBlue) R.setProperty('--ui-btn-blue', nineURL(UIIMG.btnBlue, NINE.btn));
     if (UIIMG.btnRed)  R.setProperty('--ui-btn-red',  nineURL(UIIMG.btnRed, NINE.btn));
     if (UIIMG.barBase) R.setProperty('--ui-bar',      nineURL(UIIMG.barBase, NINE.bar));
@@ -1237,6 +1258,7 @@ function addDynamite(en){
 
 /* ---------- tutorial (Campo de Treinamento) ---------- */
 let TUT = null;                     // ativo: {waitFor, resolve} — orquestra os passos
+let tutSkipRequested = false;       // 🎓 "Pular tutorial": some direto pro fim do treino
 function tutEvent(name){
   if (TUT && TUT.waitFor && TUT.waitFor.includes(name)){
     const r = TUT.resolve;
@@ -1244,7 +1266,9 @@ function tutEvent(name){
     r(name);
   }
 }
-const tutWait = names => new Promise(res => { TUT.waitFor = names; TUT.resolve = res; });
+const tutWait = names => tutSkipRequested
+  ? Promise.resolve('__skip__')
+  : new Promise(res => { TUT.waitFor = names; TUT.resolve = res; });
 let curse = null;                   // encantamento do Monge: {type:'dot'|'nofury', turns, power}
 let enemies = [], player = null, targetIdx = 0;
 let enemySide = 'right';            // canto dos inimigos ('left'|'right'), sorteado a cada onda
@@ -2657,15 +2681,19 @@ function cycleTarget(dir){
 /* ================================================================
    🎓 CAMPO DE TREINAMENTO — tutorial guiado da primeira batalha
    ================================================================ */
+let tutMsgResolve = null;           // 🎓 resolver da mensagem exibida (p/ o "Pular tutorial" destravar na hora)
 function tutMsg(html){
+  if (tutSkipRequested) return Promise.resolve();
   return new Promise(res => {
     const b = $('#tutbox');
     b.classList.remove('hidden', 'hint');
     $('#tutTxt').innerHTML = html;
+    tutMsgResolve = res;
     const done = e => {
       e.stopPropagation();
       b.classList.add('hidden');
       b.removeEventListener('pointerdown', done);
+      tutMsgResolve = null;
       res();
     };
     setTimeout(() => b.addEventListener('pointerdown', done), 300);
@@ -2724,6 +2752,8 @@ async function startTutorial(){
   log('🎓 Campo de Treinamento');
   await loadPromise;
   TUT = { waitFor: null, resolve: null };
+  tutSkipRequested = false;
+  $('#tutSkip').classList.remove('hidden'); $('#tutSkip').disabled = false; $('#tutSkip').textContent = 'Pular tutorial ⏭';
   phase = 'busy';
   enemySide = 'right';
   buildScenery();
@@ -2756,7 +2786,7 @@ async function startTutorial(){
   /* 3 — parry */
   await tutMsg('🛡️ Hora de <b>DEFENDER</b>!<br>Quando o círculo fechar sobre o escudo, <b>TOQUE</b> na tela.<br>No momento exato (ouça a moeda 🪙) é um <b>PARRY</b>: dano zero, +fúria e cansa o inimigo!');
   let r = null;
-  while (r !== 'perfect'){
+  while (r !== 'perfect' && !tutSkipRequested){
     r = await tutDummyAttack('parry');
     if (r !== 'perfect') await tutMsg('Quase! Espere o círculo chegar no <b>final</b> (depois do som da moeda 🪙) e toque. Vamos de novo!');
   }
@@ -2765,7 +2795,7 @@ async function startTutorial(){
   /* 4 — pulo */
   await tutMsg('🦘 Golpes <b>rasteiros</b> (círculo amarelo ⬆️) não podem ser aparados:<br><b>ARRASTE PARA CIMA</b> para saltar sobre eles!');
   r = null;
-  while (r !== 'dodge'){
+  while (r !== 'dodge' && !tutSkipRequested){
     r = await tutDummyAttack('jump');
     if (r !== 'dodge') await tutMsg('Ai! Arraste o dedo <b>para cima</b> enquanto o círculo fecha. Tente de novo!');
   }
@@ -2781,24 +2811,32 @@ async function startTutorial(){
   exhausted = false;                                 // sem punição no treino
 
   /* 6 — finalizar */
-  if (aliveIdx().length){
+  if (aliveIdx().length && !tutSkipRequested){
     await tutMsg('☄️ Especiais gastam a fúria e deixam você <b>exausto</b> por 1 rodada (no treino, deixamos passar 😉).');
     tutHint('💥 Termine o serviço: derrote o Boneco de Treino!');
-    while (aliveIdx().length){
+    while (aliveIdx().length && !tutSkipRequested){
       phase = 'player'; rocksLeft = 1; setCmds(true); setTurn('player');
       await tutWait(['playerActed', 'cleared']);
       exhausted = false;
     }
     tutHide();
   }
-  await wait(900);
+  await wait(tutSkipRequested ? 0 : 900);
   TUT = null;
-  S.tutDone = true; S.gold += 100; save();
+  $('#tutSkip').classList.add('hidden');
+  S.tutDone = true;
   phase = 'menu';
-  showOverlay('🎓 TREINAMENTO CONCLUÍDO!',
-    'Você dominou o básico do combate!<br>Bônus de formatura: <b>🪙 100</b><br><br>' +
-    'Lembre-se: parry e esquiva gastam o inimigo e enchem sua fúria,<br>' +
-    'a 🪨 pedrada é grátis toda rodada — e monstros exaustos perdem a vez.<br>Boa sorte na masmorra!');
+  if (tutSkipRequested){
+    tutSkipRequested = false;
+    showOverlay('🎓 Tutorial pulado', 'Boa sorte na masmorra!');
+    save();
+  } else {
+    S.gold += 100; save();
+    showOverlay('🎓 TREINAMENTO CONCLUÍDO!',
+      'Você dominou o básico do combate!<br>Bônus de formatura: <b>🪙 100</b><br><br>' +
+      'Lembre-se: parry e esquiva gastam o inimigo e enchem sua fúria,<br>' +
+      'a 🪨 pedrada é grátis toda rodada — e monstros exaustos perdem a vez.<br>Boa sorte na masmorra!');
+  }
 }
 
 async function startRun(){
@@ -3030,6 +3068,9 @@ async function playerAttack(){
     }
     if (i < strikes - 1 && !en.dead) await wait(150);
   }
+  /* 🗡️ o Guerreiro também acumula fúria golpeando no ataque normal —
+     os demais heróis só ganham fúria defendendo (parry/esquiva) ou com suas próprias habilidades. */
+  if (S.activeHero === 'guerreiro') gainFury(1);
   if (await processBooms()) return;
   await playerReturn();
   if (await waveCleared()) return;
@@ -4183,6 +4224,19 @@ $('#cHab').addEventListener('click', openHab);
 $('#cHabBack').addEventListener('click', closeSpec);
 $('#arrL').addEventListener('click', e => { e.stopPropagation(); cycleTarget(-1); });
 $('#arrR').addEventListener('click', e => { e.stopPropagation(); cycleTarget(1); });
+/* 🎓 "Pular tutorial": sinaliza o flag (tutMsg/tutWait resolvem na hora) e
+   deixa os passos em andamento (ex.: um golpe do boneco já em animação)
+   terminarem naturalmente — evita cortar uma corrotina no meio. */
+$('#tutSkip').addEventListener('click', e => {
+  e.stopPropagation();
+  if (!TUT || tutSkipRequested) return;
+  tutSkipRequested = true;
+  tutHide();
+  if (TUT.resolve){ const r = TUT.resolve; TUT.waitFor = null; TUT.resolve = null; r('__skip__'); }
+  if (tutMsgResolve){ const r = tutMsgResolve; tutMsgResolve = null; r(); }
+  e.currentTarget.disabled = true;
+  e.currentTarget.textContent = 'Pulando…';
+});
 
 /* QTE de parry: toque · pulo: arrastar ↑ · esquiva lateral: deslizar ⬅➡ */
 let gX = null, gY = null;
