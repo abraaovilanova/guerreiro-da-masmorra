@@ -268,6 +268,24 @@
   #seqCur.lock{background:var(--gold);animation:none;box-shadow:0 0 16px var(--gold)}
   @keyframes curpulse{from{box-shadow:0 0 5px #fff}to{box-shadow:0 0 18px #fff}}
 
+  /* ---- QTE 4: traçar o padrão da magia (Mago Arcanista) ---- */
+  #trace{
+    position:absolute;inset:0;z-index:5;visibility:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    background:rgba(167,139,250,.07);
+  }
+  #trace.on{visibility:visible}
+  #trace .tip{font-size:14px;font-weight:700;letter-spacing:.08em;color:#d8ccff;text-shadow:0 2px 6px #000}
+  #trace svg{width:220px;height:220px;touch-action:none}
+  #trace .g-guide{fill:none;stroke:#4b4f7a;stroke-width:4;stroke-dasharray:2 11;stroke-linecap:round;stroke-linejoin:round}
+  #trace .g-user{fill:none;stroke:var(--accent);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px var(--accent))}
+  #trace .g-dot{fill:#4b4f7a;stroke:#0c0e18;stroke-width:2}
+  #trace .g-dot.hit{fill:var(--gold)}
+  #trace .g-dot.next{fill:#fff;animation:curpulse .5s ease-in-out infinite alternate}
+  #trace .timerbar{width:82%;max-width:220px;height:6px;border-radius:4px;background:#0c0e18;overflow:hidden;border:1px solid var(--border)}
+  #trace .timerfill{height:100%;width:100%;background:var(--accent);transition:width .05s linear}
+  #trace.perfect .tip{color:var(--gold)}
+
   /* ---- 🦅 botão de ATAQUE AÉREO (aparece após pular o rasteiro) ---- */
   #quickAtk{
     position:absolute;left:50%;top:60%;translate:-50% -50%;z-index:8;
@@ -570,6 +588,11 @@
           <div id="seqCur"></div>
         </div>
         <div class="sub" id="seqTrips">3 idas e voltas</div>
+      </div>
+      <div id="trace">
+        <div class="tip">DESENHE O PADRÃO!</div>
+        <svg id="traceSvg" viewBox="0 0 220 220"></svg>
+        <div class="timerbar"><div class="timerfill" id="traceFill"></div></div>
       </div>
       <button id="quickAtk" class="hidden">⚡ ATAQUE RÁPIDO!</button>
 
@@ -3720,16 +3743,16 @@ $('#ovBack').addEventListener('click', () => {
 
 /* --- CATÁLOGO (declarativo: nova carta = nova entrada) --- */
 const CARDS = {
-  fogo:    { nome:'Fogo',             ico:'🔥', el:'fogo',  qte:'tap',    base:8,  taps:4 },
-  gelo:    { nome:'Lasca de Gelo',    ico:'❄️', el:'gelo',  qte:'circle', base:11 },
-  raio:    { nome:'Faísca',           ico:'⚡', el:'raio',  qte:'tap',    base:7,  taps:5 },
-  vento:   { nome:'Corte de Vento',   ico:'🌬️', el:'vento', qte:'circle', base:9 },
-  cura:    { nome:'Bênção',           ico:'💚', el:'luz',   qte:'hold',   base:14, alvo:'aliado' },
+  fogo:    { nome:'Fogo',             ico:'🔥', el:'fogo',  base:8 },
+  gelo:    { nome:'Lasca de Gelo',    ico:'❄️', el:'gelo',  base:11 },
+  raio:    { nome:'Faísca',           ico:'⚡', el:'raio',  base:7 },
+  vento:   { nome:'Corte de Vento',   ico:'🌬️', el:'vento', base:9 },
+  cura:    { nome:'Bênção',           ico:'💚', el:'luz',   base:14, alvo:'aliado' },
   // resultados de fusão (não entram no deck inicial)
-  labareda:{ nome:'Grande Labareda',  ico:'🔥', el:'fogo',  qte:'hold',   base:24, fused:true },
-  plasma:  { nome:'Plasma',           ico:'🌩️', el:'raio',  qte:'hold',   base:26, fused:true },
-  nevasca: { nome:'Nevasca',          ico:'🌨️', el:'gelo',  qte:'circle', base:22, fused:true },
-  vapor:   { nome:'Explosão de Vapor',ico:'♨️', el:'vento', qte:'tap',    base:18, taps:6, fused:true },
+  labareda:{ nome:'Grande Labareda',  ico:'🔥', el:'fogo',  base:24, fused:true },
+  plasma:  { nome:'Plasma',           ico:'🌩️', el:'raio',  base:26, fused:true },
+  nevasca: { nome:'Nevasca',          ico:'🌨️', el:'gelo',  base:22, fused:true },
+  vapor:   { nome:'Explosão de Vapor',ico:'♨️', el:'vento', base:18, fused:true },
 };
 /* RECEITAS de fusão — tabela à parte (escala melhor que espalhar no catálogo) */
 const FUSIONS = {
@@ -3774,22 +3797,110 @@ function bumpCard(uid){
   SFX.play('block');
 }
 
-/* --- CÁLCULO DE SUCESSO DO QTE RÍTMICO (entregável pedido) ---
-   Casa cada tap com a batida livre mais próxima; retorna fração e multiplicador. */
-function scoreRhythm(beatTimes, tapTimes, perfWin = 60, goodWin = 130){
-  const usada = new Set();
-  let bons = 0, perfeitos = 0;
-  for (const tap of tapTimes){
-    let iBest = -1, dBest = Infinity;
-    beatTimes.forEach((b, i) => {
-      if (usada.has(i)) return;
-      const d = Math.abs(tap - b);
-      if (d < dBest){ dBest = d; iBest = i; }
+/* --- FORMAS DOS PADRÕES: pontos normalizados (0..1) que o jogador deve traçar em ordem --- */
+function traceShape(el){
+  const SHAPES = {
+    fogo:  [[0.5,0.92],[0.24,0.62],[0.72,0.52],[0.3,0.22],[0.52,0.06]],           // chama em zigue-zague
+    gelo:  [[0.5,0.06],[0.86,0.5],[0.5,0.94],[0.14,0.5],[0.5,0.06]],              // cristal (losango fechado)
+    raio:  [[0.62,0.05],[0.28,0.48],[0.56,0.48],[0.26,0.95]],                     // raio, poucos vértices e afiado
+    vento: [[0.12,0.78],[0.38,0.28],[0.62,0.72],[0.88,0.22]],                     // rajada em "S"
+    luz:   Array.from({ length:9 }, (_, i) => {                                  // halo: círculo quase fechado
+      const a = -Math.PI/2 + i * (2*Math.PI*0.97/8);
+      return [0.5 + 0.4*Math.cos(a), 0.5 + 0.4*Math.sin(a)];
+    }),
+  };
+  return SHAPES[el] || SHAPES.fogo;
+}
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+const svgEl = (tag, attrs) => {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+};
+
+/* --- QTE único do Mago: desenhar o padrão da carta antes do tempo acabar --- */
+function runMagoTrace(card){
+  return new Promise(resolve => {
+    phase = 'mago_trace';
+    const wrap = $('#trace'), svg = $('#traceSvg'), tip = wrap.querySelector('.tip'), fill = $('#traceFill');
+    wrap.classList.remove('perfect');
+    svg.innerHTML = '';
+    const pad = 24, span = 220 - pad*2;
+    const pts = traceShape(card.el).map(([x, y]) => [pad + x*span, pad + y*span]);
+    svg.appendChild(svgEl('polyline', { class:'g-guide', points: pts.map(p => p.join(',')).join(' ') }));
+    const userPath = svgEl('polyline', { class:'g-user', points:'' });
+    svg.appendChild(userPath);
+    const dots = pts.map((p, i) => {
+      const d = svgEl('circle', { class:'g-dot' + (i === 0 ? ' next' : ''), cx:p[0], cy:p[1], r: i === 0 ? 9 : 7 });
+      svg.appendChild(d);
+      return d;
     });
-    if (iBest >= 0 && dBest <= goodWin){ usada.add(iBest); bons++; if (dBest <= perfWin) perfeitos++; }
-  }
-  const frac = bons / beatTimes.length, allPerf = perfeitos === beatTimes.length && beatTimes.length > 0;
-  return { frac, perfeitos, mult: 0.3 + frac * (allPerf ? 1.7 : 1.2) };   // 0 acertos→0.3 · perfeito→2.0
+    tip.textContent = 'DESENHE O PADRÃO!';
+    fill.style.width = '100%';
+    wrap.classList.add('on');
+
+    const dur = card.fused ? 1700 : 2300, tol = 24;
+    let idx = 0, drawing = false, userPts = [], done = false, raf = 0;
+    const t0 = performance.now();
+    const dist = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
+    function svgPoint(e){
+      const r = svg.getBoundingClientRect();
+      return [ (e.clientX - r.left) / r.width * 220, (e.clientY - r.top) / r.height * 220 ];
+    }
+    function finish(mult){
+      if (done) return;
+      done = true;
+      cancelAnimationFrame(raf);
+      svg.removeEventListener('pointerdown', onDown);
+      svg.removeEventListener('pointermove', onMove);
+      svg.removeEventListener('pointerup', onUp);
+      svg.removeEventListener('pointercancel', onUp);
+      wrap.classList.toggle('perfect', mult >= 2);
+      tip.textContent = mult >= 2 ? '✨ PADRÃO PERFEITO ×2!' : mult >= 1.5 ? '👍 QUASE LÁ ×1.5' : mult >= 1 ? 'TRAÇADO ×1' : '💨 INCOMPLETO ×' + mult;
+      setTimeout(() => { wrap.classList.remove('on','perfect'); phase = 'busy'; resolve(mult); }, 550);
+    }
+    function step(t){
+      if (done) return;
+      const left = 1 - (t - t0) / dur;
+      fill.style.width = Math.max(0, left*100) + '%';
+      if (left <= 0){
+        const frac = idx / pts.length;
+        finish(frac >= 0.999 ? 1 : frac >= 0.5 ? 0.5 : 0.4);
+        return;
+      }
+      raf = requestAnimationFrame(step);
+    }
+    function onDown(e){
+      svg.setPointerCapture(e.pointerId);
+      drawing = true;
+      SFX.play('parry');
+      onMove(e);
+    }
+    function onMove(e){
+      if (!drawing || done) return;
+      const p = svgPoint(e);
+      userPts.push(p);
+      userPath.setAttribute('points', userPts.map(q => q.join(',')).join(' '));
+      if (idx < pts.length && dist(p, pts[idx]) <= tol){
+        dots[idx].classList.remove('next'); dots[idx].classList.add('hit');
+        SFX.play('coin');
+        idx++;
+        if (idx < pts.length){
+          dots[idx].classList.add('next');
+        } else {
+          const leftFrac = 1 - (performance.now() - t0) / dur;
+          finish(leftFrac >= 0.45 ? 2 : leftFrac >= 0.15 ? 1.5 : 1);
+        }
+      }
+    }
+    function onUp(){ drawing = false; }
+    svg.addEventListener('pointerdown', onDown);
+    svg.addEventListener('pointermove', onMove);
+    svg.addEventListener('pointerup', onUp);
+    svg.addEventListener('pointercancel', onUp);
+    raf = requestAnimationFrame(step);
+  });
 }
 
 /* --- RENDER DA MÃO (DOM sobre o campo) --- */
@@ -3897,10 +4008,7 @@ async function magoCast(card, en){
   showMoveName(card.ico + ' ' + card.nome);
   playOnce(player, 'attack');
   await wait(160);
-  let mult;
-  if (card.qte === 'tap')         mult = await runTapQte(card.taps || 4);
-  else if (card.qte === 'circle') mult = await runMagoCircle();
-  else                            mult = await runMagoHold();
+  const mult = await runMagoTrace(card);
   if (card.alvo === 'aliado'){
     const heal = Math.round(card.base * mult);
     hp = Math.min(S.maxhp, hp + heal); player.flash = 1;
@@ -3936,95 +4044,6 @@ function magoEndTurn(){
   if (aliveIdx().length === 0) return void waveCleared();
   magoHideHand();
   enemyPhase();
-}
-
-/* --- QTE 1: taps rítmicos (Cartas de Ataque Rápido) --- */
-let magoTap = null;
-function runTapQte(nTaps){
-  return new Promise(resolve => {
-    phase = 'mago_tap';
-    const qte = $('#qte'), tgt = qte.querySelector('.target'), tip = qte.querySelector('.tip'), ring = qte.querySelector('.shrink');
-    qte.classList.remove('perfect','blocked','dodged','jump','lateral','side');
-    qte.classList.add('atk'); tgt.textContent = '🎵'; ring.style.animation = 'none';
-    tip.textContent = 'TOQUE NO RITMO! (' + nTaps + '×)';
-    qte.classList.add('on');
-    const interval = 500, start = performance.now() + 650;
-    const beats = Array.from({ length:nTaps }, (_, i) => start + i*interval);
-    const taps = [];
-    let idx = 0;
-    beats.forEach(b => setTimeout(() => {                     // pulso visual + som na batida
-      tgt.style.transform = 'scale(1.5)'; SFX.play('parry');
-      setTimeout(() => { tgt.style.transform = ''; }, 120);
-      tip.textContent = '● '.repeat(++idx) + '○ '.repeat(Math.max(0, nTaps - idx));
-    }, Math.max(0, b - performance.now())));
-    magoTap = () => { taps.push(performance.now()); tgt.style.transform = 'scale(1.25)'; setTimeout(() => { tgt.style.transform = ''; }, 90); };
-    setTimeout(() => {
-      magoTap = null;
-      const res = scoreRhythm(beats, taps);
-      tgt.textContent = res.perfeitos === nTaps ? '✨' : res.frac > 0.5 ? '👍' : '💨';
-      tip.textContent = 'RITMO ×' + res.mult.toFixed(1) + ' (' + res.perfeitos + '/' + nTaps + ' no tempo)';
-      setTimeout(() => { qte.classList.remove('on','atk'); tgt.style.transform = ''; phase = 'busy'; resolve(res.mult); }, 600);
-    }, (beats[beats.length-1] - performance.now()) + 340);
-  });
-}
-
-/* --- QTE 2: círculo de impacto, tap preciso (Cartas de Impacto/Área) --- */
-let magoCircleTap = null;
-function runMagoCircle(){
-  return new Promise(resolve => {
-    phase = 'mago_circle';
-    const qte = $('#qte'), ring = qte.querySelector('.shrink'), tgt = qte.querySelector('.target'), tip = qte.querySelector('.tip');
-    qte.classList.remove('perfect','blocked','dodged','jump','lateral','side');
-    qte.classList.add('atk'); tgt.textContent = '🎯';
-    tip.textContent = 'TOQUE NO CENTRO EXATO!';
-    ring.style.animation = 'none'; void ring.offsetWidth; ring.style.animation = '';
-    ring.style.animationDuration = QTE_MS + 'ms'; ring.style.animationTimingFunction = 'linear';
-    qte.classList.add('on');
-    const t0 = performance.now(); let result = null;
-    const cue = setTimeout(() => { if (result === null) SFX.play('coin'); }, QTE_MS*0.72);
-    magoCircleTap = () => {
-      if (result !== null) return;
-      const k = (performance.now() - t0) / QTE_MS;
-      result = k >= 0.88 ? 2 : k >= 0.68 ? 1.5 : k >= 0.4 ? 1 : 0.5;
-      qte.classList.add(result >= 2 ? 'perfect' : 'blocked');
-      tip.textContent = result >= 2 ? '✨ PERFEITO ×2!' : result >= 1.5 ? '👍 ÓTIMO ×1.5' : '×' + result;
-    };
-    setTimeout(() => {
-      clearTimeout(cue); magoCircleTap = null;
-      qte.classList.remove('on','atk','perfect','blocked');
-      phase = 'busy'; resolve(result === null ? 0.4 : result);
-    }, QTE_MS + 140);
-  });
-}
-
-/* --- QTE 3: canalização, segurar e soltar na zona (Cartas de Canalização) --- */
-let magoHoldStart = null, magoHoldStop = null;
-function runMagoHold(){
-  return new Promise(resolve => {
-    phase = 'mago_hold';
-    const seq = $('#seq'), cur = $('#seqCur'), tip = seq.querySelector('.tip');
-    tip.textContent = 'SEGURE para canalizar, SOLTE na zona ×2!';
-    cur.classList.remove('lock'); cur.style.left = '0%';
-    seq.classList.add('on');
-    let raf = 0, t0 = 0, charging = false, done = false, charge = 0;
-    const zone = c => c < 0.6 ? 1.1 : c <= 0.9 ? 1.5 : c <= 1.0 ? 2 : 0.5;   // >1 = sobrecarga
-    function step(t){
-      if (done) return;
-      charge = (t - t0) / 950;
-      cur.style.left = Math.min(100, charge*100) + '%';
-      if (charge >= 1.15){ magoHoldStop(); return; }
-      raf = requestAnimationFrame(step);
-    }
-    magoHoldStart = () => { if (charging || done) return; charging = true; t0 = performance.now(); raf = requestAnimationFrame(step); };
-    magoHoldStop = () => {
-      if (done) return; done = true; cancelAnimationFrame(raf);
-      const mult = charging ? zone(charge) : 0.4;
-      cur.classList.add('lock');
-      tip.textContent = mult >= 2 ? '✨ CANALIZAÇÃO PERFEITA ×2!' : mult < 1 ? '💥 SOBRECARREGOU!' : 'CANALIZOU ×' + mult;
-      setTimeout(() => { cur.classList.remove('lock'); seq.classList.remove('on'); magoHoldStart = magoHoldStop = null; phase = 'busy'; resolve(mult); }, 560);
-    };
-    setTimeout(() => { if (!charging && !done) magoHoldStop(); }, 4000);   // nunca segurou
-  });
 }
 
 /* ================================================================
@@ -4077,14 +4096,10 @@ $('#battle').addEventListener('pointerdown', e => {
   if (phase === 'qte' && qteType === 'parry') tryParry();
   if (phase === 'seq' && seqStop) seqStop();
   if (phase === 'combo' && comboTap) comboTap();
-  if (phase === 'mago_tap' && magoTap) magoTap();            // 🃏 QTE rítmico
-  if (phase === 'mago_circle' && magoCircleTap) magoCircleTap();
-  if (phase === 'mago_hold' && magoHoldStart) magoHoldStart();
 });
 $('#battle').addEventListener('pointerup', e => {
   if (gY !== null && phase === 'qte' && qteType === 'jump' && (gY - e.clientY) > 50) tryJump();
   if (gX !== null && phase === 'qte' && qteType === 'side' && Math.abs(e.clientX - gX) > 50) trySide();
-  if (phase === 'mago_hold' && magoHoldStop) magoHoldStop();  // 🃏 solta a canalização
   gX = null; gY = null;
 });
 
