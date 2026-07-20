@@ -1370,7 +1370,7 @@ function makeWave(w){
     hp:Math.round(base.hp*mult), maxhp:Math.round(base.hp*mult),
     atk:Math.round(base.atk*mult), def:Math.round(base.def*mult),
     shield:0,                    // escudos arcanos (boss Nv.5+): quebram antes do HP
-    stagger:0,                   // 0–100 exaustão: enche a cada golpe especial sofrido
+    stagger:0, exhaustTurns:0,   // 0–100 exaustão: enche a cada golpe especial sofrido; cheia = 3 rodadas paralisado
     gold:Math.round((12 + 4*L) * (w === 2 ? 1.25 : 1)),
     // estado de render (canvas)
     x:0, y:0, homeX:0, homeY:0, size:0, flip:true, alpha:1, flash:0, warn:false,
@@ -1767,11 +1767,17 @@ function drawActor(a, t){
       ctx.globalAlpha = 1;
     }
   }
-  /* exaustão dos monstros: enche a cada golpe especial sofrido */
+  /* exaustão dos monstros: 10 pips (igual à fúria em 5) — cada pip = 10% da barra */
   if (a !== player && !a.dead){
-    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by+7, bw+2, 6);
-    ctx.fillStyle = a.stagger >= 100 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
-    ctx.fillRect(bx, by+8, bw*(a.stagger || 0)/100, 4);
+    const spw = (bw + 2) / 10, spips = Math.floor((a.stagger || 0) / 10);
+    for (let i = 0; i < 10; i++){
+      ctx.fillStyle = 'rgba(10,12,20,.85)';
+      ctx.fillRect(bx-1 + i*spw, by+7, spw-1, 6);
+      if (i < spips){
+        ctx.fillStyle = spips >= 10 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
+        ctx.fillRect(bx + i*spw, by+8, spw-2, 4);
+      }
+    }
     if (a.exhausted){ ctx.font = '13px sans-serif'; ctx.fillText('💫', a.x, by + 28); }
   }
   /* escudos arcanos do boss */
@@ -2349,7 +2355,7 @@ function makeDuelBoss(){
     kind, unit:H.sprite, boss:true, duelHero:duel,
     name:H.nome, art:H.art || 'O', hp:Math.round((90 + b.maxhp)*mult), maxhp:Math.round((90 + b.maxhp)*mult),
     atk:Math.round((b.atk + 6)*mult), def:Math.round((b.def + 2)*mult),
-    shield:0, stagger:0, gold:Math.round((60 + 20*L)),
+    shield:0, stagger:0, exhaustTurns:0, gold:Math.round((60 + 20*L)),
     x:0, y:0, homeX:0, homeY:0, size:0, flip:true, alpha:1, flash:0, warn:false,
     anim:'idle', frame:rnd(0,3), acc:0, dead:false, tween:null, once:null,
   };
@@ -2420,16 +2426,17 @@ function gainFury(n = 1){
   if (curse && curse.type === 'nofury') return;      // fúria selada pelo Monge
   fury = Math.min(5, fury + n); renderHUD();
 }
-/* ---- exaustão: barra que enche e derruba quem estourar por uma rodada ----
-   Inimigo: +25% a cada golpe ESPECIAL sofrido; cheia + golpe ×1.5+ → perde a rodada.
+/* ---- exaustão: barra que enche e derruba quem estourar por 3 rodadas ----
+   Inimigo (todos, inclusive chefes de desafio): +25% a cada golpe ESPECIAL
+   sofrido; cheia + golpe ×1.5+ → fica 3 rodadas sem agir.
    Herói: enche ao sofrer dano; cheia + dano de um COMBO inimigo → perde a rodada. */
 function enemyStagger(en, mult, amt = 25){
   if (en.dead) return;
   if (en.stagger >= 100 && mult >= 1.5){
-    en.stagger = 0; en.exhausted = true;
+    en.stagger = 0; en.exhausted = true; en.exhaustTurns = 3;
     SFX.play('stun');
     addFloat(en, 'EXAUSTO!', '#60d6ff', true);
-    log('💫 ' + en.name + ' ficou exausto e perderá a próxima rodada!');
+    log('💫 ' + en.name + ' ficou exausto e perderá as próximas 3 rodadas!');
     return;
   }
   en.stagger = Math.min(100, en.stagger + amt);
@@ -2654,10 +2661,12 @@ async function nextTurn(){
   if (who.dead) return nextTurn();                   // caiu antes de agir
   phase = 'busy'; setCmds(false);
   setTurn(who);
-  if (who.exhausted){                                // derrubado pela exaustão: perde a vez
-    who.exhausted = false;
+  if (who.exhausted){                                // derrubado pela exaustão: 3 rodadas sem agir
+    who.exhaustTurns--;
+    if (who.exhaustTurns <= 0) who.exhausted = false;
     addFloat(who, 'EXAUSTO…', '#60d6ff', true);
-    log('💫 ' + who.name + ' está exausto e não consegue agir!');
+    log('💫 ' + who.name + ' está exausto e não consegue agir!' +
+        (who.exhaustTurns > 0 ? ' (' + who.exhaustTurns + ' rodada' + (who.exhaustTurns > 1 ? 's' : '') + ' restante' + (who.exhaustTurns > 1 ? 's' : '') + ')' : ''));
     await wait(900);
     return nextTurn();
   }
@@ -2796,7 +2805,7 @@ async function startTutorial(){
   enemySide = 'right';
   buildScenery();
   enemies = makeWave(1).slice(0, 1);
-  Object.assign(enemies[0], { name:'Boneco de Treino', hp:60, maxhp:60, atk:5, def:0, gold:0, shield:0, stagger:0 });
+  Object.assign(enemies[0], { name:'Boneco de Treino', hp:60, maxhp:60, atk:5, def:0, gold:0, shield:0, stagger:0, exhaustTurns:0 });
   targetIdx = 0;
   layoutActors();
   renderHUD();
@@ -3468,9 +3477,11 @@ async function bossShield(en){
 }
 
 /* ---- MONGE: unidade de suporte — cura aliados, lança feitiço no herói
-   ou encanta o herói (maldição que drena HP ou selo que trava a fúria) ---- */
+   ou encanta o herói (maldição que drena HP ou selo que trava a fúria) ----
+   Cura só entra em jogo com o alvo abaixo de 50% do HP máximo — evita curas
+   desperdiçadas em arranhões e deixa a decisão mais previsível. */
 async function monkTurn(en){
-  const hurt = enemies.filter(e => !e.dead && e.hp < e.maxhp)
+  const hurt = enemies.filter(e => !e.dead && e.hp / e.maxhp < 0.5)
                       .sort((a,b) => a.hp/a.maxhp - b.hp/b.maxhp);
   if (hurt.length && Math.random() < 0.5) return monkHeal(en, hurt[0]);
   if (!curse && Math.random() < 0.45) return monkCurse(en);
