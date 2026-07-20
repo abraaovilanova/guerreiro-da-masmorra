@@ -1170,6 +1170,33 @@ const SFX = {
 /* desbloqueia o áudio no primeiro toque do jogador */
 document.addEventListener('pointerdown', () => SFX.ensure(), { once:true });
 
+/* ================================================================
+   MÚSICA DE BATALHA — trilha em arquivo (elemento <audio> à parte do
+   SFX sintetizado). Volume baixo de propósito: os efeitos sonoros dos
+   golpes precisam continuar audíveis por cima da música.
+   ================================================================ */
+const MUSIC = {
+  el: null,
+  ensure(){
+    if (!this.el){
+      this.el = new Audio("assets/audio/Victory's Dawn.mp3");
+      this.el.loop = true;
+      this.el.volume = 0.18;
+    }
+    return this.el;
+  },
+  battle(){
+    if (!SFX.enabled) return;
+    const el = this.ensure();
+    if (el.paused) el.play().catch(() => {});
+  },
+  stop(){
+    if (!this.el) return;
+    this.el.pause();
+    this.el.currentTime = 0;
+  },
+};
+
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
 const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'', gemas:{un:[],own:{},eq:[]}, mapPos:-1, ngPlus:0 };
@@ -2099,6 +2126,8 @@ $('#sndToggle').addEventListener('click', () => {
   SFX.enabled = !SFX.enabled;
   S.sound = SFX.enabled; save();
   renderSnd();
+  if (!SFX.enabled) MUSIC.stop();
+  else if (!$('#battle').classList.contains('hidden')) MUSIC.battle();
   SFX.play('potion');                                // feedback ao religar
 });
 renderSnd();
@@ -2347,6 +2376,7 @@ function startDuel(id){
   battleBiome = pickBiome();                           // 🌍 cenário sorteado para o duelo
   $('#menu').classList.add('hidden');
   $('#battle').classList.remove('hidden');
+  MUSIC.battle();
   hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
   stagger = 0; guardBroken = false; fireFury = false;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
@@ -2805,6 +2835,7 @@ async function startTutorial(){
   enemies = [];
   $('#menu').classList.add('hidden');
   $('#battle').classList.remove('hidden');
+  MUSIC.battle();
   resizeCanvas();
   setCmds(false);
   log('🎓 Campo de Treinamento');
@@ -2914,6 +2945,7 @@ async function startRun(){
   enemies = [];
   $('#menu').classList.add('hidden');
   $('#battle').classList.remove('hidden');
+  MUSIC.battle();
   resizeCanvas();
   setCmds(false);
   magoHideHand();
@@ -3918,6 +3950,7 @@ function offerNGPlus(){
     save();
     $('#overlay').classList.add('hidden');
     $('#battle').classList.add('hidden');
+    MUSIC.stop();
     $('#menu').classList.remove('hidden');
     renderMenu();
   };
@@ -3965,6 +3998,7 @@ function showOverlay(title, msg){
 $('#ovBack').addEventListener('click', () => {
   $('#overlay').classList.add('hidden');
   $('#battle').classList.add('hidden');
+  MUSIC.stop();
   $('#menu').classList.remove('hidden');
   renderMenu();
 });
