@@ -399,6 +399,7 @@
   #ovMsg{font-size:14px;line-height:1.55;color:var(--ink-dim)}
   #ovMsg b{color:var(--gold)}
   #ovAd{background:linear-gradient(180deg,#16a34a,#15803d);border-color:#4ade80;font-weight:700}
+  #ovNG{background:linear-gradient(180deg,#fbbf24,#b45309);border-color:#fde68a;color:#1a1206;font-weight:700}
 
   /* ---- anúncio simulado (só no navegador; no app entra o AdMob real) ---- */
   #adSim{
@@ -674,6 +675,7 @@
       <div id="ovTitle">VITÓRIA!</div>
       <div id="ovMsg"></div>
       <button id="ovAd" class="hidden">🎬 Dobrar o prêmio</button>
+      <button id="ovNG" class="hidden">👑 Iniciar NG+1</button>
       <button id="ovBack">Voltar ao acampamento</button>
     </div>
   </div>
@@ -1170,7 +1172,7 @@ document.addEventListener('pointerdown', () => SFX.ensure(), { once:true });
 
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
-const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'', gemas:{un:[],own:{},eq:[]}, mapPos:-1 };
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'', gemas:{un:[],own:{},eq:[]}, mapPos:-1, ngPlus:0 };
 let S = structuredClone(DEFAULTS);
 try {
   const d = JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -1359,10 +1361,19 @@ const BOSS_DEFS = [
   { unit:'tree',      name:'Árvore Anciã', hp:170, atk:19, def:8, solo:true, art:'A' },   // 🌱 surge do chão
 ];
 
+/* ---------- 🔁 NG+: 20 masmorras fecham o jogo. "Continuar" reinicia a
+   contagem 1→20 mas empilha um multiplicador de dificuldade por ciclo.
+   effLv() garante que mecânicas já desbloqueadas (goblins, escudo arcano,
+   combos maiores…) continuem ativas desde a masmorra 1 de todo novo ciclo. ---------- */
+const DUNGEON_CAP = 20;
+const effLv  = () => S.dgLv + S.ngPlus * 5;
+const ngMult = () => Math.pow(1.25, S.ngPlus);
+const ngTag  = () => S.ngPlus > 0 ? ' · NG+' + S.ngPlus : '';
+
 function makeWave(w){
-  const L = S.dgLv;
-  const pool = COMMONS.filter(c => !c.lv || L >= c.lv);   // goblins só na masmorra 3+
-  const mult = (1 + (L-1)*0.25) * (w === 2 ? 1.3 : 1);
+  const L = S.dgLv, EL = effLv();
+  const pool = COMMONS.filter(c => !c.lv || EL >= c.lv);   // goblins só na masmorra 3+ (ou sempre, após desbloquear em ciclo anterior)
+  const mult = (1 + (L-1)*0.25) * ngMult() * (w === 2 ? 1.3 : 1);
   const mk = (base, i, n) => ({
     ...base,
     kind: base.unit,                       // tipo lógico (pawn/archer/lancer/monk/boss…)
@@ -1371,7 +1382,7 @@ function makeWave(w){
     atk:Math.round(base.atk*mult), def:Math.round(base.def*mult),
     shield:0,                    // escudos arcanos (boss Nv.5+): quebram antes do HP
     stagger:0, exhaustTurns:0,   // 0–100 exaustão: enche a cada golpe especial sofrido; cheia = 3 rodadas paralisado
-    gold:Math.round((12 + 4*L) * (w === 2 ? 1.25 : 1)),
+    gold:Math.round((12 + 4*L) * ngMult() * (w === 2 ? 1.25 : 1)),
     // estado de render (canvas)
     x:0, y:0, homeX:0, homeY:0, size:0, flip:true, alpha:1, flash:0, warn:false,
     anim:'idle', frame:rnd(0,5), acc:0, dead:false, tween:null, once:null,
@@ -1386,7 +1397,7 @@ function makeWave(w){
     const bd = BOSS_DEFS[rnd(0, BOSS_DEFS.length-1)];
     const b = mk(bd, 0, 1);
     b.boss = true;
-    b.p2 = L >= 3 && Math.random() < 0.6;   // 😡 alguns chefes (Nv.3+) têm FASE 2 aos 50% de HP
+    b.p2 = EL >= 3 && Math.random() < 0.6;   // 😡 alguns chefes (Nv.3+) têm FASE 2 aos 50% de HP
     if (bd.unit === 'boss') b.name = DG_COLORS[S.dgColor].boss;
     if (L % 5 === 0){
       /* masmorras 5, 10, 15…: o chefe do pergaminho nunca luta sozinho —
@@ -1920,7 +1931,7 @@ function renderMenu(){
   $('#enter').innerHTML = !S.tutDone
     ? '🎓 Campo de Treinamento (aprenda a lutar!)'
     : S.tochas > 0
-      ? '🏰 Entrar na Masmorra <b style="color:' + cfg.hex + '">' + cfg.nome + '</b> (Nv. ' + S.dgLv + ') · 🔥1'
+      ? '🏰 Entrar na Masmorra <b style="color:' + cfg.hex + '">' + cfg.nome + '</b> (Nv. ' + S.dgLv + ngTag() + ') · 🔥1'
       : '🏰 Sem tochas — aguarde a recarga';
   $('#enter').disabled = S.tutDone && S.tochas <= 0;
   $('#enter').style.boxShadow = !S.tutDone ? '0 4px 24px #fbbf2466'
@@ -1952,7 +1963,7 @@ function renderMenu(){
 /* ---- 🎁 BAÚ DO DIA: assista um vídeo e abra (1× por dia) ----
    O ouro escala com a masmorra atual. ---- */
 const localDay = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate(); };
-const chestReward = () => 80 + 40 * (S.dgLv - 1);
+const chestReward = () => Math.round((80 + 40 * (S.dgLv - 1)) * ngMult());
 function renderChest(){
   const opened = S.chestDay === localDay();
   const b = $('#chestBtn');
@@ -2140,7 +2151,7 @@ function updateMapEnter(){
     b.disabled = S.tochas <= 0;
   } else if (onDoor){
     const cfg = DG_COLORS[S.dgColor];
-    b.textContent = '⚔ Entrar na Masmorra ' + cfg.nome + ' (Nv. ' + S.dgLv + ') · 🔥1';
+    b.textContent = '⚔ Entrar na Masmorra ' + cfg.nome + ' (Nv. ' + S.dgLv + ngTag() + ') · 🔥1';
     b.disabled = S.tochas <= 0 && S.tutDone;
   }
 }
@@ -2161,7 +2172,7 @@ function drawMap(t){
   mctx.font = '700 11px ' + getComputedStyle(document.body).fontFamily;
   mctx.textAlign = 'center';
   mctx.fillStyle = '#8b90ad';
-  mctx.fillText('— REGIÃO ' + (mapRegion() + 1) + ' —', w/2, 16);
+  mctx.fillText('— REGIÃO ' + (mapRegion() + 1) + ' —' + ngTag().toUpperCase(), w/2, 16);
   /* trilhas sinuosas */
   mctx.strokeStyle = '#3a3f5e'; mctx.lineWidth = 2; mctx.setLineDash([5,6]);
   for (let i = 0; i < MAP_POS.length - 1; i++){
@@ -2349,7 +2360,7 @@ function startDuel(id){
 /* monta o herói-chefe do duelo (onda 3) com o sprite/porte de herói */
 function makeDuelBoss(){
   const H = HEROES[duel], b = H.base;
-  const L = S.dgLv, mult = 1 + (L-1)*0.18;
+  const L = S.dgLv, mult = (1 + (L-1)*0.18) * ngMult();
   const kind = { blue_archer:'archer', red_lancer:'lancer', yellow_monk:'monk', purple_monk:'monk' }[H.sprite] || 'monk';
   return {
     kind, unit:H.sprite, boss:true, duelHero:duel,
@@ -2408,7 +2419,7 @@ function renderHUD(){
   const bnome = (BIOMES[battleBiome] || BIOMES.castelo).nome;
   $('#wavechip').textContent = TUT
     ? '🎓 CAMPO DE TREINAMENTO'
-    : (duel ? '⚔ DUELO' : 'MASMORRA NV. ' + S.dgLv) + ' · ' + bnome + ' · ONDA ' + wave + '/3' +
+    : (duel ? '⚔ DUELO' : 'MASMORRA NV. ' + S.dgLv + ngTag()) + ' · ' + bnome + ' · ONDA ' + wave + '/3' +
       (wave === 3 ? ' · BOSS' : '') + ' · 🪙 ' + S.gold;
 }
 /* multiplicador do golpe especial conforme os pontos de fúria (0–5)
@@ -3444,9 +3455,11 @@ const MOVES = {
   ],
 };
 function pickMove(en){
-  const pool = MOVES[en.kind].filter(mv => !mv.lv || S.dgLv >= mv.lv);
+  const pool = MOVES[en.kind].filter(mv => !mv.lv || effLv() >= mv.lv);
   return pool[rnd(0, pool.length - 1)];
 }
+/* NG+: janela de reação encolhe (monstros "mais rápidos") até um piso de 60% */
+const ngSpeedMult = () => Math.max(0.6, 1 - S.ngPlus*0.06);
 /* banner com o nome do golpe */
 let moveNameT = null;
 function showMoveName(txt){
@@ -3537,8 +3550,8 @@ async function monkBolt(en){
     log('💫 Exausto, você não consegue reagir ao feitiço!');
     await wait(550);
   } else {
-    const ms = S.dgLv > 5 ? Math.round(QTE_MS * (hit.m || 1)) : QTE_MS;
-    result = await runQte('parry', '', ms, S.dgLv > 5 ? hit.curve : null);
+    const ms = effLv() > 5 ? Math.round(QTE_MS * (hit.m || 1) * ngSpeedMult()) : Math.round(QTE_MS * ngSpeedMult());
+    result = await runQte('parry', '', ms, effLv() > 5 ? hit.curve : null);
   }
   const swing = playOnce(en, 'attack');
   await wait(180);
@@ -3549,7 +3562,7 @@ async function monkBolt(en){
 
 /* ---- turno do monstro: avança → combo de QTEs → golpes ---- */
 async function enemyAttack(en){
-  if (en.boss && S.dgLv >= 5 && en.shield < SHIELD_MAX && Math.random() < 0.45){
+  if (en.boss && effLv() >= 5 && en.shield < SHIELD_MAX && Math.random() < 0.45){
     return bossShield(en);                           // gasta o turno se protegendo
   }
   if (en.kind === 'monk') return monkTurn(en);       // o Monge conjura de longe
@@ -3559,6 +3572,12 @@ async function enemyAttack(en){
   /* 😡 fase 2: o chefe emenda um golpe extra (e mais veloz) no fim do combo */
   let combo = mv.hits;
   if (en.enraged && combo.length < 4){
+    const last = combo[combo.length - 1];
+    combo = [...combo, { t:last.t, m:(last.m || 1) * 0.85, curve:last.curve }];
+  }
+  /* NG+: combos de golpes múltiplos ganham 1 golpe extra por ciclo (máx. 5 golpes no total) */
+  const ngExtra = combo.length > 1 ? Math.min(3, S.ngPlus) : 0;
+  for (let k = 0; k < ngExtra && combo.length < 5; k++){
     const last = combo[combo.length - 1];
     combo = [...combo, { t:last.t, m:(last.m || 1) * 0.85, curve:last.curve }];
   }
@@ -3583,10 +3602,10 @@ async function enemyAttack(en){
       log('💫 Exausto, você não consegue reagir ao golpe!');
       await wait(550);
     } else {
-      /* Nv.>5: cada golpe nomeado tem seu próprio ritmo · 😡 fase 2: 25% mais rápido */
+      /* Nv.>5: cada golpe nomeado tem seu próprio ritmo · 😡 fase 2: 25% mais rápido · NG+: janela geral encolhe */
       const rage = en.enraged ? 0.75 : 1;
-      const ms = Math.round((S.dgLv > 5 ? QTE_MS * (combo[i].m || 1) : QTE_MS) * rage);
-      const curve = S.dgLv > 5 ? combo[i].curve : null;
+      const ms = Math.round((effLv() > 5 ? QTE_MS * (combo[i].m || 1) : QTE_MS) * rage * ngSpeedMult());
+      const curve = effLv() > 5 ? combo[i].curve : null;
       result = await runQte(type, combo.length > 1 ? (i+1) + '/' + combo.length : '', ms, curve);
     }
     const swing = playOnce(en, 'attack');
@@ -3852,7 +3871,7 @@ function duelVictory(){
 function victory(){
   if (duel) return duelVictory();                     // 🦸 vitória de duelo não conta como masmorra
   phase = 'menu';
-  const bonus = 150 + 60*(S.dgLv-1);
+  const bonus = Math.round((150 + 60*(S.dgLv-1)) * ngMult());
   /* 📜 o chefe da masmorra 1 e os das masmorras 5, 10, 15 derrubam um pergaminho de gema */
   let scrollMsg = '';
   if (S.dgLv === 1 || S.dgLv % 5 === 0){
@@ -3863,15 +3882,45 @@ function victory(){
                   GEMS[nova].ico + ' <b>' + GEMS[nova].nome + '</b> liberada no Mercado!<br>';
     }
   }
-  S.gold += bonus; S.wins++; S.dgLv++;
+  S.gold += bonus; S.wins++;
+  if (S.dgLv >= DUNGEON_CAP) return gameComplete(bonus, scrollMsg);   // 👑 masmorra 20: fim do ciclo
+  S.dgLv++;
   S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];   // sorteia a cor da próxima
   save();
   const nx = DG_COLORS[S.dgColor];
   showOverlay('🏆 MASMORRA CONQUISTADA!',
     'As 3 ondas caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
     scrollMsg +
-    'A próxima é a Masmorra <b style="color:' + nx.hex + '">' + nx.nome + '</b> (Nv. ' + S.dgLv + ')…');
+    'A próxima é a Masmorra <b style="color:' + nx.hex + '">' + nx.nome + '</b> (Nv. ' + S.dgLv + ngTag() + ')…');
   offerDoubleReward(bonus);
+}
+/* 👑 masmorra 20 vencida: fim do ciclo — oferece iniciar o próximo NG+
+   (mesmos atributos e ouro; monstros mais rápidos, fortes e com combos maiores) */
+function gameComplete(bonus, scrollMsg){
+  save();
+  showOverlay('👑 VOCÊ VENCEU O JOGO!',
+    'As 20 masmorras caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
+    scrollMsg +
+    'Quer tentar o <b>NG+' + (S.ngPlus + 1) + '</b>? Seus atributos e seu ouro continuam os mesmos, ' +
+    'mas os monstros voltam mais rápidos, mais fortes e com combos maiores.');
+  offerDoubleReward(bonus);
+  offerNGPlus();
+}
+/* botão extra do overlay: começa o próximo ciclo NG+ (reseta dgLv/mapa, mantém tudo mais) */
+function offerNGPlus(){
+  const b = $('#ovNG');
+  b.textContent = '👑 Iniciar NG+' + (S.ngPlus + 1);
+  b.disabled = false;
+  b.classList.remove('hidden');
+  b.onclick = () => {
+    S.ngPlus++; S.dgLv = 1; S.mapPos = -1;
+    S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];
+    save();
+    $('#overlay').classList.add('hidden');
+    $('#battle').classList.add('hidden');
+    $('#menu').classList.remove('hidden');
+    renderMenu();
+  };
 }
 /* vídeo premiado: dobra o bônus da masmorra conquistada */
 function offerDoubleReward(bonus){
@@ -3910,6 +3959,7 @@ function showOverlay(title, msg){
   $('#ovTitle').textContent = title;
   $('#ovMsg').innerHTML = msg;
   $('#ovAd').classList.add('hidden');               // só a vitória oferece o vídeo
+  $('#ovNG').classList.add('hidden');                // só vencer a masmorra 20 oferece o NG+
   $('#overlay').classList.remove('hidden');
 }
 $('#ovBack').addEventListener('click', () => {
