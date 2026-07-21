@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Editor de Cenários — Guerreiro da Masmorra</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#1a1d2e; --panel-2:#232742; --border:#3a3f5e;
+    --ink:#e7e9f4; --ink-dim:#8b90ad; --accent:#a78bfa; --accent-deep:#6d4fd6;
+    --gold:#fbbf24; --danger:#f87171; --ok:#4ade80;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px}
+  h1{font-size:16px;margin:0;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--panel)}
+  h1 small{color:var(--ink-dim);font-weight:400;display:block;font-size:11px;margin-top:2px}
+  .layout{display:flex;gap:10px;padding:10px;align-items:flex-start;flex-wrap:wrap}
+  .col{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px}
+  .palette{width:230px;max-height:88vh;overflow:auto}
+  .palette h2, .props h2, .export h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin:12px 0 6px}
+  .palette h2:first-child{margin-top:0}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .asset-btn{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:4px;cursor:pointer;color:var(--ink);text-align:center}
+  .asset-btn canvas,.asset-btn img{width:100%;height:44px;object-fit:contain;image-rendering:pixelated;display:block}
+  .asset-btn span{display:block;font-size:9.5px;margin-top:3px;line-height:1.2;color:var(--ink-dim)}
+  .asset-btn.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .center{display:flex;flex-direction:column;gap:8px;align-items:center}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px}
+  .toolbar label{display:flex;gap:4px;align-items:center;color:var(--ink-dim)}
+  select,input[type=text],input[type=number],textarea{
+    background:var(--panel-2);border:1px solid var(--border);color:var(--ink);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:12px;
+  }
+  button{
+    background:var(--accent-deep);border:1px solid var(--accent);color:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;font-family:inherit;
+  }
+  button.secondary{background:var(--panel-2);border-color:var(--border);color:var(--ink)}
+  button.danger{background:#5a2323;border-color:var(--danger)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  #field{position:relative;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#141628;touch-action:none}
+  #cv{display:block}
+  .hint{color:var(--ink-dim);font-size:11px;max-width:400px;text-align:center}
+  .props{width:230px}
+  .props .row{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
+  .props .row label{color:var(--ink-dim);font-size:11px}
+  .props .rowline{display:flex;gap:6px;align-items:center}
+  .props .rowline label{display:flex;gap:4px;align-items:center;color:var(--ink-dim);font-size:11px}
+  .empty-msg{color:var(--ink-dim);font-size:12px;text-align:center;padding:20px 0}
+  .list{max-height:180px;overflow:auto;border-top:1px solid var(--border);margin-top:8px;padding-top:8px}
+  .list .item{display:flex;align-items:center;gap:6px;padding:4px 2px;border-radius:6px;cursor:pointer}
+  .list .item:hover{background:var(--panel-2)}
+  .list .item.sel{background:var(--panel-2);outline:1px solid var(--accent)}
+  .list .item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .list .item button{padding:2px 6px;font-size:11px}
+  .export{width:340px}
+  .export textarea{width:100%;height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;white-space:pre;resize:vertical}
+  .export .row{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
+  .export .row label{color:var(--ink-dim);font-size:11px}
+  .export .rowline{display:flex;gap:6px}
+  .export .rowline > *{flex:1}
+  footer{color:var(--ink-dim);font-size:11px;padding:4px 16px 16px}
+  a.file-link{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>🗺️ Editor de Cenários de Batalha
+  <small>Clique num asset na paleta e depois clique no campo de batalha para posicionar. Arraste para mover. As áreas tracejadas mostram onde o herói e os inimigos ficam.</small>
+</h1>
+
+<div class="layout">
+
+  <!-- PALETA DE ASSETS -->
+  <div class="col palette">
+    <h2>Cenário / Prédios</h2>
+    <div class="grid" id="grid-building"></div>
+    <h2>Natureza (recortes)</h2>
+    <div class="grid" id="grid-spr"></div>
+    <h2>Decorações</h2>
+    <div class="grid" id="grid-decoration"></div>
+    <div style="margin-top:10px">
+      <button class="secondary" id="btn-clear-brush" style="width:100%">🖱️ Parar de adicionar (modo mover)</button>
+    </div>
+  </div>
+
+  <!-- CAMPO -->
+  <div class="col center">
+    <div class="toolbar">
+      <label>Cor da masmorra
+        <select id="sel-color">
+          <option value="red">Vermelha</option>
+          <option value="black">Negra</option>
+          <option value="blue">Azul</option>
+          <option value="purple">Púrpura</option>
+          <option value="yellow">Dourada</option>
+        </select>
+      </label>
+      <label>Chão
+        <select id="sel-floor"></select>
+      </label>
+      <label>Inimigos (referência)
+        <select id="sel-enemies">
+          <option value="1">1</option>
+          <option value="3">3</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="chk-ref" checked> mostrar referência</label>
+      <label><input type="checkbox" id="chk-mirror"> ver espelhado (lado sorteado)</label>
+    </div>
+    <div class="toolbar">
+      <label>Largura <input type="number" id="in-w" value="420" style="width:60px"></label>
+      <label>Altura <input type="number" id="in-h" value="680" style="width:60px"></label>
+      <button class="secondary" id="btn-undo">↩ Desfazer</button>
+      <button class="danger" id="btn-clear-all">🗑 Limpar tudo</button>
+    </div>
+    <div id="field">
+      <canvas id="cv"></canvas>
+    </div>
+    <div class="hint">Dica: o campo real do jogo muda de proporção conforme o aparelho — teste algumas larguras/alturas diferentes antes de fechar o cenário.</div>
+  </div>
+
+  <!-- PROPRIEDADES DO ITEM SELECIONADO -->
+  <div class="col props">
+    <h2>Item selecionado</h2>
+    <div id="props-empty" class="empty-msg">Clique num item no campo para editar.</div>
+    <div id="props-body" style="display:none">
+      <div class="row"><label>Largura (fração da tela)</label>
+        <input type="range" id="p-w" min="0.03" max="0.9" step="0.005"></div>
+      <div class="row"><label>Opacidade</label>
+        <input type="range" id="p-alpha" min="0.1" max="1" step="0.02"></div>
+      <div class="rowline">
+        <label><input type="checkbox" id="p-bg"> fundo (bg)</label>
+        <label><input type="checkbox" id="p-mirror"> acompanha lado sorteado</label>
+      </div>
+      <div class="rowline">
+        <button class="secondary" id="p-up">↑ camada</button>
+        <button class="secondary" id="p-down">↓ camada</button>
+        <button class="secondary" id="p-dup">⧉ duplicar</button>
+        <button class="danger" id="p-del">🗑 excluir</button>
+      </div>
+    </div>
+    <div class="list" id="item-list"></div>
+  </div>
+
+  <!-- EXPORTAÇÃO -->
+  <div class="col export">
+    <h2>Exportar como bioma</h2>
+    <div class="row"><label>Chave (id curto, sem espaços)</label>
+      <input type="text" id="ex-key" value="pantano"></div>
+    <div class="row"><label>Nome exibido</label>
+      <input type="text" id="ex-nome" value="Pântano"></div>
+    <div class="rowline">
+      <div class="row"><label><input type="checkbox" id="ex-tint-on"> tingimento (tint)</label>
+        <input type="text" id="ex-tint" value="rgba(30,60,40,.18)"></div>
+    </div>
+    <button id="btn-gen" style="width:100%">⚙️ Gerar código</button>
+    <div class="row" style="margin-top:8px"><label>Cole este bloco dentro do objeto <code>BIOMES</code> em index.html (perto da linha ~1524):</label>
+      <textarea id="ex-code" readonly placeholder="clique em Gerar código..."></textarea>
+    </div>
+    <div class="toolbar">
+      <button class="secondary" id="btn-copy">📋 Copiar código</button>
+      <button class="secondary" id="btn-save">💾 Salvar sessão (.json)</button>
+      <button class="secondary" id="btn-load">📂 Carregar sessão</button>
+      <input type="file" id="file-load" accept=".json" style="display:none">
+    </div>
+  </div>
+
+</div>
+<footer>Ferramenta de desenvolvimento local — não faz parte do jogo publicado. As posições usam frações de 0 a 1 da largura/altura, igual ao <code>BIOMES</code> de <code>index.html</code>.</footer>
+
+<script>
+/* =================== catálogo de assets (mesmos usados em BIOMES no index.html) =================== */
+const TXPLANT = 'assets/Texture/TX Plant.png';
+const TXPROPS = 'assets/Texture/TX Props.png';
+const DG_COLORS = {
+  red:    { bdir:'Red Buildings/',    tiles:'Tilemap_color1.png', nome:'Vermelha' },
+  black:  { bdir:'Black Buildings/',  tiles:'Tilemap_color4.png', nome:'Negra' },
+  blue:   { bdir:'Blue Buildings/',   tiles:'Tilemap_color5.png', nome:'Azul' },
+  purple: { bdir:'Purple Buildings/', tiles:'Tilemap_color3.png', nome:'Púrpura' },
+  yellow: { bdir:'Yellow Buildings/', tiles:'Tilemap_color2.png', nome:'Dourada' },
+};
+
+const CATALOG = [
+  // --- prédios (dependem da cor da masmorra) ---
+  { id:'castle', kind:'building', label:'Castelo', file:'Castle.png', defW:0.52, defAlpha:0.85, defBg:true, group:'building' },
+  { id:'tower',  kind:'building', label:'Torre',   file:'Tower.png',  defW:0.16, defAlpha:0.55, defBg:true, group:'building' },
+  // --- recortes de TX Plant / TX Props (mesmos SPR do index.html) ---
+  { id:'treeBig', kind:'spr', label:'Árvore grande', src:TXPLANT, sx:24,  sy:14,  sw:113, sh:139, defW:0.30, defAlpha:0.9,  defBg:true,  group:'spr' },
+  { id:'treeMed', kind:'spr', label:'Árvore média',  src:TXPLANT, sx:161, sy:17,  sw:95,  sh:136, defW:0.22, defAlpha:0.85, defBg:true,  group:'spr' },
+  { id:'treeSm',  kind:'spr', label:'Árvore pequena',src:TXPLANT, sx:295, sy:31,  sw:79,  sh:120, defW:0.17, defAlpha:0.75, defBg:true,  group:'spr' },
+  { id:'bush',    kind:'spr', label:'Arbusto (planta)',src:TXPLANT, sx:216, sy:185, sw:47, sh:42, defW:0.13, defAlpha:0.9,  defBg:false, group:'spr' },
+  { id:'crate',   kind:'spr', label:'Caixote', src:TXPROPS, sx:160, sy:18,  sw:32, sh:46, defW:0.09, defAlpha:0.9,  defBg:true,  group:'spr' },
+  { id:'statue',  kind:'spr', label:'Estátua', src:TXPROPS, sx:445, sy:21,  sw:37, sh:72, defW:0.15, defAlpha:0.88, defBg:true,  group:'spr' },
+  { id:'rockBig', kind:'spr', label:'Rocha grande', src:TXPROPS, sx:3, sy:430, sw:57, sh:42, defW:0.14, defAlpha:0.85, defBg:false, group:'spr' },
+  { id:'cross',   kind:'spr', label:'Cruz', src:TXPROPS, sx:227, sy:303, sw:26, sh:40, defW:0.08, defAlpha:0.8,  defBg:true,  group:'spr' },
+  { id:'altar',   kind:'spr', label:'Altar', src:TXPROPS, sx:353, sy:269, sw:94, sh:72, defW:0.25, defAlpha:0.58, defBg:true,  group:'spr' },
+  // --- decorações do Tiny Swords (independem da cor) ---
+  { id:'rock1', kind:'decoration', label:'Pedra 1', folder:'Rocks', file:'Rock1.png', defW:0.14, defAlpha:0.85, defBg:false, group:'decoration' },
+  { id:'rock2', kind:'decoration', label:'Pedra 2', folder:'Rocks', file:'Rock2.png', defW:0.14, defAlpha:0.85, defBg:false, group:'decoration' },
+  { id:'rock3', kind:'decoration', label:'Pedra 3', folder:'Rocks', file:'Rock3.png', defW:0.14, defAlpha:0.85, defBg:false, group:'decoration' },
+  { id:'rock4', kind:'decoration', label:'Pedra 4', folder:'Rocks', file:'Rock4.png', defW:0.14, defAlpha:0.85, defBg:false, group:'decoration' },
+  { id:'bushe1', kind:'decoration', label:'Arbusto 1', folder:'Bushes', file:'Bushe1.png', defW:0.15, defAlpha:0.9, defBg:false, group:'decoration' },
+  { id:'bushe2', kind:'decoration', label:'Arbusto 2', folder:'Bushes', file:'Bushe2.png', defW:0.15, defAlpha:0.9, defBg:false, group:'decoration' },
+  { id:'bushe3', kind:'decoration', label:'Arbusto 3', folder:'Bushes', file:'Bushe3.png', defW:0.15, defAlpha:0.9, defBg:false, group:'decoration' },
+  { id:'bushe4', kind:'decoration', label:'Arbusto 4', folder:'Bushes', file:'Bushe4.png', defW:0.15, defAlpha:0.9, defBg:false, group:'decoration' },
+];
+const CATALOG_BY_ID = Object.fromEntries(CATALOG.map(c => [c.id, c]));
+
+// --- texturas de chão (Tiny Swords Update 010 / Terrain) ---
+const TERRAIN010 = 'assets/Tiny Swords/Tiny Swords (Update 010)/Terrain/';
+const FLOOR_TILES = [
+  { id:'dungeon',   label:'Padrão (cor da masmorra)' },
+  { id:'grassGreen',label:'Grama verde',  src:TERRAIN010+'Ground/Tilemap_Flat.png', sx:0,   sy:0 },
+  { id:'grassDry',  label:'Grama seca',   src:TERRAIN010+'Ground/Tilemap_Flat.png', sx:320, sy:0 },
+  { id:'water',     label:'Água',         src:TERRAIN010+'Water/Water.png',         sx:0,   sy:0, single:true },
+];
+const FLOOR_BY_ID = Object.fromEntries(FLOOR_TILES.map(f => [f.id, f]));
+
+/* =================== estado =================== */
+let color = 'red';
+let floorChoice = 'dungeon';
+let enemyCount = 1;
+let showRef = true;
+let mirrorPreview = false;
+let placed = [];         // {uid, catalogId, x, y, w, alpha, mirror, bg}
+let selectedUid = null;
+let brush = null;        // catalogId ativo
+let uidSeq = 1;
+let history = [];        // pilha de snapshots p/ desfazer
+let W = 420, H = 680;
+
+/* =================== cache de imagens =================== */
+const IMG_CACHE = {};
+function getImage(src){
+  let im = IMG_CACHE[src];
+  if (!im){
+    im = new Image();
+    im.src = src;
+    im.onload = () => render();
+    IMG_CACHE[src] = im;
+  }
+  return im;
+}
+function resolveSrc(cat){
+  if (cat.kind === 'spr') return cat.src;
+  if (cat.kind === 'building') return 'Tiny Swords (Free Pack)/Buildings/' + DG_COLORS[color].bdir + cat.file;
+  return 'Tiny Swords (Free Pack)/Terrain/Decorations/' + cat.folder + '/' + cat.file;
+}
+function cropOf(cat, img){
+  if (cat.kind === 'spr') return { sx:cat.sx, sy:cat.sy, sw:cat.sw, sh:cat.sh };
+  return { sx:0, sy:0, sw: img.naturalWidth||1, sh: img.naturalHeight||1 };
+}
+
+/* =================== paleta =================== */
+function buildPalette(){
+  const grids = { building:'grid-building', spr:'grid-spr', decoration:'grid-decoration' };
+  Object.values(grids).forEach(id => document.getElementById(id).innerHTML = '');
+  CATALOG.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'asset-btn';
+    btn.dataset.id = cat.id;
+    btn.title = cat.label;
+    const cvT = document.createElement('canvas');
+    cvT.width = 64; cvT.height = 44;
+    btn.appendChild(cvT);
+    const lbl = document.createElement('span');
+    lbl.textContent = cat.label;
+    btn.appendChild(lbl);
+    btn.onclick = () => {
+      brush = (brush === cat.id) ? null : cat.id;
+      refreshBrushHighlight();
+    };
+    document.getElementById(grids[cat.group]).appendChild(btn);
+    drawThumb(cat, cvT);
+  });
+}
+function drawThumb(cat, cvT){
+  const img = getImage(resolveSrc(cat));
+  const tctx = cvT.getContext('2d');
+  const paint = () => {
+    tctx.clearRect(0,0,cvT.width,cvT.height);
+    if (!img.naturalWidth) return;
+    const { sx, sy, sw, sh } = cropOf(cat, img);
+    const scale = Math.min(cvT.width/sw, cvT.height/sh) * 0.9;
+    const w = sw*scale, h = sh*scale;
+    tctx.imageSmoothingEnabled = false;
+    tctx.drawImage(img, sx, sy, sw, sh, (cvT.width-w)/2, (cvT.height-h)/2, w, h);
+  };
+  if (img.naturalWidth) paint(); else img.addEventListener('load', paint, { once:true });
+}
+function refreshBrushHighlight(){
+  document.querySelectorAll('.asset-btn').forEach(b => b.classList.toggle('active', b.dataset.id === brush));
+}
+
+/* =================== canvas / render =================== */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+function fitCanvas(){
+  W = parseInt(document.getElementById('in-w').value, 10) || 420;
+  H = parseInt(document.getElementById('in-h').value, 10) || 680;
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.imageSmoothingEnabled = false;
+  render();
+}
+function mx(px){ return mirrorPreview ? (W - px) : px; }
+
+/* 9-slice do autotile (canto sup. esquerdo, ou sx/sy se o chão for custom), igual ao drawPlatform do jogo */
+function drawPlatform(img, cx, cy, w, h, sx, sy, single){
+  if (!img || !img.naturalWidth) return;
+  sx = sx||0; sy = sy||0;
+  const T = 64;
+  const cols = Math.max(2, Math.round(w/40)), rows = Math.max(2, Math.round(h/40));
+  const tw = w/cols, th = h/rows;
+  const x0 = cx - w/2, y0 = cy - h/2;
+  const pick = single ? (() => 0) : (i, n) => i === 0 ? 0 : (i === n-1 ? 2 : 1);
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      ctx.drawImage(img, sx + pick(c, cols)*T, sy + pick(r, rows)*T, T, T,
+                    x0 + c*tw, y0 + r*th, tw + 0.6, th + 0.6);
+}
+function getFloorTile(){
+  const f = FLOOR_BY_ID[floorChoice];
+  if (!f || !f.src) return { img: getImage('Tiny Swords (Free Pack)/Terrain/Tileset/' + DG_COLORS[color].tiles), sx:0, sy:0, single:false };
+  return { img: getImage(f.src), sx: f.sx, sy: f.sy, single: !!f.single };
+}
+
+function itemBox(p){
+  const cat = CATALOG_BY_ID[p.catalogId];
+  const img = getImage(resolveSrc(cat));
+  const { sw, sh } = cropOf(cat, img);
+  const w = W * p.w;
+  const h = (sw && sh) ? w * sh / sw : w;
+  const cx = (p.mirror && mirrorPreview) ? W - p.x*W : p.x*W;
+  const cy = p.y*H;
+  return { cx, cy, w, h, left: cx - w/2, top: cy - h/2 };
+}
+function drawOrder(){ return [...placed.filter(p=>p.bg), ...placed.filter(p=>!p.bg)]; }
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  // chão / plataformas de referência
+  const floor = getFloorTile();
+  drawPlatform(floor.img, mx(W*0.70), H*0.34, W*0.64, H*0.38, floor.sx, floor.sy, floor.single);
+  drawPlatform(floor.img, mx(W*0.26), H*0.76, W*0.46, H*0.20, floor.sx, floor.sy, floor.single);
+
+  // itens do cenário (fundo primeiro, depois frente)
+  drawOrder().forEach(p => {
+    const cat = CATALOG_BY_ID[p.catalogId];
+    const img = getImage(resolveSrc(cat));
+    if (!img.naturalWidth) return;
+    const { sx, sy, sw, sh } = cropOf(cat, img);
+    const box = itemBox(p);
+    ctx.globalAlpha = p.alpha;
+    ctx.drawImage(img, sx, sy, sw, sh, box.left, box.top, box.w, box.h);
+    ctx.globalAlpha = 1;
+    if (p.uid === selectedUid){
+      ctx.save();
+      ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 1.5; ctx.setLineDash([5,4]);
+      ctx.strokeRect(box.left, box.top, box.w, box.h);
+      ctx.restore();
+    }
+  });
+
+  if (showRef) drawReference();
+}
+
+function drawReference(){
+  ctx.save();
+  ctx.setLineDash([6,5]);
+  ctx.lineWidth = 2;
+  // herói
+  const base = Math.min(H*0.32, W*0.30);
+  const heroR = base*1.15/2;
+  const hx = mx(W*0.26), hy = H*0.72;
+  ctx.strokeStyle = '#4ade80'; ctx.fillStyle = 'rgba(74,222,128,.12)';
+  ctx.beginPath(); ctx.arc(hx, hy, heroR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#4ade80'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+  ctx.setLineDash([]);
+  ctx.fillText('HERÓI', hx, hy + heroR + 14);
+
+  // inimigos
+  const slots = enemyCount === 1
+    ? [{x:W*0.70, y:H*0.30, size:base}]
+    : [{x:W*0.66,y:H*0.25,size:base},{x:W*0.83,y:H*0.38,size:base*0.85},{x:W*0.56,y:H*0.46,size:base*0.85}];
+  ctx.setLineDash([6,5]);
+  slots.forEach((s,i) => {
+    const ex = mx(s.x), ey = s.y, r = s.size/2;
+    ctx.strokeStyle = '#f87171'; ctx.fillStyle = 'rgba(248,113,113,.12)';
+    ctx.beginPath(); ctx.arc(ex, ey, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#f87171';
+    ctx.fillText('INIMIGO ' + (i+1), ex, ey + r + 14);
+    ctx.setLineDash([6,5]);
+  });
+  ctx.restore();
+}
+
+/* =================== interação: colocar / arrastar / selecionar =================== */
+let dragging = null; // {uid, dx, dy}
+
+function snapshotForUndo(){
+  history.push(JSON.stringify(placed));
+  if (history.length > 40) history.shift();
+}
+function hitTest(px, py){
+  const order = drawOrder();
+  for (let i = order.length - 1; i >= 0; i--){
+    const p = order[i];
+    const box = itemBox(p);
+    if (px >= box.left && px <= box.left+box.w && py >= box.top && py <= box.top+box.h) return p;
+  }
+  return null;
+}
+function selectItem(uid){
+  selectedUid = uid;
+  render(); renderList(); renderProps();
+}
+cv.addEventListener('mousedown', e => {
+  const px = e.offsetX, py = e.offsetY;
+  const hit = hitTest(px, py);
+  if (hit){
+    snapshotForUndo();
+    selectItem(hit.uid);
+    dragging = { uid: hit.uid, dx: px - hit.x*W, dy: py - hit.y*H };
+    return;
+  }
+  if (mirrorPreview) { selectItem(null); return; }
+  if (brush){
+    const cat = CATALOG_BY_ID[brush];
+    snapshotForUndo();
+    const p = { uid: uidSeq++, catalogId: brush, x: px/W, y: py/H, w: cat.defW, alpha: cat.defAlpha, mirror: false, bg: cat.defBg };
+    placed.push(p);
+    selectItem(p.uid);
+    saveLocal();
+  } else {
+    selectItem(null);
+  }
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const r = cv.getBoundingClientRect();
+  const px = e.clientX - r.left, py = e.clientY - r.top;
+  const p = placed.find(it => it.uid === dragging.uid);
+  if (!p) return;
+  p.x = Math.min(1, Math.max(0, (px - dragging.dx) / W));
+  p.y = Math.min(1, Math.max(0, (py - dragging.dy) / H));
+  render();
+});
+window.addEventListener('mouseup', () => { if (dragging){ dragging = null; saveLocal(); } });
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape'){ brush = null; refreshBrushHighlight(); selectItem(null); return; }
+  if (!selectedUid) return;
+  const p = placed.find(it => it.uid === selectedUid);
+  if (!p) return;
+  const step = e.shiftKey ? 0.02 : 0.005;
+  let moved = true;
+  if (e.key === 'ArrowLeft') p.x = Math.max(0, p.x - step);
+  else if (e.key === 'ArrowRight') p.x = Math.min(1, p.x + step);
+  else if (e.key === 'ArrowUp') p.y = Math.max(0, p.y - step);
+  else if (e.key === 'ArrowDown') p.y = Math.min(1, p.y + step);
+  else if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelected(); return; }
+  else moved = false;
+  if (moved){ e.preventDefault(); render(); saveLocal(); }
+});
+
+function deleteSelected(){
+  if (!selectedUid) return;
+  snapshotForUndo();
+  placed = placed.filter(p => p.uid !== selectedUid);
+  selectedUid = null;
+  render(); renderList(); renderProps(); saveLocal();
+}
+
+/* =================== lista de itens colocados =================== */
+function renderList(){
+  const box = document.getElementById('item-list');
+  box.innerHTML = '';
+  placed.forEach(p => {
+    const cat = CATALOG_BY_ID[p.catalogId];
+    const row = document.createElement('div');
+    row.className = 'item' + (p.uid === selectedUid ? ' sel' : '');
+    row.innerHTML = '<span>' + cat.label + (p.bg ? ' · fundo' : ' · frente') + '</span>';
+    row.onclick = () => selectItem(p.uid);
+    const del = document.createElement('button');
+    del.className = 'danger'; del.textContent = '✕';
+    del.onclick = (ev) => { ev.stopPropagation(); snapshotForUndo(); placed = placed.filter(it => it.uid !== p.uid); if (selectedUid===p.uid) selectedUid=null; render(); renderList(); renderProps(); saveLocal(); };
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+
+/* =================== painel de propriedades =================== */
+function renderProps(){
+  const empty = document.getElementById('props-empty');
+  const body = document.getElementById('props-body');
+  const p = placed.find(it => it.uid === selectedUid);
+  if (!p){ empty.style.display='block'; body.style.display='none'; return; }
+  empty.style.display='none'; body.style.display='block';
+  document.getElementById('p-w').value = p.w;
+  document.getElementById('p-alpha').value = p.alpha;
+  document.getElementById('p-bg').checked = p.bg;
+  document.getElementById('p-mirror').checked = p.mirror;
+}
+document.getElementById('p-w').addEventListener('input', e => { const p=curSel(); if(p){ p.w = parseFloat(e.target.value); render(); saveLocal(); } });
+document.getElementById('p-alpha').addEventListener('input', e => { const p=curSel(); if(p){ p.alpha = parseFloat(e.target.value); render(); saveLocal(); } });
+document.getElementById('p-bg').addEventListener('change', e => { const p=curSel(); if(p){ p.bg = e.target.checked; render(); renderList(); saveLocal(); } });
+document.getElementById('p-mirror').addEventListener('change', e => { const p=curSel(); if(p){ p.mirror = e.target.checked; render(); saveLocal(); } });
+document.getElementById('p-del').addEventListener('click', deleteSelected);
+document.getElementById('p-dup').addEventListener('click', () => {
+  const p = curSel(); if (!p) return;
+  snapshotForUndo();
+  const clone = { ...p, uid: uidSeq++, x: Math.min(0.95, p.x+0.03), y: Math.min(0.95, p.y+0.03) };
+  placed.push(clone); selectItem(clone.uid); saveLocal();
+});
+document.getElementById('p-up').addEventListener('click', () => reorder(1));
+document.getElementById('p-down').addEventListener('click', () => reorder(-1));
+function reorder(dir){
+  const idx = placed.findIndex(p => p.uid === selectedUid);
+  if (idx < 0) return;
+  const j = idx + dir;
+  if (j < 0 || j >= placed.length) return;
+  snapshotForUndo();
+  [placed[idx], placed[j]] = [placed[j], placed[idx]];
+  render(); renderList(); saveLocal();
+}
+function curSel(){ return placed.find(it => it.uid === selectedUid); }
+
+/* =================== toolbar =================== */
+FLOOR_TILES.forEach(f => {
+  const opt = document.createElement('option');
+  opt.value = f.id; opt.textContent = f.label;
+  document.getElementById('sel-floor').appendChild(opt);
+});
+document.getElementById('sel-color').addEventListener('change', e => { color = e.target.value; render(); saveLocal(); });
+document.getElementById('sel-floor').addEventListener('change', e => { floorChoice = e.target.value; render(); saveLocal(); });
+document.getElementById('sel-enemies').addEventListener('change', e => { enemyCount = parseInt(e.target.value,10); render(); });
+document.getElementById('chk-ref').addEventListener('change', e => { showRef = e.target.checked; render(); });
+document.getElementById('chk-mirror').addEventListener('change', e => { mirrorPreview = e.target.checked; if (mirrorPreview) selectItem(null); render(); });
+document.getElementById('in-w').addEventListener('change', fitCanvas);
+document.getElementById('in-h').addEventListener('change', fitCanvas);
+document.getElementById('btn-clear-brush').addEventListener('click', () => { brush = null; refreshBrushHighlight(); });
+document.getElementById('btn-undo').addEventListener('click', () => {
+  const snap = history.pop();
+  if (!snap) return;
+  placed = JSON.parse(snap);
+  selectedUid = null;
+  render(); renderList(); renderProps(); saveLocal();
+});
+document.getElementById('btn-clear-all').addEventListener('click', () => {
+  if (!placed.length) return;
+  if (!confirm('Remover todos os itens do cenário?')) return;
+  snapshotForUndo();
+  placed = []; selectedUid = null;
+  render(); renderList(); renderProps(); saveLocal();
+});
+
+/* =================== exportação =================== */
+function fmt(n){ return Math.round(n*1000)/1000; }
+function genCode(){
+  const key = document.getElementById('ex-key').value.trim() || 'novoBioma';
+  const nome = document.getElementById('ex-nome').value.trim() || 'Novo Bioma';
+  const tintOn = document.getElementById('ex-tint-on').checked;
+  const tint = document.getElementById('ex-tint').value.trim();
+  const usesBuilding = placed.some(p => CATALOG_BY_ID[p.catalogId].kind === 'building');
+  const usesDecoration = placed.some(p => CATALOG_BY_ID[p.catalogId].kind === 'decoration');
+  const floorTile = FLOOR_BY_ID[floorChoice];
+  const floorPart = (floorTile && floorTile.src)
+    ? ', floor:{src:' + JSON.stringify(floorTile.src) + ', sx:' + floorTile.sx + ', sy:' + floorTile.sy + (floorTile.single ? ', single:true' : '') + '}'
+    : '';
+
+  const lines = [];
+  lines.push(key + ': { nome:' + JSON.stringify(nome) + (tintOn ? ", tint:'" + tint + "'" : '') + floorPart + ', build(cfg){');
+  if (usesBuilding) lines.push("    const B = 'Tiny Swords (Free Pack)/Buildings/' + cfg.bdir;");
+  if (usesDecoration) lines.push("    const D = 'Tiny Swords (Free Pack)/Terrain/Decorations/';");
+  lines.push('    return [');
+  drawOrder().forEach(p => {
+    const cat = CATALOG_BY_ID[p.catalogId];
+    const opts = [];
+    if (p.alpha !== undefined) opts.push('alpha:' + fmt(p.alpha));
+    if (p.mirror) opts.push('mirror:true');
+    if (p.bg) opts.push('bg:true');
+    if (cat.kind === 'spr'){
+      lines.push("      item('" + cat.id + "', " + fmt(p.x) + ', ' + fmt(p.y) + ', ' + fmt(p.w) + ', {' + opts.join(', ') + '}),');
+    } else {
+      const srcExpr = cat.kind === 'building' ? "B+'" + cat.file + "'" : "D+'" + cat.folder + '/' + cat.file + "'";
+      lines.push('      { src:' + srcExpr + ', x:' + fmt(p.x) + ', y:' + fmt(p.y) + ', w:' + fmt(p.w) + (opts.length?', '+opts.join(', '):'') + ' },');
+    }
+  });
+  lines.push('    ];');
+  lines.push('  }},');
+  return lines.join('\n');
+}
+document.getElementById('btn-gen').addEventListener('click', () => {
+  document.getElementById('ex-code').value = genCode();
+});
+document.getElementById('btn-copy').addEventListener('click', async () => {
+  const ta = document.getElementById('ex-code');
+  if (!ta.value) ta.value = genCode();
+  try { await navigator.clipboard.writeText(ta.value); }
+  catch { ta.select(); document.execCommand('copy'); }
+});
+
+/* =================== salvar / carregar sessão =================== */
+function stateForSave(){
+  return { color, floorChoice, enemyCount, placed, ex:{ key: document.getElementById('ex-key').value, nome: document.getElementById('ex-nome').value, tintOn: document.getElementById('ex-tint-on').checked, tint: document.getElementById('ex-tint').value } };
+}
+function saveLocal(){ localStorage.setItem('scenario-editor-state', JSON.stringify(stateForSave())); }
+function loadState(s){
+  if (!s) return;
+  color = s.color || 'red'; enemyCount = s.enemyCount || 1;
+  floorChoice = FLOOR_BY_ID[s.floorChoice] ? s.floorChoice : 'dungeon';
+  placed = s.placed || [];
+  uidSeq = 1 + placed.reduce((m,p) => Math.max(m, p.uid||0), 0);
+  document.getElementById('sel-color').value = color;
+  document.getElementById('sel-floor').value = floorChoice;
+  document.getElementById('sel-enemies').value = String(enemyCount);
+  if (s.ex){
+    document.getElementById('ex-key').value = s.ex.key ?? 'pantano';
+    document.getElementById('ex-nome').value = s.ex.nome ?? 'Pântano';
+    document.getElementById('ex-tint-on').checked = !!s.ex.tintOn;
+    document.getElementById('ex-tint').value = s.ex.tint ?? 'rgba(30,60,40,.18)';
+  }
+  selectedUid = null;
+  render(); renderList(); renderProps();
+}
+document.getElementById('btn-save').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(stateForSave(), null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (document.getElementById('ex-key').value || 'cenario') + '.json';
+  a.click();
+});
+document.getElementById('btn-load').addEventListener('click', () => document.getElementById('file-load').click());
+document.getElementById('file-load').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { try { loadState(JSON.parse(reader.result)); saveLocal(); } catch { alert('Arquivo inválido.'); } };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+/* =================== boot =================== */
+buildPalette();
+fitCanvas();
+try { loadState(JSON.parse(localStorage.getItem('scenario-editor-state'))); } catch {}
+window.addEventListener('resize', () => {});
+</script>
+</body>
+</html>

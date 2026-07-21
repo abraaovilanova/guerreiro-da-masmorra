@@ -1564,23 +1564,24 @@ const pickBiome = () => BIOME_KEYS[rnd(0, BIOME_KEYS.length-1)];
 
 function buildScenery(){
   const cfg = DG_COLORS[S.dgColor];
-  tileSrc = 'Tiny Swords (Free Pack)/Terrain/Tileset/' + cfg.tiles;
-  loadDecor(tileSrc);
   const b = BIOMES[battleBiome] || BIOMES.castelo;
+  tileSrc = b.floor ? b.floor.src : 'Tiny Swords (Free Pack)/Terrain/Tileset/' + cfg.tiles;
+  loadDecor(tileSrc);
   scenery = b.build(cfg);
   scenery.forEach(s => loadDecor(s.src));
 }
-/* plataforma 9-slice com o autotile 3×3 (canto sup. esquerdo do tileset) */
-function drawPlatform(img, cx, cy, w, h){
+/* plataforma 9-slice com o autotile 3×3 (canto sup. esquerdo do tileset, ou sx/sy se o bioma definir um chão custom) */
+function drawPlatform(img, cx, cy, w, h, sx, sy, single){
   if (!img || !img.naturalWidth) return;
+  sx = sx||0; sy = sy||0;
   const T = 64;
   const cols = Math.max(2, Math.round(w/40)), rows = Math.max(2, Math.round(h/40));
   const tw = w/cols, th = h/rows;
   const x0 = cx - w/2, y0 = cy - h/2;
-  const pick = (i, n) => i === 0 ? 0 : (i === n-1 ? 2 : 1);
+  const pick = single ? (() => 0) : (i, n) => i === 0 ? 0 : (i === n-1 ? 2 : 1);
   for (let r = 0; r < rows; r++)
     for (let c = 0; c < cols; c++)
-      ctx.drawImage(img, pick(c, cols)*T, pick(r, rows)*T, T, T,
+      ctx.drawImage(img, sx + pick(c, cols)*T, sy + pick(r, rows)*T, T, T,
                     x0 + c*tw, y0 + r*th, tw + 0.6, th + 0.6);
 }
 function drawSceneryItems(list){
@@ -1598,11 +1599,12 @@ function drawSceneryItems(list){
 }
 function drawScenery(){
   const timg = DECOR_IMGS[tileSrc];                  // terreno primeiro (chão)
-  if (timg){
-    drawPlatform(timg, mirrorX(W*0.70), H*0.34, W*0.64, H*0.38);   // arena dos monstros
-    drawPlatform(timg, mirrorX(W*0.26), H*0.76, W*0.46, H*0.20);   // arena do herói
-  }
   const b = BIOMES[battleBiome];                     // 🌍 clima do bioma (leve tinta de cor)
+  if (timg){
+    const fsx = b && b.floor ? b.floor.sx : 0, fsy = b && b.floor ? b.floor.sy : 0, fsingle = b && b.floor && b.floor.single;
+    drawPlatform(timg, mirrorX(W*0.70), H*0.34, W*0.64, H*0.38, fsx, fsy, fsingle);   // arena dos monstros
+    drawPlatform(timg, mirrorX(W*0.26), H*0.76, W*0.46, H*0.20, fsx, fsy, fsingle);   // arena do herói
+  }
   if (b && b.tint){ ctx.fillStyle = b.tint; ctx.fillRect(0, 0, W, H); }
   drawSceneryItems(scenery.filter(s => s.bg));       // estruturas/árvores ao fundo
   drawSceneryItems(scenery.filter(s => !s.bg));      // pedras/arbustos na frente
