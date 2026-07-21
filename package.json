@@ -3,9 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "description": "RPG de turnos Guerreiro da Masmorra",
+  "scripts": {
+    "build:native-auth": "vite build --config vite.native-auth.config.js"
+  },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^8.3.0",
     "@capacitor/android": "^8.4.2",
     "@capacitor/cli": "^8.4.2",
-    "@capacitor/core": "^8.4.2"
+    "@capacitor/core": "^8.4.2",
+    "firebase": "^12.16.0"
+  },
+  "devDependencies": {
+    "vite": "^8.1.5"
   }
 }

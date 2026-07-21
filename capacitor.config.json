@@ -2,5 +2,11 @@
   "appId": "com.guerreirodamasmorra.app",
   "appName": "Guerreiro da Masmorra",
   "webDir": "www",
-  "backgroundColor": "#0f1117"
+  "backgroundColor": "#0f1117",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "providers": ["google.com"],
+      "skipNativeAuth": false
+    }
+  }
 }

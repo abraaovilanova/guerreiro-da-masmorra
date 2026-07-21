@@ -147,6 +147,8 @@
   }
   #bestTag{text-align:center;font-size:12px;color:var(--ink-dim)}
   #reset,#sndToggle{background:none;border:none;color:var(--ink-dim);font-size:11px;text-decoration:underline;padding:2px}
+  #cloudStatus{text-align:center;font-size:11px;color:var(--ink-dim);margin-top:6px}
+  #cloudSave{width:100%;font-size:13px;font-weight:600;padding:9px}
 
   /* ============ BATALHA ============ */
   #battle{padding:10px;gap:8px}
@@ -552,6 +554,8 @@
     </div>
     <button id="enter">🏰 Entrar na Masmorra</button>
     <div id="bestTag">Masmorras conquistadas: 0</div>
+    <div id="cloudStatus">☁️ Campanha não sincronizada</div>
+    <button id="cloudSave">☁️ Salvar campanha na nuvem</button>
     <button id="sndToggle">🔊 efeitos sonoros</button>
     <button id="reset">zerar progresso</button>
   </div>
@@ -2135,6 +2139,43 @@ $('#reset').addEventListener('click', () => {
   if (!confirm('Apagar todo o progresso?')) return;
   try { localStorage.removeItem(SAVE_KEY); } catch(e){}
   location.reload();                                  // recria o save do zero (inclui o roster)
+});
+
+/* ---------- ☁️ salvar campanha na nuvem (login Google + Firestore, ver window.Cloud) ---------- */
+function renderCloudStatus(){
+  const u = window.Cloud && window.Cloud.user;
+  $('#cloudStatus').textContent = u
+    ? '☁️ Conectado como ' + (u.email || u.displayName)
+    : '☁️ Campanha não sincronizada';
+}
+window.addEventListener('cloud-ready', () => window.Cloud.onAuthChange(renderCloudStatus));
+$('#cloudSave').addEventListener('click', async () => {
+  const btn = $('#cloudSave'), original = btn.textContent;
+  if (!window.Cloud){ alert('Nuvem indisponível — verifique sua conexão e tente de novo.'); return; }
+  btn.disabled = true;
+  try {
+    if (!window.Cloud.user){
+      btn.textContent = '☁️ Conectando…';
+      await window.Cloud.signIn();
+      const cloud = await window.Cloud.load();
+      if (cloud && (cloud.entries || 0) > 0 && confirm(
+        'Encontramos uma campanha salva na nuvem para esta conta.\n' +
+        'Carregar esse progresso agora? Isso substitui o progresso deste aparelho.'
+      )){
+        S = Object.assign(structuredClone(DEFAULTS), cloud);
+        save(); renderMenu();
+      }
+    }
+    btn.textContent = '☁️ Salvando…';
+    await window.Cloud.save(S);
+    btn.textContent = '✅ Campanha salva!';
+    renderCloudStatus();
+  } catch(e){
+    console.error(e);
+    btn.textContent = '⚠️ Falha ao salvar';
+  } finally {
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1800);
+  }
 });
 
 /* ================================================================
@@ -4489,5 +4530,80 @@ if (location.hash === '#recrutar'){             // atalho de teste: já com todo
 }
 </script>
 <!--/ARTIFACT-B-->
+<script type="module">
+  /* ================================================================
+     ☁️ SALVAMENTO NA NUVEM — login com Google + Firestore.
+     Expõe window.Cloud pro script principal (clássico, não-módulo)
+     consumir sem precisar reescrever o jogo inteiro como módulo.
+     ================================================================ */
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut as fbSignOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA_6Cjia55glYkZXvYHtEH9S6OqAxRdCTE",
+    authDomain: "manguebytegames.firebaseapp.com",
+    projectId: "manguebytegames",
+    storageBucket: "manguebytegames.firebasestorage.app",
+    messagingSenderId: "96691378321",
+    appId: "1:96691378321:web:57527e6ff28410676a4730",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+  const saveDoc = uid => doc(db, 'saves', uid);
+  /* no app Android (Capacitor), popup do Google não funciona dentro do WebView —
+     ali usamos o login nativo (window.NativeGoogleAuth, bundle à parte via Vite)
+     e trocamos o idToken por uma sessão no Firebase Auth. No navegador comum,
+     window.Capacitor não existe e cai direto no popup normal. */
+  const isNative = () => !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web');
+
+  window.Cloud = {
+    user: null,
+    _listeners: [],
+    onAuthChange(cb){                     // avisa o jogo quando o login mudar (inclui sessão restaurada)
+      this._listeners.push(cb);
+      if (this._ready) cb(this.user);
+    },
+    async signIn(){
+      if (isNative() && window.NativeGoogleAuth){
+        const idToken = await window.NativeGoogleAuth.signIn();
+        const { user } = await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+        return user;
+      }
+      const { user } = await signInWithPopup(auth, provider);
+      return user;
+    },
+    async signOut(){
+      if (isNative() && window.NativeGoogleAuth){ try { await window.NativeGoogleAuth.signOut(); } catch(e){} }
+      await fbSignOut(auth);
+    },
+    async save(data){
+      if (!auth.currentUser) throw new Error('not-signed-in');
+      await setDoc(saveDoc(auth.currentUser.uid), {
+        data: JSON.stringify(data),
+        updatedAt: serverTimestamp(),
+      });
+    },
+    async load(){
+      if (!auth.currentUser) throw new Error('not-signed-in');
+      const snap = await getDoc(saveDoc(auth.currentUser.uid));
+      return snap.exists() ? JSON.parse(snap.data().data) : null;
+    },
+  };
+  window.dispatchEvent(new Event('cloud-ready'));   // avisa o script clássico que window.Cloud já existe
+
+  onAuthStateChanged(auth, user => {
+    window.Cloud.user = user;
+    window.Cloud._ready = true;
+    window.Cloud._listeners.forEach(cb => cb(user));
+  });
+</script>
 </body>
 </html>
