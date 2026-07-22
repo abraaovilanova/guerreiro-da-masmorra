@@ -3,6 +3,8 @@ node_modules/*
 www/
 android/
 .claude/
+.firebase/
+firebase-debug.log
 
 
 # card art packs pesados (grandes demais para o GitHub — ficam só no disco)

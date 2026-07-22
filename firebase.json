@@ -1,0 +1,31 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "android/**",
+      "www/**",
+      "native-auth/**",
+      "store-assets/**",
+      "public/**",
+      "2D Pixel Dungeon Asset Pack/**",
+      "DungeonCrawlerSprites/**",
+      "Shikashi's Fantasy Icons Pack v2/**",
+      "assets/FreePack/**",
+      "assets/free_pixel_art_card_pack.png",
+      "capacitor.config.json",
+      "package.json",
+      "package-lock.json",
+      "vite.native-auth.config.js",
+      "prompt.md"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
