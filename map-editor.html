@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Editor de Mapa-múndi — Guerreiro da Masmorra</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#1a1d2e; --panel-2:#232742; --border:#3a3f5e;
+    --ink:#e7e9f4; --ink-dim:#8b90ad; --accent:#a78bfa; --accent-deep:#6d4fd6;
+    --gold:#fbbf24; --danger:#f87171; --ok:#4ade80;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px}
+  h1{font-size:16px;margin:0;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--panel)}
+  h1 small{color:var(--ink-dim);font-weight:400;display:block;font-size:11px;margin-top:2px}
+  .layout{display:flex;gap:10px;padding:10px;align-items:flex-start;flex-wrap:wrap}
+  .col{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px}
+  .col h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin:12px 0 6px}
+  .col h2:first-child{margin-top:0}
+  .center{display:flex;flex-direction:column;gap:8px;align-items:center}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px}
+  .toolbar label{display:flex;gap:4px;align-items:center;color:var(--ink-dim)}
+  select,input[type=text],input[type=number],input[type=color],textarea{
+    background:var(--panel-2);border:1px solid var(--border);color:var(--ink);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:12px;
+  }
+  input[type=color]{padding:2px;width:44px;height:26px}
+  button{
+    background:var(--accent-deep);border:1px solid var(--accent);color:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;font-family:inherit;
+  }
+  button.secondary{background:var(--panel-2);border-color:var(--border);color:var(--ink)}
+  button.danger{background:#5a2323;border-color:var(--danger)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  #field{position:relative;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#0a0c13;touch-action:none}
+  #cv{display:block;cursor:grab}
+  .hint{color:var(--ink-dim);font-size:11px;max-width:380px;text-align:center}
+  .props{width:250px}
+  .props .row{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
+  .props .row label{color:var(--ink-dim);font-size:11px}
+  .props .rowline{display:flex;gap:6px;align-items:center}
+  .empty-msg{color:var(--ink-dim);font-size:12px;text-align:center;padding:20px 0}
+  .export{width:340px}
+  .export textarea{width:100%;height:260px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;white-space:pre;resize:vertical}
+  .export .row{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
+  .export .row label{color:var(--ink-dim);font-size:11px}
+  .thumb{width:56px;height:44px;object-fit:contain;image-rendering:pixelated;background:var(--panel-2);border:1px solid var(--border);border-radius:6px}
+  .nodelist{max-height:220px;overflow:auto;border-top:1px solid var(--border);margin-top:8px;padding-top:8px}
+  .nodelist .item{display:flex;align-items:center;gap:6px;padding:4px 2px;border-radius:6px;cursor:pointer;font-size:11.5px}
+  .nodelist .item:hover{background:var(--panel-2)}
+  .nodelist .item.sel{background:var(--panel-2);outline:1px solid var(--accent)}
+  .nodelist .item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  footer{color:var(--ink-dim);font-size:11px;padding:4px 16px 16px}
+</style>
+</head>
+<body>
+
+<h1>🗺️ Editor de Mapa-múndi
+  <small>Arraste cidades e portas para reposicionar. Clique numa cidade para trocar prédio/cor/nome. Gere o código e cole em index.html.</small>
+</h1>
+
+<div class="layout">
+
+  <!-- CANVAS -->
+  <div class="col center">
+    <div class="toolbar">
+      <label>Fundo
+        <select id="sel-bg">
+          <option value="forest">Floresta (verde)</option>
+          <option value="desert">Deserto (âmbar)</option>
+          <option value="none">Sem fundo (escuro)</option>
+        </select>
+      </label>
+      <label>Largura <input type="number" id="in-w" value="380" style="width:60px"></label>
+      <label>Altura <input type="number" id="in-h" value="620" style="width:60px"></label>
+      <button class="secondary" id="btn-undo">↩ Desfazer</button>
+      <button class="danger" id="btn-reset">↺ Restaurar padrão</button>
+    </div>
+    <div id="field">
+      <canvas id="cv"></canvas>
+    </div>
+    <div class="hint">6 cidades (nós pares) + 5 portas de masmorra (nós ímpares), na mesma ordem usada pelo jogo. A trilha tracejada é só uma prévia — o jogo recalcula a curva sozinho.</div>
+  </div>
+
+  <!-- PROPRIEDADES DO NÓ SELECIONADO -->
+  <div class="col props">
+    <h2>Nó selecionado</h2>
+    <div id="props-empty" class="empty-msg">Clique numa cidade ou porta no mapa.</div>
+    <div id="props-city" style="display:none">
+      <div class="row"><label>Nome da cidade</label>
+        <input type="text" id="p-nome"></div>
+      <div class="row"><label>Cor do prédio</label>
+        <select id="p-buildcolor">
+          <option value="Blue">Azul</option>
+          <option value="Yellow">Dourada</option>
+          <option value="Purple">Púrpura</option>
+          <option value="Red">Vermelha</option>
+          <option value="Black">Negra</option>
+        </select>
+      </div>
+      <div class="row"><label>Prédio</label>
+        <select id="p-buildtype"></select>
+      </div>
+      <div class="rowline">
+        <img class="thumb" id="p-thumb">
+        <div class="row" style="flex:1"><label>Cor do brilho/nome (hex)</label>
+          <input type="color" id="p-hex"></div>
+      </div>
+    </div>
+    <div id="props-door" style="display:none">
+      <div class="empty-msg" style="padding:6px 0">Portas só têm posição — a cor (bloqueada / atual / concluída) é decidida pelo progresso do jogador em tempo real.</div>
+    </div>
+    <div id="props-pos" style="display:none">
+      <div class="rowline">
+        <div class="row"><label>X (0–1)</label><input type="number" id="p-x" min="0" max="1" step="0.005" style="width:100%"></div>
+        <div class="row"><label>Y (0–1)</label><input type="number" id="p-y" min="0" max="1" step="0.005" style="width:100%"></div>
+      </div>
+    </div>
+    <div class="nodelist" id="node-list"></div>
+  </div>
+
+  <!-- EXPORTAÇÃO -->
+  <div class="col export">
+    <h2>Exportar</h2>
+    <button id="btn-gen" style="width:100%">⚙️ Gerar código</button>
+    <div class="row" style="margin-top:8px"><label>Cole substituindo <code>MAP_BG</code>, <code>MAP_CITIES</code> e <code>MAP_POS</code> em index.html (perto da linha ~2190):</label>
+      <textarea id="ex-code" readonly placeholder="clique em Gerar código..."></textarea>
+    </div>
+    <div class="toolbar">
+      <button class="secondary" id="btn-copy">📋 Copiar código</button>
+      <button class="secondary" id="btn-save">💾 Salvar sessão (.json)</button>
+      <button class="secondary" id="btn-load">📂 Carregar sessão</button>
+      <input type="file" id="file-load" accept=".json" style="display:none">
+    </div>
+  </div>
+
+</div>
+<footer>Ferramenta de desenvolvimento local — não faz parte do jogo publicado. Posições em frações de 0 a 1, igual ao <code>MAP_POS</code> de <code>index.html</code>.</footer>
+
+<script>
+/* =================== catálogo (mesmos assets usados no mapa-múndi de index.html) =================== */
+const MAP_B = 'Tiny Swords (Free Pack)/Buildings/';
+const BUILD_COLORS = {
+  Blue:   { dir:'Blue Buildings/',   hex:'#38bdf8' },
+  Yellow: { dir:'Yellow Buildings/', hex:'#fbbf24' },
+  Purple: { dir:'Purple Buildings/', hex:'#a78bfa' },
+  Red:    { dir:'Red Buildings/',    hex:'#f87171' },
+  Black:  { dir:'Black Buildings/',  hex:'#8b90ad' },
+};
+const BUILD_TYPES = ['Castle.png','Tower.png','Monastery.png','Barracks.png','Archery.png','House1.png','House2.png','House3.png'];
+const BG_SRC = {
+  forest: 'assets/mini-map/world-bg.png',
+  desert: 'assets/mini-map/world-bg-desert.png',
+};
+const PIN_SRC = 'assets/mini-map/Tiles and Animations/Blue Map Indicator-Sheet.png';
+
+/* =================== estado (seed = valores atuais do jogo) =================== */
+const DEFAULT_CITIES = [
+  { nome:'Pedraverde',    color:'Blue',   build:'Castle.png',    hex:'#38bdf8' },
+  { nome:'Lago Bruma',    color:'Yellow', build:'Tower.png',     hex:'#fbbf24' },
+  { nome:'Solar Silente', color:'Purple', build:'Monastery.png', hex:'#a78bfa' },
+  { nome:'Torre Rubra',   color:'Red',    build:'Tower.png',     hex:'#f87171' },
+  { nome:'Bosque Ermo',   color:'Black',  build:'House1.png',    hex:'#8b90ad' },
+  { nome:'Castelo Ruína', color:'Purple', build:'Castle.png',    hex:'#c084fc' },
+];
+const DEFAULT_POS = [
+  {x:.22,y:.08},{x:.52,y:.13},{x:.79,y:.21},{x:.63,y:.33},{x:.30,y:.37},
+  {x:.17,y:.50},{x:.32,y:.61},{x:.58,y:.57},{x:.80,y:.67},{x:.62,y:.81},{x:.32,y:.88},
+];
+let cities = DEFAULT_CITIES.map(c => ({...c}));
+let nodes = DEFAULT_POS.map(p => ({...p}));
+let bgChoice = 'forest';
+let selected = null;    // index 0..10, or null
+let dragging = null;    // {dx,dy} offsets in fraction space
+let history = [];
+let W = 380, H = 620;
+
+/* =================== cache de imagens =================== */
+const IMG_CACHE = {};
+function getImage(src){
+  let im = IMG_CACHE[src];
+  if (!im){ im = new Image(); im.src = src; im.onload = () => render(); IMG_CACHE[src] = im; }
+  return im;
+}
+function cityImgSrc(c){ return MAP_B + BUILD_COLORS[c.color].dir + c.build; }
+
+/* =================== canvas =================== */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+function fitCanvas(){
+  W = parseInt(document.getElementById('in-w').value, 10) || 380;
+  H = parseInt(document.getElementById('in-h').value, 10) || 620;
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.imageSmoothingEnabled = false;
+  render();
+}
+function nodeXY(i){ return { x: nodes[i].x*W, y: nodes[i].y*H }; }
+function ctrl(i, a, b){ return { x:(a.x+b.x)/2 + Math.sin(i*3.7)*20, y:(a.y+b.y)/2 + Math.cos(i*2.9)*14 }; }
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#0a0c13'; ctx.fillRect(0,0,W,H);
+  if (bgChoice !== 'none'){
+    const bg = getImage(BG_SRC[bgChoice]);
+    if (bg.naturalWidth){
+      const s = Math.max(W/bg.width, H/bg.height) * 1.08;
+      const bw = bg.width*s, bh = bg.height*s;
+      ctx.globalAlpha = 0.8;
+      ctx.drawImage(bg, W/2-bw/2, H/2-bh/2, bw, bh);
+      ctx.globalAlpha = 1;
+    }
+  }
+  const grad = ctx.createRadialGradient(W/2, H*0.4, 40, W/2, H*0.4, H*0.8);
+  grad.addColorStop(0, 'rgba(36,29,69,.35)'); grad.addColorStop(1, 'rgba(0,0,0,.55)');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+
+  ctx.strokeStyle = '#3a3f5e'; ctx.lineWidth = 2; ctx.setLineDash([5,6]);
+  for (let i = 0; i < nodes.length - 1; i++){
+    const a = nodeXY(i), b = nodeXY(i+1), m = ctrl(i, a, b);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(m.x, m.y, b.x, b.y); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  ctx.textAlign = 'center';
+  for (let i = 0; i < nodes.length; i++){
+    const p = nodeXY(i);
+    if (i % 2 === 0){
+      const c = cities[i/2];
+      ctx.fillStyle = c.hex + '44';
+      ctx.beginPath(); ctx.ellipse(p.x, p.y+14, 30, 8, 0, 0, Math.PI*2); ctx.fill();
+      const img = getImage(cityImgSrc(c));
+      if (img.naturalWidth){
+        const bw = Math.min(66, W*0.16), bh = bw * img.height / img.width;
+        ctx.drawImage(img, p.x-bw/2, p.y+12-bh, bw, bh);
+      } else { ctx.font = '26px sans-serif'; ctx.fillText('🏰', p.x, p.y+6); }
+      ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+      ctx.strokeText(c.nome.toUpperCase(), p.x, p.y+26);
+      ctx.fillStyle = '#ffe9a8'; ctx.fillText(c.nome.toUpperCase(), p.x, p.y+26);
+    } else {
+      const pin = getImage(PIN_SRC);
+      if (pin.naturalWidth) ctx.drawImage(pin, 0,0,16,16, p.x-11, p.y-18, 22, 22);
+      else { ctx.font = '18px sans-serif'; ctx.fillText('📍', p.x, p.y); }
+      ctx.font = '700 9px ' + getComputedStyle(document.body).fontFamily;
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+      const tag = 'PORTA ' + ((i+1)/2);
+      ctx.strokeText(tag, p.x, p.y+22);
+      ctx.fillStyle = '#8b90ad'; ctx.fillText(tag, p.x, p.y+22);
+    }
+    if (i === selected){
+      ctx.save();
+      ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+/* =================== interação =================== */
+function snapshotForUndo(){
+  history.push(JSON.stringify({cities, nodes}));
+  if (history.length > 40) history.shift();
+}
+function hitTest(px, py){
+  for (let i = nodes.length - 1; i >= 0; i--){
+    const p = nodeXY(i);
+    if (Math.hypot(px-p.x, py-p.y) < 26) return i;
+  }
+  return null;
+}
+function selectNode(i){
+  selected = i;
+  render(); renderProps(); renderList();
+}
+cv.addEventListener('mousedown', e => {
+  const hit = hitTest(e.offsetX, e.offsetY);
+  if (hit === null){ selectNode(null); return; }
+  snapshotForUndo();
+  selectNode(hit);
+  dragging = { i: hit, dx: e.offsetX/W - nodes[hit].x, dy: e.offsetY/H - nodes[hit].y };
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const r = cv.getBoundingClientRect();
+  const px = (e.clientX - r.left)/W, py = (e.clientY - r.top)/H;
+  const n = nodes[dragging.i];
+  n.x = Math.min(1, Math.max(0, px - dragging.dx));
+  n.y = Math.min(1, Math.max(0, py - dragging.dy));
+  render(); renderProps();
+});
+window.addEventListener('mouseup', () => { if (dragging){ dragging = null; saveLocal(); } });
+
+/* =================== painel de propriedades =================== */
+function curCity(){ return (selected !== null && selected % 2 === 0) ? cities[selected/2] : null; }
+function renderProps(){
+  const empty = document.getElementById('props-empty');
+  const cityBox = document.getElementById('props-city');
+  const doorBox = document.getElementById('props-door');
+  const posBox = document.getElementById('props-pos');
+  if (selected === null){
+    empty.style.display='block'; cityBox.style.display='none'; doorBox.style.display='none'; posBox.style.display='none';
+    return;
+  }
+  empty.style.display='none'; posBox.style.display='block';
+  document.getElementById('p-x').value = Math.round(nodes[selected].x*1000)/1000;
+  document.getElementById('p-y').value = Math.round(nodes[selected].y*1000)/1000;
+  const c = curCity();
+  if (c){
+    cityBox.style.display='block'; doorBox.style.display='none';
+    document.getElementById('p-nome').value = c.nome;
+    document.getElementById('p-buildcolor').value = c.color;
+    fillBuildTypeSelect();
+    document.getElementById('p-buildtype').value = c.build;
+    document.getElementById('p-hex').value = c.hex;
+    document.getElementById('p-thumb').src = cityImgSrc(c);
+  } else {
+    cityBox.style.display='none'; doorBox.style.display='block';
+  }
+}
+function fillBuildTypeSelect(){
+  const sel = document.getElementById('p-buildtype');
+  sel.innerHTML = '';
+  BUILD_TYPES.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f; opt.textContent = f.replace('.png','');
+    sel.appendChild(opt);
+  });
+}
+document.getElementById('p-nome').addEventListener('input', e => { const c=curCity(); if(c){ c.nome=e.target.value; render(); renderList(); saveLocal(); } });
+document.getElementById('p-buildcolor').addEventListener('change', e => { const c=curCity(); if(c){ c.color=e.target.value; render(); renderProps(); saveLocal(); } });
+document.getElementById('p-buildtype').addEventListener('change', e => { const c=curCity(); if(c){ c.build=e.target.value; render(); renderProps(); saveLocal(); } });
+document.getElementById('p-hex').addEventListener('input', e => { const c=curCity(); if(c){ c.hex=e.target.value; render(); saveLocal(); } });
+document.getElementById('p-x').addEventListener('input', e => { if(selected!==null){ nodes[selected].x = Math.min(1,Math.max(0,parseFloat(e.target.value)||0)); render(); renderList(); saveLocal(); } });
+document.getElementById('p-y').addEventListener('input', e => { if(selected!==null){ nodes[selected].y = Math.min(1,Math.max(0,parseFloat(e.target.value)||0)); render(); renderList(); saveLocal(); } });
+
+/* =================== lista de nós =================== */
+function renderList(){
+  const box = document.getElementById('node-list');
+  box.innerHTML = '';
+  nodes.forEach((n, i) => {
+    const label = i % 2 === 0 ? '🏰 ' + cities[i/2].nome : '📍 Porta ' + ((i+1)/2);
+    const row = document.createElement('div');
+    row.className = 'item' + (i === selected ? ' sel' : '');
+    row.innerHTML = '<span>' + label + '</span>';
+    row.onclick = () => selectNode(i);
+    box.appendChild(row);
+  });
+}
+
+/* =================== toolbar =================== */
+document.getElementById('sel-bg').addEventListener('change', e => { bgChoice = e.target.value; render(); saveLocal(); });
+document.getElementById('in-w').addEventListener('change', fitCanvas);
+document.getElementById('in-h').addEventListener('change', fitCanvas);
+document.getElementById('btn-undo').addEventListener('click', () => {
+  const snap = history.pop(); if (!snap) return;
+  ({cities, nodes} = JSON.parse(snap));
+  selected = null;
+  render(); renderProps(); renderList(); saveLocal();
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (!confirm('Restaurar cidades e posições para o padrão atual do jogo?')) return;
+  snapshotForUndo();
+  cities = DEFAULT_CITIES.map(c => ({...c}));
+  nodes = DEFAULT_POS.map(p => ({...p}));
+  selected = null;
+  render(); renderProps(); renderList(); saveLocal();
+});
+
+/* =================== exportação =================== */
+function fmt(n){
+  const r = Math.round(n*1000)/1000;
+  const s = String(r);
+  return s.startsWith('0.') ? s.slice(1) : s;
+}
+function genCode(){
+  const lines = [];
+  lines.push("const MAP_BG = " + JSON.stringify(BG_SRC[bgChoice] || '') + ";");
+  lines.push('const MAP_CITIES = [');
+  cities.forEach(c => {
+    lines.push('  { nome:' + JSON.stringify(c.nome) + ', b:MAP_B+' + JSON.stringify(BUILD_COLORS[c.color].dir + c.build) + ', cor:' + JSON.stringify(c.hex) + ' },');
+  });
+  lines.push('];');
+  lines.push('const MAP_POS = [');
+  let row = '  ';
+  nodes.forEach((n, i) => {
+    row += '{x:' + fmt(n.x) + ',y:' + fmt(n.y) + '},';
+    if (i % 5 === 4){ lines.push(row); row = '  '; }
+  });
+  if (row.trim()) lines.push(row);
+  lines.push('];');
+  return lines.join('\n');
+}
+document.getElementById('btn-gen').addEventListener('click', () => { document.getElementById('ex-code').value = genCode(); });
+document.getElementById('btn-copy').addEventListener('click', async () => {
+  const ta = document.getElementById('ex-code');
+  if (!ta.value) ta.value = genCode();
+  try { await navigator.clipboard.writeText(ta.value); }
+  catch { ta.select(); document.execCommand('copy'); }
+});
+
+/* =================== salvar / carregar sessão =================== */
+function stateForSave(){ return { cities, nodes, bgChoice, W, H }; }
+function saveLocal(){ localStorage.setItem('map-editor-state', JSON.stringify(stateForSave())); }
+function loadState(s){
+  if (!s) return;
+  cities = s.cities || DEFAULT_CITIES.map(c => ({...c}));
+  nodes = s.nodes || DEFAULT_POS.map(p => ({...p}));
+  bgChoice = s.bgChoice || 'forest';
+  W = s.W || 380; H = s.H || 620;
+  document.getElementById('sel-bg').value = bgChoice;
+  document.getElementById('in-w').value = W;
+  document.getElementById('in-h').value = H;
+  selected = null;
+  fitCanvas(); renderProps(); renderList();
+}
+document.getElementById('btn-save').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(stateForSave(), null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mapa-mundi.json';
+  a.click();
+});
+document.getElementById('btn-load').addEventListener('click', () => document.getElementById('file-load').click());
+document.getElementById('file-load').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { try { loadState(JSON.parse(reader.result)); saveLocal(); } catch { alert('Arquivo inválido.'); } };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+/* =================== boot =================== */
+fitCanvas();
+renderProps();
+renderList();
+try { loadState(JSON.parse(localStorage.getItem('map-editor-state'))); } catch {}
+</script>
+</body>
+</html>

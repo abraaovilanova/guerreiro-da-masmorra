@@ -341,7 +341,7 @@
      #cmds é só um ponto-âncora (sem fundo); cada botão flutua isolado,
      posicionado em arco por arcLayout() (left/top em px, calculados por JS). */
   #cmds{ position:absolute;z-index:4; }
-  #cmdMain,#cmdSpec,#cmdHab{ position:absolute;inset:0; }
+  #cmdMain,#cmdSpec,#cmdPot{ position:absolute;inset:0; }
   #cmds button{
     position:absolute;left:0;top:0;translate:-50% -50%;
     font-size:12px;font-weight:700;padding:7px 10px;background:none;border:none;
@@ -473,7 +473,7 @@
     border-image:var(--ui-btn-red) 47 45 47 45 fill stretch;
     image-rendering:pixelated;box-shadow:none;text-shadow:0 1px 2px rgba(0,0,0,.55);
   }
-  /* pergaminho do Tiny Swords no menu de comandos de batalha (Atacar, Habilidade…) */
+  /* pergaminho do Tiny Swords no menu de comandos de batalha (Atacar, Poção…) */
   .skinned #cmds button{
     background:none;border-radius:0;border:10px solid transparent;
     border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
@@ -489,6 +489,12 @@
     background:none;border-radius:0;border:14px solid transparent;
     border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
     image-rendering:pixelated;color:#3b2a16;text-shadow:none;box-shadow:none;
+  }
+  /* moldura de madeira (Tiny Swords Bars) na barra oscilante da Sequência Mortal */
+  .skinned #seq .track{
+    border-style:solid;border-color:transparent;border-width:0 16px;
+    border-image:var(--ui-bar) 0 24 0 24 fill stretch;
+    border-radius:0;box-shadow:none;image-rendering:pixelated;
   }
   .ribboned{
     border-style:solid;border-color:transparent;border-width:0 46px;
@@ -642,19 +648,20 @@
 
       <div class="card" id="cmds">
         <div id="cmdMain">
-          <button id="cAtk"><span class="cur">▶</span>Atacar</button>
+          <button id="cAtk"><span class="cur">▶</span><img class="icn-s" data-ico="icoSword" alt="" style="margin-right:4px">Atacar</button>
           <button id="cSpec"><span class="cur">▶</span>✨ Ataque especial</button>
-          <button id="cHab"><span class="cur">▶</span>🔥 Habilidade</button>
-          <button id="cPot"><span class="cur">▶</span>Poção <span class="num" id="potN">×3</span></button>
+          <button id="cPot"><span class="cur">▶</span><img class="icn-s" src="assets/potion-heal.png" alt="" style="margin-right:4px">Poção</button>
         </div>
-        <div id="cmdHab" class="hidden">
-          <button id="cFire"><span class="cur">▶</span>🔥 Fúria do Fogo <span class="num" id="fireTag"></span></button>
-          <button id="cHabBack"><span class="cur">▶</span>↩ Voltar</button>
+        <div id="cmdPot" class="hidden">
+          <button id="cPotHeal"><span class="cur">▶</span><img class="icn-s" src="assets/potion-heal.png" alt="" style="margin-right:4px">Curar <span class="num" id="potN">×3</span></button>
+          <button id="cPotAdren"><span class="cur">▶</span><img class="icn-s" src="assets/potion-adrenaline.png" alt="" style="margin-right:4px">Adrenalina <span class="num" id="adrenN">×3</span></button>
+          <button id="cPotBack"><span class="cur">▶</span>↩ Voltar</button>
         </div>
         <div id="cmdSpec" class="hidden">
           <button id="cFury"><span class="cur">▶</span>⚡ Fúria <span class="num" id="furyM">(⚡1+)</span></button>
-          <button id="cSeq"><span class="cur">▶</span>☠ Seq. Mortal <span class="num">(⚡3+)</span></button>
+          <button id="cSeq"><span class="cur">▶</span>☠ Seq. Mortal <span class="num">(⚡2+)</span></button>
           <button id="cCombo"><span class="cur">▶</span>🗡 Combo <span class="num" id="comboM">(⚡1+)</span></button>
+          <button id="cBlade"><span class="cur">▶</span>👻 Lâmina Invisível <span class="num" id="bladeM">(⚡1+)</span></button>
           <button id="cBack"><span class="cur">▶</span>↩ Voltar</button>
         </div>
       </div>
@@ -826,6 +833,43 @@ UNITS.mino = { fs:96, cont:[0.45, 0.667], vis:0.8, base:'assets/', dir:'', fall:
           run:   { file:'Minotaur - Sprite Sheet.png', row:1, frames:8 },
           attack:{ file:'Minotaur - Sprite Sheet.png', row:3, frames:9 } } };
 
+/* ---- monstros do Enemy Pack: sheets uniformes (altura = tamanho do quadro,
+   frames = largura ÷ altura), mesmo esquema simples dos goblins coloridos ---- */
+const EPACK = 'assets/Tiny Swords (Enemy Pack)/Enemy Pack/';
+UNITS.gnome  = { fs:192, base:EPACK, dir:'Gnome/', fall:'🧙',
+  anims:{ idle:'Gnome_Idle.png', run:'Gnome_Run.png', attack:'Gnome_Attack.png' } };
+UNITS.thief  = { fs:192, base:EPACK, dir:'Thief/', fall:'🥷',
+  anims:{ idle:'Thief_Idle.png', run:'Thief_Run.png', attack:'Thief_Attack.png' } };
+UNITS.snake  = { fs:192, base:EPACK, dir:'Snake/', fall:'🐍',
+  anims:{ idle:'Snake_Idle.png', run:'Snake_Run.png', attack:'Snake_Attack.png' } };
+UNITS.spider = { fs:192, base:EPACK, dir:'Spider/', fall:'🕷️',
+  anims:{ idle:'Spider_Idle.png', run:'Spider_Run.png', attack:'Spider_Attack.png' } };
+UNITS.skull  = { fs:192, base:EPACK, dir:'Skull/', fall:'💀',
+  anims:{ idle:'Skull_Idle.png', run:'Skull_Run.png', attack:'Skull_Attack.png', guard:'Skull_Guard.png' } };
+UNITS.gnoll  = { fs:192, base:EPACK, dir:'Gnoll/', fall:'🦴',
+  anims:{ idle:'Gnoll_Idle.png', run:'Gnoll_Walk.png', attack:'Gnoll_Throw.png' } };
+UNITS.lizard = { fs:192, base:EPACK, dir:'Lizard/', fall:'🦎',
+  anims:{ idle:'Lizard_Idle.png', run:'Lizard_Run.png', attack:'Lizard_Attack.png' } };
+UNITS.harpoonfish = { fs:192, base:EPACK, dir:'Harpoon Fish/', fall:'🐟',
+  anims:{ idle:'HarpoonFish_Idle.png', run:'HarpoonFish_Run.png', attack:'HarpoonFish_Throw.png' } };
+UNITS.paddlefish  = { fs:192, base:EPACK, dir:'Paddle Fish/', fall:'🐠',
+  anims:{ idle:'PaddleFish_Idle.png', run:'PaddleFish_Run.png', attack:'PaddleFish_Attack.png' } };
+UNITS.shaman = { fs:192, base:EPACK, dir:'Shaman/', fall:'🔮',
+  anims:{ idle:'Shaman_Idle.png', run:'Shaman_Run.png', attack:'Shaman_Attack.png' } };
+UNITS.turtle = { fs:320, base:EPACK, dir:'Turtle/', fall:'🐢',
+  anims:{ idle:'Turtle_Idle.png', run:'Turtle_Walk.png', attack:'Turtle_Attack.png', guard:'Turtle_Guard_In.png' } };
+UNITS.wlancer = { fs:256, base:EPACK, dir:'Lancer/', fall:'🏇',
+  anims:{ idle:'Lancer_Idle.png', run:'Lancer_Run.png', attack:'Lancer_Attack.png' } };
+/* ---- chefes novos (solo, sem variação de cor) ---- */
+UNITS.bear = { fs:256, base:EPACK, dir:'Bear/', fall:'🐻',
+  anims:{ idle:'Bear_Idle.png', run:'Bear_Run.png', attack:'Bear_Attack.png' } };
+UNITS.minolord = { fs:320, base:EPACK, dir:'Minotaur/', fall:'🐂',
+  anims:{ idle:'Minotaur_Idle.png', run:'Minotaur_Walk.png', attack:'Minotaur_Attack.png', guard:'Minotaur_Guard.png' } };
+UNITS.troll = { fs:384, scale:0.67, base:EPACK, dir:'Troll/', fall:'🧌',   // sheet 384px tem pouca margem — reduz a compensação padrão
+  anims:{ idle:'Troll_Idle.png', run:'Troll_Walk.png', attack:'Troll_Attack.png' } };
+UNITS.panda = { fs:256, base:EPACK, dir:'Panda/', fall:'🐼',
+  anims:{ idle:'Panda_Idle.png', run:'Panda_Run.png', attack:'Panda_Attack.png', guard:'Panda_Guard.png' } };
+
 /* toda unidade ganha uma pose de 'guard' (= idle) para heróis não-guerreiros
    aparar sem cair no emoji de fallback; o guerreiro mantém seu Guard.png próprio */
 for (const u of Object.values(UNITS)) if (!u.anims.guard) u.anims.guard = u.anims.idle;
@@ -933,6 +977,25 @@ function cropURL(img, sx, sy, sw, sh){
   x.imageSmoothingEnabled = false;
   x.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
   return 'url(' + c.toDataURL() + ')';
+}
+/* barra estilo Tiny Swords (Bars/BigBar_Base+Fill) desenhada no canvas de batalha —
+   usa a mesma geometria de fatias do NINE.bar. frac = 0..1 preenchido. */
+function drawUIBar(x, y, w, h, frac){
+  const base = UIIMG.barBase, fill = UIIMG.barFill;
+  if (!base || !base.naturalWidth) return false;
+  const capW = Math.min(w/2, h * 24/51);
+  const midW = Math.max(0, w - capW*2);
+  ctx.drawImage(base, 40,9,24,51, x, y, capW, h);
+  if (midW > 0) ctx.drawImage(base, 128,9,64,51, x+capW, y, midW, h);
+  ctx.drawImage(base, 256,9,24,51, x+w-capW, y, capW, h);
+  if (fill && fill.naturalWidth && frac > 0){
+    const inset = h*0.22;
+    const innerW = Math.max(0, w - inset*2);
+    const fw = innerW * Math.min(1, frac);
+    const fh = Math.max(1, h - inset*2);
+    if (fw > 0) ctx.drawImage(fill, 0,20,64,24, x+inset, y+inset, fw, fh);
+  }
+  return true;
 }
 /* aplica a skin quando os assets chegam (sem eles o CSS padrão continua) */
 (async function applySkin(){
@@ -1175,31 +1238,65 @@ const SFX = {
 document.addEventListener('pointerdown', () => SFX.ensure(), { once:true });
 
 /* ================================================================
-   MÚSICA DE BATALHA — trilha em arquivo (elemento <audio> à parte do
-   SFX sintetizado). Volume baixo de propósito: os efeitos sonoros dos
-   golpes precisam continuar audíveis por cima da música.
+   MÚSICA — trilhas em arquivo (elemento <audio> à parte do SFX
+   sintetizado). Volume baixo de propósito: os efeitos sonoros dos
+   golpes/menus precisam continuar audíveis por cima da música.
+   Batalha toca uma trilha fixa; no acampamento (fora de combate)
+   alterna entre as duas faixas "Campfire Tales" a cada repetição.
    ================================================================ */
 const MUSIC = {
-  el: null,
-  ensure(){
-    if (!this.el){
-      this.el = new Audio("assets/audio/Victory's Dawn.mp3");
-      this.el.loop = true;
-      this.el.volume = 0.18;
+  battleEl: null,
+  campEl: null,
+  campTracks: ["assets/audio/Campfire Tales.mp3", "assets/audio/Campfire Tales-2.mp3"],
+  campIdx: -1,
+  ensureBattle(){
+    if (!this.battleEl){
+      this.battleEl = new Audio("assets/audio/Victory's Dawn.mp3");
+      this.battleEl.loop = true;
+      this.battleEl.volume = 0.18;
     }
-    return this.el;
+    return this.battleEl;
+  },
+  ensureCamp(){
+    if (!this.campEl){
+      this.campEl = new Audio();
+      this.campEl.volume = 0.16;
+      this.campEl.addEventListener('ended', () => this.nextCampTrack());
+    }
+    return this.campEl;
+  },
+  nextCampTrack(){
+    if (!SFX.enabled) return;
+    let i = Math.floor(Math.random() * this.campTracks.length);
+    if (this.campTracks.length > 1 && i === this.campIdx) i = (i + 1) % this.campTracks.length;
+    this.campIdx = i;
+    const el = this.ensureCamp();
+    el.src = this.campTracks[i];
+    el.play().catch(() => {});
   },
   battle(){
     if (!SFX.enabled) return;
-    const el = this.ensure();
+    if (this.campEl && !this.campEl.paused) this.campEl.pause();
+    const el = this.ensureBattle();
     if (el.paused) el.play().catch(() => {});
   },
+  camp(){
+    if (!SFX.enabled) return;
+    if (this.battleEl && !this.battleEl.paused) this.battleEl.pause();
+    const el = this.ensureCamp();
+    if (!el.paused) return;
+    if (!el.src) this.nextCampTrack();
+    else el.play().catch(() => {});
+  },
   stop(){
-    if (!this.el) return;
-    this.el.pause();
-    this.el.currentTime = 0;
+    if (this.battleEl){ this.battleEl.pause(); this.battleEl.currentTime = 0; }
+    if (this.campEl){ this.campEl.pause(); this.campEl.currentTime = 0; }
   },
 };
+/* desbloqueia o autoplay no primeiro toque na tela (igual ao SFX.ensure) */
+document.addEventListener('pointerdown', () => {
+  if (!$('#menu').classList.contains('hidden')) MUSIC.camp();
+}, { once:true });
 
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
@@ -1287,15 +1384,14 @@ const save = () => {
 };
 
 /* ---------- estado da run ---------- */
-let hp = S.maxhp, wave = 1, potions = 3;
+let hp = S.maxhp, wave = 1, potions = 3, adrenaline = 3;
 let fury = 0;                       // ⚡ contador 0–5: +1 por defesa/dano sofrido, gasto nos especiais
 let exhausted = false;              // após um especial, o herói perde a próxima rodada
 let stagger = 0;                    // 0–100 exaustão do herói: enche ao sofrer dano
 let guardBroken = false;            // exaustão estourada: sem parry/pulo até agir de novo
-let fireFury = false;               // 🔥 Fúria do Fogo: ataques ×1.2 + fúria cheia até usar especial
 let rocksLeft = 1;                  // 🪨 pedradas restantes na rodada (a Gema do Arremesso dá extras)
 let rockDrag = null, rockFly = null;
-const atkMul = () => fireFury ? 1.2 : 1;
+const atkMul = () => 1;             // reservado p/ futuros bônus de dano temporários
 
 /* ---------- 🧨 dinamites: goblins de fogo grudam marcadores no herói;
    no início de cada rodada do herói, 1 explode e causa dano ---------- */
@@ -1379,24 +1475,44 @@ const COMMONS = [
   { unit:'archer', name:'Arqueiro', hp:24, atk:12, def:1 },
   { unit:'lancer', name:'Lanceiro', hp:40, atk:11, def:4 },
   { unit:'monk',   name:'Monge',    hp:26, atk:10, def:2 },
+  /* 🧌 Enemy Pack: monstros solo (sem variação de cor), liberados aos poucos
+     ao longo das 33 masmorras para dar variedade à jornada mais longa */
+  { unit:'gnome',       name:'Gnomo Arruaceiro',  hp:24, atk:9,  def:1, solo:true },
+  { unit:'thief',       name:'Ladrão',            hp:26, atk:10, def:1, solo:true, lv:2 },
+  { unit:'snake',       name:'Cobra Venenosa',    hp:24, atk:11, def:1, solo:true, lv:2 },
+  { unit:'spider',      name:'Aranha Gigante',    hp:28, atk:10, def:2, solo:true, lv:3 },
   /* 🔥 goblins de fogo (masmorra 3+): golpes certeiros grudam uma 🧨 no herói */
   { unit:'torch',  name:'Goblin da Tocha', hp:28, atk:10, def:2, fire:true, lv:3 },
   { unit:'tnt',    name:'Goblin Dinamite', hp:22, atk:9,  def:1, fire:true, lv:3 },
+  { unit:'skull',       name:'Caveira Amaldiçoada', hp:32, atk:11, def:3, solo:true, lv:4 },
   /* 🐂 minotauro (masmorra 4+): pesado, investida exige esquiva lateral */
   { unit:'mino',   name:'Minotauro', hp:46, atk:13, def:3, lv:4, solo:true },
+  /* 🎯 arremessadores: ficam à distância em vez de avançar (ver `ranged` em enemyAttack) */
+  { unit:'gnoll',       name:'Gnoll Arremessador', hp:30, atk:12, def:2, solo:true, lv:5, ranged:true },
+  { unit:'lizard',      name:'Lagarto Cuspidor',   hp:32, atk:11, def:2, solo:true, lv:6, ranged:true },
+  { unit:'harpoonfish', name:'Peixe Arpoador',     hp:30, atk:12, def:2, solo:true, lv:7, ranged:true },
+  { unit:'paddlefish',  name:'Peixe-Remo',         hp:36, atk:12, def:3, solo:true, lv:8 },
+  { unit:'shaman',      name:'Xamã Selvagem',      hp:34, atk:13, def:2, solo:true, lv:9, ranged:true },
+  { unit:'turtle',      name:'Tartaruga Blindada', hp:48, atk:11, def:6, solo:true, lv:10 },   // muro de defesa
+  { unit:'wlancer',     name:'Cavaleiro Selvagem', hp:40, atk:14, def:4, solo:true, lv:12 },
 ];
-/* chefes possíveis da onda 3 — sorteado a cada masmorra */
+/* chefes possíveis da onda 3 — sorteado a cada masmorra (liberados aos poucos, ver `lv`) */
 const BOSS_DEFS = [
   { unit:'boss',      name:'Chefe',        hp:160, atk:20, def:6 },              // Cavaleiro da cor
   { unit:'kingslime', name:'Rei Slime',    hp:200, atk:18, def:4, solo:true },
   { unit:'tree',      name:'Árvore Anciã', hp:170, atk:19, def:8, solo:true, art:'A' },   // 🌱 surge do chão
+  { unit:'bear',      name:'Urso Feroz',        hp:180, atk:19, def:5, solo:true, lv:2 },
+  { unit:'minolord',  name:'Minotauro Ancestral', hp:210, atk:20, def:6, solo:true, lv:4 },
+  { unit:'troll',     name:'Troll das Cavernas', hp:230, atk:21, def:7, solo:true, lv:6 },
+  { unit:'panda',     name:'Panda Guerreiro',    hp:190, atk:18, def:6, solo:true, lv:9 },
 ];
 
-/* ---------- 🔁 NG+: 20 masmorras fecham o jogo. "Continuar" reinicia a
-   contagem 1→20 mas empilha um multiplicador de dificuldade por ciclo.
+/* ---------- 🔁 NG+: 33 masmorras fecham o jogo (esticado de 20 para caber
+   toda a leva de monstros do Enemy Pack). "Continuar" reinicia a
+   contagem 1→33 mas empilha um multiplicador de dificuldade por ciclo.
    effLv() garante que mecânicas já desbloqueadas (goblins, escudo arcano,
    combos maiores…) continuem ativas desde a masmorra 1 de todo novo ciclo. ---------- */
-const DUNGEON_CAP = 20;
+const DUNGEON_CAP = 33;
 const effLv  = () => S.dgLv + S.ngPlus * 5;
 const ngMult = () => Math.pow(1.25, S.ngPlus);
 const ngTag  = () => S.ngPlus > 0 ? ' · NG+' + S.ngPlus : '';
@@ -1412,7 +1528,7 @@ function makeWave(w){
     hp:Math.round(base.hp*mult), maxhp:Math.round(base.hp*mult),
     atk:Math.round(base.atk*mult), def:Math.round(base.def*mult),
     shield:0,                    // escudos arcanos (boss Nv.5+): quebram antes do HP
-    stagger:0, exhaustTurns:0,   // 0–100 exaustão: enche a cada golpe especial sofrido; cheia = 3 rodadas paralisado
+    stagger:0, exhaustTurns:0,   // exaustão: +1 a cada golpe especial sofrido até staggerCap(en); cheia = 3 rodadas paralisado
     gold:Math.round((12 + 4*L) * ngMult() * (w === 2 ? 1.25 : 1)),
     // estado de render (canvas)
     x:0, y:0, homeX:0, homeY:0, size:0, flip:true, alpha:1, flash:0, warn:false,
@@ -1425,7 +1541,8 @@ function makeWave(w){
     return [boss];
   }
   if (w === 3){
-    const bd = BOSS_DEFS[rnd(0, BOSS_DEFS.length-1)];
+    const bossPool = BOSS_DEFS.filter(b => !b.lv || EL >= b.lv);
+    const bd = bossPool[rnd(0, bossPool.length-1)];
     const b = mk(bd, 0, 1);
     b.boss = true;
     b.p2 = EL >= 3 && Math.random() < 0.6;   // 😡 alguns chefes (Nv.3+) têm FASE 2 aos 50% de HP
@@ -1738,7 +1855,7 @@ function drawActor(a, t){
       const dw = dh * fw / fh;
       ctx.drawImage(img, f*fw, animRow(a)*fh, fw, fh, -dw/2, a.size*0.30 - dh*cfg.cont[1], dw, dh);
     } else {
-      const ds = a.size * (cfg.fs/192) * 1.55;   // sheets 320px têm mais margem — compensa
+      const ds = a.size * (cfg.fs/192) * 1.55 * (cfg.scale || 1);   // sheets maiores têm mais margem — compensa (cfg.scale ajusta caso a caso)
       ctx.drawImage(img, f*cfg.fs, animRow(a)*cfg.fs, cfg.fs, cfg.fs, -ds/2, -ds/2, ds, ds);
     }
   } else {
@@ -1760,28 +1877,41 @@ function drawActor(a, t){
     ctx.fillStyle = pct <= .3 ? '#f87171' : '#4ade80';
     ctx.fillRect(bx, by, bw*pct, 5);
   }
-  /* fúria do herói: 5 pontos (pips) sob o HP — cheia (5) pisca em vermelho */
+  /* fúria do herói: barra com moldura/preenchimento do Tiny Swords (Bars) — cheia (5) pisca em vermelho */
   if (a === player && !a.dead){
-    const pw = (bw + 2) / 5;
-    for (let i = 0; i < 5; i++){
-      ctx.fillStyle = 'rgba(10,12,20,.85)';
-      ctx.fillRect(bx-1 + i*pw, by+7, pw-2, 6);
-      if (i < fury){
-        ctx.fillStyle = fury >= 5 && Math.floor(t/220) % 2 ? '#ef4444' : '#f59e0b';
-        ctx.fillRect(bx + i*pw, by+8, pw-4, 4);
+    const barH = 10, barY = by + 7;
+    const drewUI = drawUIBar(bx-1, barY, bw+2, barH, fury/5);
+    if (!drewUI){                                    // fallback (assets ainda não carregaram)
+      const pw = (bw + 2) / 5;
+      for (let i = 0; i < 5; i++){
+        ctx.fillStyle = 'rgba(10,12,20,.85)';
+        ctx.fillRect(bx-1 + i*pw, barY, pw-2, 6);
+        if (i < fury){
+          ctx.fillStyle = fury >= 5 && Math.floor(t/220) % 2 ? '#ef4444' : '#f59e0b';
+          ctx.fillRect(bx + i*pw, barY+1, pw-4, 4);
+        }
       }
+    } else {
+      /* marcas nos limiares de fúria (1,2,3,4 de 5) + pulso quando cheia */
+      ctx.save();
+      ctx.strokeStyle = 'rgba(10,12,20,.75)'; ctx.lineWidth = 1;
+      for (let i = 1; i < 5; i++){
+        const tx = Math.round(bx-1 + (bw+2) * i/5) + 0.5;
+        ctx.beginPath(); ctx.moveTo(tx, barY+1); ctx.lineTo(tx, barY+barH-1); ctx.stroke();
+      }
+      if (fury >= 5 && Math.floor(t/220) % 2){
+        ctx.globalAlpha = 0.45; ctx.fillStyle = '#ef4444';
+        ctx.fillRect(bx-1, barY, bw+2, barH);
+      }
+      ctx.restore();
     }
     /* exaustão do herói: cheia + dano de combo = rodada perdida */
-    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by+14, bw+2, 6);
+    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, barY+barH+1, bw+2, 6);
     ctx.fillStyle = stagger >= 100 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
-    ctx.fillRect(bx, by+15, bw*stagger/100, 4);
-    /* pilha de status: fúria do fogo, encantamento, guarda quebrada */
+    ctx.fillRect(bx, barY+barH+2, bw*stagger/100, 4);
+    /* pilha de status: encantamento, guarda quebrada */
     ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
-    let sy = by + 32;
-    if (fireFury){
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillText('🔥 ataques ×1.2', a.x, sy); sy += 11;
-    }
+    let sy = barY + barH + 19;
     if (curse){
       ctx.fillStyle = '#c084fc';
       ctx.fillText(curse.type === 'dot' ? '☠ maldição ×' + curse.turns : '⚡🚫 selada ×' + curse.turns, a.x, sy); sy += 11;
@@ -1811,17 +1941,14 @@ function drawActor(a, t){
       ctx.globalAlpha = 1;
     }
   }
-  /* exaustão dos monstros: 10 pips (igual à fúria em 5) — cada pip = 10% da barra */
+  /* exaustão dos monstros: barra proporcional ao limite da categoria
+     (5 normal · 10 boss · 15 Big Boss · 20 Huge Boss — ver staggerCap) */
   if (a !== player && !a.dead){
-    const spw = (bw + 2) / 10, spips = Math.floor((a.stagger || 0) / 10);
-    for (let i = 0; i < 10; i++){
-      ctx.fillStyle = 'rgba(10,12,20,.85)';
-      ctx.fillRect(bx-1 + i*spw, by+7, spw-1, 6);
-      if (i < spips){
-        ctx.fillStyle = spips >= 10 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
-        ctx.fillRect(bx + i*spw, by+8, spw-2, 4);
-      }
-    }
+    const cap = staggerCap(a);
+    const pct = Math.min(1, (a.stagger || 0) / cap);
+    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by+7, bw+2, 6);
+    ctx.fillStyle = pct >= 1 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
+    ctx.fillRect(bx, by+8, bw*pct, 4);
     if (a.exhausted){ ctx.font = '13px sans-serif'; ctx.fillText('💫', a.x, by + 28); }
   }
   /* escudos arcanos do boss */
@@ -2101,6 +2228,7 @@ $('#shopBack').addEventListener('click', () => {
   $('#shop').classList.add('hidden');
   $('#menu').classList.remove('hidden');
   renderMenu();
+  MUSIC.camp();
 });
 /* relógio: recarga de tochas ao vivo no acampamento e no mercado */
 setInterval(() => {
@@ -2134,6 +2262,7 @@ $('#sndToggle').addEventListener('click', () => {
   renderSnd();
   if (!SFX.enabled) MUSIC.stop();
   else if (!$('#battle').classList.contains('hidden')) MUSIC.battle();
+  else if (!$('#menu').classList.contains('hidden')) MUSIC.camp();
   SFX.play('potion');                                // feedback ao religar
 });
 renderSnd();
@@ -2201,6 +2330,23 @@ const MAP_POS = [
   {x:.22,y:.08},{x:.52,y:.13},{x:.79,y:.21},{x:.63,y:.33},{x:.30,y:.37},
   {x:.17,y:.50},{x:.32,y:.61},{x:.58,y:.57},{x:.80,y:.67},{x:.62,y:.81},{x:.32,y:.88},
 ];
+/* 🗺 fundo em pergaminho + pinos de mapa animados (recortados do pack "mini-map") */
+const MAP_BG = 'assets/mini-map/world-bg.png';
+const MAP_PIN = {
+  locked: 'assets/mini-map/Forest Tiles + Animations/Animaed Grey Indicator-Sheet.png',
+  atual:  'assets/mini-map/Tiles and Animations/Red Map Indicator-Sheet.png',
+  feita:  'assets/mini-map/Tiles and Animations/Green Map Indicator-Sheet.png',
+};
+loadDecor(MAP_BG);
+Object.values(MAP_PIN).forEach(loadDecor);
+function drawMapPin(path, x, y, t, bounce){
+  const img = DECOR_IMGS[path];
+  if (!img || !img.naturalWidth) return false;
+  const frame = bounce && Math.floor(t / 420) % 2 === 1 ? 1 : 0;
+  const size = 22;
+  mctx.drawImage(img, frame*16, 0, 16, 16, x - size/2, y - size + 4, size, size);
+  return true;
+}
 const mapRegion   = () => Math.floor((S.dgLv - 1) / 5);
 const doorLevel   = i  => mapRegion()*5 + (i + 1)/2;        // nó ímpar → nível da masmorra
 const frontierIdx = () => 2*((S.dgLv - 1) % 5) + 1;         // porta da masmorra atual
@@ -2238,8 +2384,16 @@ function drawMap(t){
   mctx.imageSmoothingEnabled = false;
   const w = r.width, h = r.height;
   mctx.fillStyle = '#0a0c13'; mctx.fillRect(0, 0, w, h);
+  const bg = DECOR_IMGS[MAP_BG];
+  if (bg && bg.naturalWidth){                        // pergaminho de terreno (mini-map pack)
+    const s = Math.max(w / bg.width, h / bg.height) * 1.08;
+    const bw = bg.width * s, bh = bg.height * s;
+    mctx.globalAlpha = 0.8;
+    mctx.drawImage(bg, w/2 - bw/2, h/2 - bh/2, bw, bh);
+    mctx.globalAlpha = 1;
+  }
   const grad = mctx.createRadialGradient(w/2, h*0.4, 40, w/2, h*0.4, h*0.8);
-  grad.addColorStop(0, 'rgba(36,29,69,.35)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+  grad.addColorStop(0, 'rgba(36,29,69,.35)'); grad.addColorStop(1, 'rgba(0,0,0,.55)');
   mctx.fillStyle = grad; mctx.fillRect(0, 0, w, h);
   mctx.font = '700 11px ' + getComputedStyle(document.body).fontFamily;
   mctx.textAlign = 'center';
@@ -2279,22 +2433,25 @@ function drawMap(t){
       const lv = doorLevel(i);
       const atual = lv === S.dgLv, feita = lv < S.dgLv;
       const cor = atual ? DG_COLORS[S.dgColor].hex : feita ? '#4a5070' : '#23263d';
+      const pinPath = atual ? MAP_PIN.atual : feita ? MAP_PIN.feita : MAP_PIN.locked;
       mctx.save();
-      if (atual){ mctx.shadowColor = cor; mctx.shadowBlur = 12 + Math.sin(t/220)*6; }
-      mctx.fillStyle = cor;
-      mctx.beginPath();                              // portal em arco
-      mctx.moveTo(p.x - 8, p.y + 10);
-      mctx.lineTo(p.x - 8, p.y - 4);
-      mctx.arc(p.x, p.y - 4, 8, Math.PI, 0);
-      mctx.lineTo(p.x + 8, p.y + 10);
-      mctx.closePath(); mctx.fill();
-      mctx.fillStyle = '#0a0c13';
-      mctx.beginPath();
-      mctx.moveTo(p.x - 4.5, p.y + 10);
-      mctx.lineTo(p.x - 4.5, p.y - 3);
-      mctx.arc(p.x, p.y - 3, 4.5, Math.PI, 0);
-      mctx.lineTo(p.x + 4.5, p.y + 10);
-      mctx.closePath(); mctx.fill();
+      if (atual){ mctx.shadowColor = cor; mctx.shadowBlur = 10 + Math.sin(t/220)*5; }
+      if (!drawMapPin(pinPath, p.x, p.y, t, atual)){   // pino animado (mini-map pack); fallback = portal desenhado
+        mctx.fillStyle = cor;
+        mctx.beginPath();                              // portal em arco
+        mctx.moveTo(p.x - 8, p.y + 10);
+        mctx.lineTo(p.x - 8, p.y - 4);
+        mctx.arc(p.x, p.y - 4, 8, Math.PI, 0);
+        mctx.lineTo(p.x + 8, p.y + 10);
+        mctx.closePath(); mctx.fill();
+        mctx.fillStyle = '#0a0c13';
+        mctx.beginPath();
+        mctx.moveTo(p.x - 4.5, p.y + 10);
+        mctx.lineTo(p.x - 4.5, p.y - 3);
+        mctx.arc(p.x, p.y - 3, 4.5, Math.PI, 0);
+        mctx.lineTo(p.x + 4.5, p.y + 10);
+        mctx.closePath(); mctx.fill();
+      }
       mctx.restore();
       mctx.font = '700 9px ' + getComputedStyle(document.body).fontFamily;
       mctx.strokeStyle = '#000'; mctx.lineWidth = 3;
@@ -2356,6 +2513,7 @@ $('#mapBack').addEventListener('click', () => {
   $('#worldmap').classList.add('hidden');
   $('#menu').classList.remove('hidden');
   renderMenu();
+  MUSIC.camp();
 });
 $('#mapEnter').addEventListener('click', () => {
   $('#worldmap').classList.add('hidden');
@@ -2420,8 +2578,8 @@ function startDuel(id){
   $('#menu').classList.add('hidden');
   $('#battle').classList.remove('hidden');
   MUSIC.battle();
-  hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
-  stagger = 0; guardBroken = false; fireFury = false;
+  hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null;
+  stagger = 0; guardBroken = false;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
   if (heroClass === 'mago') magoInitDeck();
@@ -2480,6 +2638,7 @@ $('#recruitBack').addEventListener('click', () => {
   $('#recruit').classList.add('hidden');
   $('#menu').classList.remove('hidden');
   renderMenu();
+  MUSIC.camp();
 });
 
 /* ================================================================
@@ -2488,6 +2647,7 @@ $('#recruitBack').addEventListener('click', () => {
 const log = m => { $('#logwin').textContent = m; };
 function renderHUD(){
   $('#potN').textContent = '×' + potions;
+  $('#adrenN').textContent = '×' + adrenaline;
   $('#mapN').textContent = '×' + S.mapas;
   const bnome = (BIOMES[battleBiome] || BIOMES.castelo).nome;
   $('#wavechip').textContent = TUT
@@ -2495,35 +2655,41 @@ function renderHUD(){
     : (duel ? '⚔ DUELO' : 'MASMORRA NV. ' + S.dgLv + ngTag()) + ' · ' + bnome + ' · ONDA ' + wave + '/3' +
       (wave === 3 ? ' · BOSS' : '') + ' · 🪙 ' + S.gold;
 }
-/* multiplicador do golpe especial conforme os pontos de fúria (0–5)
-   Lanceiro: já tem a Investida em Leque para golpear todos, então seu especial
-   fica sempre focado em um único alvo (mesmo com fúria máxima). */
+/* multiplicador do golpe especial conforme os pontos de fúria (0–5) */
 function specialInfo(){
-  const aoeOK = S.activeHero !== 'lanceiro';
-  if (fury >= 5) return { m:1.5, aoe:aoeOK, tag: aoeOK ? '×1.5 TODOS' : '×1.5' };
-  if (fury >= 3) return { m:1.5, aoe:false, tag:'×1.5' };
-  if (fury >= 2) return { m:1.2, aoe:false, tag:'×1.2' };
-  if (fury >= 1) return { m:1.1, aoe:false, tag:'×1.1' };
+  const aoeOK = true;
+  if (fury >= 5) return { m:1.5, aoe:aoeOK, tag: aoeOK ? '×1.5 TODOS' : '×1.5', cost:5 };
+  if (fury >= 3) return { m:1.5, aoe:false, tag:'×1.5', cost:3 };
+  if (fury >= 2) return { m:1.2, aoe:false, tag:'×1.2', cost:2 };
+  if (fury >= 1) return { m:1.1, aoe:false, tag:'×1.1', cost:1 };
   return null;
 }
 function gainFury(n = 1){
   if (curse && curse.type === 'nofury') return;      // fúria selada pelo Monge
   fury = Math.min(5, fury + n); renderHUD();
 }
-/* ---- exaustão: barra que enche e derruba quem estourar por 3 rodadas ----
-   Inimigo (todos, inclusive chefes de desafio): +25% a cada golpe ESPECIAL
-   sofrido; cheia + golpe ×1.5+ → fica 3 rodadas sem agir.
+/* ---- exaustão: contador de golpes especiais sofridos que derruba quem
+   estourar por 3 rodadas. O limite (resistência) varia por categoria:
+   Monstro normal 5 · Boss 10 · Big Boss 15 (masmorra 20+) · Huge Boss 20 (masmorra 30+).
    Herói: enche ao sofrer dano; cheia + dano de um COMBO inimigo → perde a rodada. */
-function enemyStagger(en, mult, amt = 25){
+function staggerCap(en){
+  if (!en.boss) return 5;
+  const EL = effLv();
+  if (EL >= 30) return 20;    // Huge Boss
+  if (EL >= 20) return 15;    // Big Boss
+  return 10;                  // Boss padrão
+}
+function enemyStagger(en, mult){
   if (en.dead) return;
-  if (en.stagger >= 100 && mult >= 1.5){
+  const cap = staggerCap(en);
+  if (en.stagger >= cap && mult >= 1.5){
     en.stagger = 0; en.exhausted = true; en.exhaustTurns = 3;
     SFX.play('stun');
     addFloat(en, 'EXAUSTO!', '#60d6ff', true);
     log('💫 ' + en.name + ' ficou exausto e perderá as próximas 3 rodadas!');
     return;
   }
-  en.stagger = Math.min(100, en.stagger + amt);
+  en.stagger = Math.min(cap, en.stagger + 1);
 }
 function heroStagger(dmg, inCombo){
   if (stagger >= 100 && inCombo){
@@ -2561,29 +2727,29 @@ function arcLayout(menuSel, spread, radius){
   });
 }
 function setCmds(on){
-  if (on) updateHabBtn();                       // rótulo da Habilidade conforme o herói ativo
   $('#cmds').classList.toggle('hidden', !on);   // menu de ataque só na vez do herói
   $('#arrL').classList.toggle('hidden', !on);   // setas de alvo idem
   $('#arrR').classList.toggle('hidden', !on);
   if (on){
     placeCmds();
-    arcLayout('#cmdMain', 150, 100);
-    arcLayout('#cmdSpec', 120, 95);
-    arcLayout('#cmdHab', 70, 85);
+    arcLayout('#cmdMain', 130, 100);
+    arcLayout('#cmdSpec', 140, 95);
+    arcLayout('#cmdPot', 110, 85);
   }
   $('#cAtk').disabled = !on;
   $('#cSpec').disabled = !on || fury < 1;     // habilita se algum especial está disponível
-  $('#cPot').disabled = !on || potions <= 0 || hp >= S.maxhp;
+  $('#cPot').disabled = !on || ((potions <= 0 || hp >= S.maxhp) && (adrenaline <= 0 || fury >= 5));
   $('#cRun').disabled = !on || S.mapas <= 0;
   $('#cFury').disabled = !on || fury < 1;
-  $('#cSeq').disabled = !on || fury < 3;
+  $('#cSeq').disabled = !on || fury < 2;
   $('#cCombo').disabled = !on || fury < 1;
-  $('#cHab').disabled = !on;
-  $('#cFire').disabled = !on || fireFury;
-  $('#fireTag').textContent = fireFury ? '(ativa)' : '';
+  $('#cBlade').disabled = !on || fury < 1;
+  $('#cPotHeal').disabled = !on || potions <= 0 || hp >= S.maxhp;
+  $('#cPotAdren').disabled = !on || adrenaline <= 0 || fury >= 5;
   const sp = specialInfo();
   $('#furyM').textContent = sp ? sp.tag : '(⚡1+)';
   $('#comboM').textContent = fury >= 4 ? '4 golpes' : fury >= 3 ? '3 golpes' : fury >= 1 ? '2 golpes' : '(⚡1+)';
+  $('#bladeM').textContent = fury >= 1 ? fury + (fury > 1 ? ' golpes' : ' golpe') : '(⚡1+)';
 }
 /* submenu de ataques especiais (troca o conteúdo da caixa de comandos) */
 function openSpec(){
@@ -2593,119 +2759,14 @@ function openSpec(){
 }
 function closeSpec(){
   $('#cmdSpec').classList.add('hidden');
-  $('#cmdHab').classList.add('hidden');
+  $('#cmdPot').classList.add('hidden');
   $('#cmdMain').classList.remove('hidden');
 }
-/* submenu de habilidades */
-function openHab(){
+/* submenu de poções (Curar / Adrenalina) */
+function openPot(){
   if (phase !== 'player') return;
   $('#cmdMain').classList.add('hidden');
-  $('#cmdHab').classList.remove('hidden');
-}
-/* 🔥 FÚRIA DO FOGO: sem custo, mas passa a vez. Ataques ×1.2 e fúria
-   sempre cheia até o herói usar um ataque especial (que encerra o modo). */
-async function useFireFury(){
-  if (phase !== 'player' || fireFury) return;
-  phase = 'busy'; closeSpec(); setCmds(false); setTurn('player');
-  fireFury = true;
-  fury = 5;
-  renderHUD();
-  SFX.play('magic');
-  showMoveName('🔥 Fúria do Fogo');
-  player.flash = 1;
-  addFloat(player, '🔥 FÚRIA DO FOGO!', '#f59e0b', true);
-  log('🔥 Fúria do Fogo! Ataques ×1.2 e fúria no máximo (⚡5) até usar um especial — você passa a vez.');
-  await wait(1000);
-  if (aliveIdx().length && hp > 0) enemyPhase();
-}
-
-/* 🔱 INVESTIDA EM LEQUE (Lanceiro): a lança alcança toda a linha inimiga de
-   uma vez, mas cada golpe é bem mais fraco que um ataque focado. Sem custo
-   de fúria — é a marca registrada da classe, disponível todo turno. */
-async function useSpearSweep(){
-  if (phase !== 'player') return;
-  phase = 'busy'; closeSpec(); setCmds(false); setTurn('player');
-  const targets = aliveIdx().map(i => enemies[i]);
-  log('🔱 Investida em Leque! A lança varre toda a linha de inimigos.');
-  await tween(player, mirrorX(W*0.55), H*0.38, 320, 'run');
-  const hit = playOnce(player, 'attack');
-  await wait(200);
-  SFX.play('hit');
-  for (const en of targets){
-    enemyStagger(en, 1, 15);                        // golpe fraco: enche pouco a exaustão
-    if (en.shield > 0){
-      breakShield(en, 1, false);
-      pierceDamage(en, S.atk * 0.55 * atkMul() - en.def);
-      continue;
-    }
-    const dmg = Math.max(1, Math.round(S.atk * 0.55 * atkMul()) - en.def + rnd(-1,2));
-    en.hp = Math.max(0, en.hp - dmg);
-    en.flash = 1;
-    addFloat(en, dmg, '#fff');
-    if (en.hp <= 0) slayEnemy(en);
-  }
-  log('🔱 Todos os inimigos vivos foram atingidos!');
-  gainFury(1);
-  renderHUD(); renderTurnbar();
-  await hit;
-  if (await processBooms()) return;
-  await playerReturn();
-  if (await waveCleared()) return;
-  enemyPhase();
-}
-
-/* 🎯 TIRO CERTEIRO (Caçadora): flecha precisa que ignora a defesa do alvo
-   (perfura a armadura) e tem chance de crítico bem maior — sempre em um
-   único inimigo, o oposto da Investida em Leque do Lanceiro. */
-async function useAimedShot(){
-  if (phase !== 'player') return;
-  phase = 'busy'; closeSpec(); setCmds(false); setTurn('player');
-  const en = enemies[targetIdx];
-  log('🎯 Tiro Certeiro! Mira no ponto fraco de ' + en.name + '.');
-  await tween(player, frontOfEnemy(en), en.y, 300, 'run');
-  const hit = playOnce(player, 'attack');
-  await wait(200);
-  const crit = Math.random() < 0.45;
-  SFX.play(crit ? 'crit' : 'hit');
-  if (en.shield > 0){
-    const broke = breakShield(en, crit ? 2 : 1, crit);
-    log((crit ? 'CRÍTICO! ' : '') + 'Estilhaçou ' + broke + (broke > 1 ? ' escudos' : ' escudo') +
-        ' de ' + en.name + '! Restam ' + en.shield + '.');
-    pierceDamage(en, S.atk * 1.1 * atkMul());       // ignora a defesa: perfura a armadura
-  } else {
-    let dmg = Math.max(1, Math.round(S.atk * 1.1 * atkMul()) + rnd(-1,3));   // sem desconto de en.def
-    if (crit) dmg *= 2;
-    en.hp = Math.max(0, en.hp - dmg);
-    en.flash = 1;
-    addFloat(en, dmg, crit ? '#fbbf24' : '#fff', crit);
-    log((crit ? 'CRÍTICO! ' : '') + dmg + ' de dano perfurante em ' + en.name + '.');
-  }
-  if (en.hp <= 0){
-    slayEnemy(en);
-    log('💥 ' + en.name + ' caiu! +' + en.gold + ' de ouro.');
-  }
-  gainFury(1);
-  renderHUD(); renderTurnbar();
-  await hit;
-  if (await processBooms()) return;
-  await playerReturn();
-  if (await waveCleared()) return;
-  enemyPhase();
-}
-
-/* despacha o botão de Habilidade conforme o herói ativo */
-function useHabilidade(){
-  if (S.activeHero === 'lanceiro') return useSpearSweep();
-  if (S.activeHero === 'cacadora') return useAimedShot();
-  return useFireFury();
-}
-function updateHabBtn(){
-  const HAB = {
-    lanceiro: '🔱 Investida em Leque',
-    cacadora: '🎯 Tiro Certeiro',
-  };
-  $('#cFire').innerHTML = '<span class="cur">▶</span>' + (HAB[S.activeHero] || '🔥 Fúria do Fogo') +
-    ' <span class="num" id="fireTag"></span>';
+  $('#cmdPot').classList.remove('hidden');
 }
 
 /* ---- ordem do turno: INICIATIVA POR VELOCIDADE ----
@@ -2714,7 +2775,13 @@ function updateHabBtn(){
    agir antes do herói; o Chefe é pesado e costuma fechar a rodada.
    A barra de turnos mostra a fila real: quem já agiu fica apagado. ---- */
 let turnActive = null;   // 'player' | objeto do inimigo | null
-const SPD = { warrior:10, pawn:12, archer:9, torch:9, monk:8, tnt:8, lancer:7, mino:7, boss:6, kingslime:6, tree:5 };
+const SPD = {
+  warrior:10, pawn:12, archer:9, torch:9, monk:8, tnt:8, lancer:7, mino:7, boss:6, kingslime:6, tree:5,
+  /* Enemy Pack */
+  gnome:11, thief:10, snake:9, spider:9, skull:7, gnoll:8, lizard:8, harpoonfish:8,
+  paddlefish:7, shaman:7, turtle:4, wlancer:7,
+  bear:6, minolord:6, troll:4, panda:6,
+};
 let roundOrder = [], roundPtr = 0;
 function rollInitiative(){
   const units = [
@@ -2840,7 +2907,7 @@ function tutHide(){ $('#tutbox').classList.add('hidden'); }
 /* libera só alguns comandos durante um passo */
 function tutCmds(allow){
   setCmds(true);
-  ['cAtk','cSpec','cHab','cPot','cRun'].forEach(id => {
+  ['cAtk','cSpec','cPot','cRun'].forEach(id => {
     if (!allow.includes(id)) $('#' + id).disabled = true;
   });
 }
@@ -2869,8 +2936,8 @@ async function tutDummyAttack(type){
 
 async function startTutorial(){
   battleBiome = 'castelo';                            // treino no cenário familiar
-  hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
-  stagger = 0; guardBroken = false; fireFury = false;
+  hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null;
+  stagger = 0; guardBroken = false;
   rocksLeft = 0; rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
   roundOrder = []; roundPtr = 0;                     // treino não usa a fila de iniciativa
@@ -2979,8 +3046,8 @@ async function startRun(){
   /* a cada 5 entradas na masmorra, um vídeo de propaganda */
   S.entries = (S.entries || 0) + 1; save();
   if (S.entries % 5 === 0) await ADS.showInterstitial();
-  hp = S.maxhp; wave = 1; potions = 3; fury = 0; exhausted = false; curse = null;
-  stagger = 0; guardBroken = false; fireFury = false;
+  hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null;
+  stagger = 0; guardBroken = false;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
   if (heroClass === 'mago') magoInitDeck();          // 🃏 deck novo a cada masmorra
@@ -3224,12 +3291,12 @@ async function waveCleared(){
   return true;
 }
 
-/* ---- golpe especial FÚRIA: consome toda a fúria acumulada ---- */
+/* ---- golpe especial FÚRIA: consome só a fatia de fúria usada na potência obtida ---- */
 async function playerSpecial(){
   if (phase !== 'player' || fury < 1) return;
   const sp = specialInfo();
   phase = 'busy'; closeSpec(); setCmds(false);
-  fury = 0; exhausted = true;                        // custo: perde a próxima rodada
+  fury = Math.max(0, fury - sp.cost); exhausted = true;   // custo: perde a próxima rodada
   const targets = sp.aoe ? enemies.filter(e => !e.dead) : [enemies[targetIdx]];
   const tx = sp.aoe ? mirrorX(W*0.55) : frontOfEnemy(targets[0]);
   const ty = sp.aoe ? H*0.38 : targets[0].y;
@@ -3253,7 +3320,48 @@ async function playerSpecial(){
     addFloat(en, dmg, '#fbbf24', true);
     if (en.hp <= 0) slayEnemy(en);
   }
-  fireFury = false;                                  // especial usado: fim da Fúria do Fogo
+  save();
+  renderHUD(); renderTurnbar();
+  await hit;
+  if (await processBooms()) return;
+  await playerReturn();
+  if (await waveCleared()) return;
+  enemyPhase();
+}
+
+/* ---- LÂMINA INVISÍVEL: N golpes relâmpago em alvos sorteados entre os
+   inimigos vivos (N = fúria no momento do golpe, podendo repetir alvo).
+   Barato e rápido — o oposto da Fúria: menos dano por golpe, mas atinge
+   vários monstros de uma vez e consome exatamente a fúria investida. */
+async function playerBlade(){
+  if (phase !== 'player' || fury < 1) return;
+  const hits = fury;
+  phase = 'busy'; closeSpec(); setCmds(false);
+  fury = Math.max(0, fury - hits); exhausted = true;   // custo: a fúria investida, perde a próxima rodada
+  log('👻 LÂMINA INVISÍVEL! ' + hits + (hits > 1 ? ' golpes relâmpago!' : ' golpe relâmpago!'));
+  await tween(player, mirrorX(W*0.55), H*0.38, 260, 'run');
+  const hit = playOnce(player, 'attack');
+  await wait(160);
+  SFX.play('crit');
+  for (let i = 0; i < hits; i++){
+    const alive = aliveIdx().map(idx => enemies[idx]);
+    if (!alive.length) break;
+    const en = alive[rnd(0, alive.length - 1)];
+    enemyStagger(en, 0.9);
+    if (en.shield > 0){
+      breakShield(en, 1, false);
+      pierceDamage(en, S.atk * 0.85 * atkMul() - en.def);
+      if (en.hp <= 0) slayEnemy(en);
+    } else {
+      const dmg = Math.max(1, Math.round(S.atk * 0.85 * atkMul()) - en.def + rnd(-1,2));
+      en.hp = Math.max(0, en.hp - dmg);
+      en.flash = 1;
+      addFloat(en, dmg, '#a78bfa', true);
+      if (en.hp <= 0) slayEnemy(en);
+    }
+    await wait(90);
+  }
+  shakeApp();
   save();
   renderHUD(); renderTurnbar();
   await hit;
@@ -3306,15 +3414,14 @@ function runSeqBar(){
 }
 
 async function playerSeq(){
-  if (phase !== 'player' || fury < 3) return;
+  if (phase !== 'player' || fury < 2) return;
   phase = 'seq'; closeSpec(); setCmds(false); setTurn('player');
-  fury = 0; exhausted = true;                        // custo: perde a próxima rodada
+  fury = Math.max(0, fury - 2); exhausted = true;    // custo fixo: 2 de fúria, perde a próxima rodada
   renderHUD();
   log('☠ SEQUÊNCIA MORTAL! Trave o cursor na zona vermelha!');
   const mult = await runSeqBar();
   phase = 'busy';
   if (mult === null){
-    fireFury = false;                                // especial usado (mesmo falhando)
     log('💨 O ataque falhou! O guerreiro hesitou…');
     addFloat(player, 'FALHOU!', '#8b90ad', true);
     await wait(600);
@@ -3330,7 +3437,6 @@ async function playerSeq(){
   if (en.shield > 0){
     const broke = breakShield(en, mult >= 2 ? 3 : mult >= 1.5 ? 2 : 1, mult >= 1.5);
     pierceDamage(en, S.atk * mult * atkMul() - en.def);
-    fireFury = false;                                // especial usado: fim da Fúria do Fogo
     log('☠ Sequência Mortal ×' + mult + '! Estilhaçou ' + broke +
         (broke > 1 ? ' escudos' : ' escudo') + ' de ' + en.name + '! Restam ' + en.shield + '.');
   } else {
@@ -3340,7 +3446,6 @@ async function playerSeq(){
     SFX.play(mult >= 1.5 ? 'crit' : 'hit');
     addFloat(en, dmg, mult >= 2 ? '#fbbf24' : '#fff', mult >= 1.5);
     log('☠ Sequência Mortal ×' + mult + '! ' + dmg + ' de dano em ' + en.name + '.');
-    fireFury = false;                                // especial usado: fim da Fúria do Fogo
   }
   await hit;
   if (en.hp <= 0){
@@ -3394,7 +3499,7 @@ async function playerCombo(){
   const n = fury >= 4 ? 4 : fury >= 3 ? 3 : 2;
   const MULTS = [1.2, 1.4, 1.8, 2];
   phase = 'busy'; closeSpec(); setCmds(false); setTurn('player');
-  fury = 0; exhausted = true;                        // custo: perde a próxima rodada
+  fury = Math.max(0, fury - n); exhausted = true;    // custo: os golpes do combo, perde a próxima rodada
   renderHUD();
   const en = enemies[targetIdx];
   log('🗡 COMBO de ' + n + ' golpes em ' + en.name + '! Acerte o tempo de cada um!');
@@ -3433,7 +3538,6 @@ async function playerCombo(){
     }
     if (i < n - 1) await wait(200);
   }
-  fireFury = false;                                  // especial usado: fim da Fúria do Fogo
   if (landed === n && !en.dead) log('✨ COMBO PERFEITO! Todos os ' + n + ' golpes conectaram!');
   if (await processBooms()) return;
   await playerReturn();
@@ -3441,15 +3545,29 @@ async function playerCombo(){
   enemyPhase();
 }
 
-async function usePotion(){
+async function useHealPotion(){
   if (phase !== 'player' || potions <= 0 || hp >= S.maxhp) return;
-  phase = 'busy'; setCmds(false);
+  phase = 'busy'; closeSpec(); setCmds(false);
   potions--;
   const heal = Math.round(S.maxhp * 0.4);
   hp = Math.min(S.maxhp, hp + heal);
   SFX.play('potion');
   addFloat(player, '+' + heal, '#4ade80');
-  log('Poção! +' + heal + ' de HP.');
+  log('Poção de Cura! +' + heal + ' de HP.');
+  renderHUD();
+  await wait(650);
+  enemyPhase();
+}
+/* 💉 Poção de Adrenalina: enche a fúria a 100% na hora (mesmo custo de vez
+   que a Poção de Cura — passa o turno como qualquer outra ação). */
+async function useAdrenalinePotion(){
+  if (phase !== 'player' || adrenaline <= 0 || fury >= 5) return;
+  phase = 'busy'; closeSpec(); setCmds(false);
+  adrenaline--;
+  fury = 5;
+  SFX.play('magic');
+  addFloat(player, '⚡ FÚRIA CHEIA!', '#f59e0b', true);
+  log('💉 Poção de Adrenalina! Fúria no máximo (⚡5/5).');
   renderHUD();
   await wait(650);
   enemyPhase();
@@ -3527,6 +3645,92 @@ const MOVES = {
     { name:'Machadada Brutal',   hits:[{t:'parry', m:0.9}] },
     { name:'Investida do Touro', hits:[{t:'side', m:0.85}] },
     { name:'Giro do Machado',    hits:[{t:'jump', m:0.9}, {t:'parry', m:0.8}], lv:6 },
+  ],
+  /* ---- Enemy Pack: comuns ---- */
+  gnome: [
+    { name:'Cutucada Traquina',   hits:[{t:'parry', m:0.85}] },
+    { name:'Salto Zombeteiro',    hits:[{t:'jump', m:0.85}] },
+    { name:'Dupla Travessura',    hits:[{t:'parry', m:0.8}, {t:'jump', m:0.75}], lv:3 },
+  ],
+  thief: [
+    { name:'Facada Rápida',       hits:[{t:'parry', m:0.9}] },
+    { name:'Corte e Fuga',        hits:[{t:'side', m:0.85}] },
+    { name:'Roubo Relâmpago',     hits:[{t:'parry', m:1.25, curve:'accel'}], lv:4 },
+  ],
+  snake: [
+    { name:'Bote Venenoso',       hits:[{t:'parry'}] },
+    { name:'Rasteira Sibilante',  hits:[{t:'side', m:0.9}] },
+    { name:'Picada Dupla',        hits:[{t:'parry', m:0.8}, {t:'parry', m:0.8}], lv:4 },
+  ],
+  spider: [
+    { name:'Mordida Peçonhenta',  hits:[{t:'parry'}] },
+    { name:'Teia Pegajosa',       hits:[{t:'side', m:0.9}] },
+    { name:'Investida de Oito Pernas', hits:[{t:'jump', m:0.9}, {t:'parry', m:0.75}], lv:5 },
+  ],
+  skull: [
+    { name:'Golpe Ósseo',         hits:[{t:'parry'}] },
+    { name:'Risada Sinistra',     hits:[{t:'jump', m:0.9}] },
+    { name:'Maldição Óssea',      hits:[{t:'parry', m:0.85}, {t:'parry', m:0.85}], lv:6 },
+  ],
+  gnoll: [
+    { name:'Osso Arremessado',    hits:[{t:'parry'}] },
+    { name:'Ossada Giratória',    hits:[{t:'jump', m:0.85}] },
+    { name:'Chuva de Ossos',      hits:[{t:'parry', m:0.75}, {t:'parry', m:0.75}], lv:7 },
+  ],
+  lizard: [
+    { name:'Cuspe Ácido',         hits:[{t:'parry'}] },
+    { name:'Rajada Ácida',        hits:[{t:'parry', m:0.75}, {t:'parry', m:0.75}], lv:8 },
+    { name:'Salto Corrosivo',     hits:[{t:'jump', m:0.9}] },
+  ],
+  harpoonfish: [
+    { name:'Arpoada',             hits:[{t:'parry'}] },
+    { name:'Arpão Giratório',     hits:[{t:'jump', m:0.9}] },
+    { name:'Chuva de Arpões',     hits:[{t:'parry', m:0.8}, {t:'jump', m:0.8}], lv:9 },
+  ],
+  paddlefish: [
+    { name:'Rabada Forte',        hits:[{t:'parry', m:0.95}] },
+    { name:'Investida Aquática',  hits:[{t:'side', m:0.9}] },
+    { name:'Marolas Consecutivas',hits:[{t:'side', m:0.75}, {t:'parry', m:0.8}], lv:10 },
+  ],
+  shaman: [
+    { name:'Explosão Mística',    hits:[{t:'parry'}] },
+    { name:'Vórtice Arcano',      hits:[{t:'parry', m:0.8}, {t:'parry', m:0.8}], lv:11 },
+    { name:'Chama Ritual',        hits:[{t:'jump', m:0.9}] },
+  ],
+  turtle: [
+    { name:'Investida do Casco',  hits:[{t:'side', m:0.9}] },
+    { name:'Mordida de Casco',    hits:[{t:'parry', m:0.9}] },
+    { name:'Rolamento Blindado',  hits:[{t:'jump', m:0.9}, {t:'side', m:0.85}], lv:12 },
+  ],
+  wlancer: [
+    { name:'Lançada Selvagem',    hits:[{t:'parry'}] },
+    { name:'Investida Feroz',     hits:[{t:'jump', m:0.9}] },
+    { name:'Fúria da Lança',      hits:[{t:'parry', m:1.1}, {t:'jump', m:0.85}], lv:14 },
+  ],
+  /* ---- Enemy Pack: chefes ---- */
+  bear: [
+    { name:'Patada Brutal',       hits:[{t:'parry', m:1.1}] },
+    { name:'Investida Ursina',    hits:[{t:'side', m:0.95}] },
+    { name:'Abraço Esmagador',    hits:[{t:'parry', m:0.85}, {t:'jump', m:0.85}] },
+    { name:'Fúria da Floresta',   hits:[{t:'parry', m:0.9}, {t:'side', m:0.85}, {t:'parry', m:0.85}], lv:5 },
+  ],
+  minolord: [
+    { name:'Corte do Machado Ancestral', hits:[{t:'parry', m:1.1}] },
+    { name:'Investida do Touro Ancião',  hits:[{t:'side', m:0.95}] },
+    { name:'Giro Devastador',            hits:[{t:'jump', m:0.9}, {t:'parry', m:0.85}] },
+    { name:'Fúria do Labirinto',         hits:[{t:'jump', m:0.85}, {t:'parry', m:0.8}, {t:'parry', m:0.85}], lv:7 },
+  ],
+  troll: [
+    { name:'Pancada do Porrete',  hits:[{t:'parry', m:1.2, curve:'accel'}] },
+    { name:'Varredura Brutal',    hits:[{t:'side', m:1}] },
+    { name:'Esmagamento Duplo',   hits:[{t:'parry', m:0.9}, {t:'parry', m:0.9}] },
+    { name:'Fúria da Caverna',    hits:[{t:'side', m:0.85}, {t:'parry', m:0.85}, {t:'jump', m:0.85}], lv:9 },
+  ],
+  panda: [
+    { name:'Golpe do Bambu',      hits:[{t:'parry', m:1.05}] },
+    { name:'Chute Giratório',     hits:[{t:'jump', m:0.9}] },
+    { name:'Postura Impenetrável',hits:[{t:'parry', m:0.85}, {t:'side', m:0.85}] },
+    { name:'Fúria do Mestre',     hits:[{t:'jump', m:0.85}, {t:'parry', m:0.85}, {t:'side', m:0.85}], lv:12 },
   ],
 };
 function pickMove(en){
@@ -3642,7 +3846,8 @@ async function enemyAttack(en){
   }
   if (en.kind === 'monk') return monkTurn(en);       // o Monge conjura de longe
   /* ataques à distância: arqueiro, goblin dinamite e a Árvore (enraizada, não anda) */
-  const ranged = en.kind === 'archer' || en.kind === 'tnt' || en.kind === 'tree';
+  const ranged = en.kind === 'archer' || en.kind === 'tnt' || en.kind === 'tree' ||
+    en.kind === 'gnoll' || en.kind === 'lizard' || en.kind === 'harpoonfish' || en.kind === 'shaman';
   const mv = pickMove(en);
   /* 😡 fase 2: o chefe emenda um golpe extra (e mais veloz) no fim do combo */
   let combo = mv.hits;
@@ -3819,7 +4024,7 @@ function applyHit(en, type, result, atk, inCombo){
     SFX.play('parry');
     addFloat(player, 'PARRY!', '#fbbf24', true);
     gainFury(1);                                     // parry perfeito também dá fúria
-    enemyStagger(en, 1, 15);                         // e cansa o atacante (+15 de exaustão)
+    enemyStagger(en, 1);                              // e cansa um pouco o atacante
     /* 🗡 RIPOSTE: o parry perfeito revida um pouco de dano (não é combo) */
     const rip = Math.max(1, Math.round(S.atk * 0.5 * atkMul()) - en.def);
     if (en.shield > 0){ breakShield(en, 1, false); pierceDamage(en, rip); }
@@ -3958,7 +4163,7 @@ function victory(){
     }
   }
   S.gold += bonus; S.wins++;
-  if (S.dgLv >= DUNGEON_CAP) return gameComplete(bonus, scrollMsg);   // 👑 masmorra 20: fim do ciclo
+  if (S.dgLv >= DUNGEON_CAP) return gameComplete(bonus, scrollMsg);   // 👑 masmorra 33: fim do ciclo
   S.dgLv++;
   S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];   // sorteia a cor da próxima
   save();
@@ -3969,12 +4174,12 @@ function victory(){
     'A próxima é a Masmorra <b style="color:' + nx.hex + '">' + nx.nome + '</b> (Nv. ' + S.dgLv + ngTag() + ')…');
   offerDoubleReward(bonus);
 }
-/* 👑 masmorra 20 vencida: fim do ciclo — oferece iniciar o próximo NG+
+/* 👑 masmorra 33 vencida: fim do ciclo — oferece iniciar o próximo NG+
    (mesmos atributos e ouro; monstros mais rápidos, fortes e com combos maiores) */
 function gameComplete(bonus, scrollMsg){
   save();
   showOverlay('👑 VOCÊ VENCEU O JOGO!',
-    'As 20 masmorras caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
+    'As 33 masmorras caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
     scrollMsg +
     'Quer tentar o <b>NG+' + (S.ngPlus + 1) + '</b>? Seus atributos e seu ouro continuam os mesmos, ' +
     'mas os monstros voltam mais rápidos, mais fortes e com combos maiores.');
@@ -3996,6 +4201,7 @@ function offerNGPlus(){
     MUSIC.stop();
     $('#menu').classList.remove('hidden');
     renderMenu();
+    MUSIC.camp();
   };
 }
 /* vídeo premiado: dobra o bônus da masmorra conquistada */
@@ -4035,7 +4241,7 @@ function showOverlay(title, msg){
   $('#ovTitle').textContent = title;
   $('#ovMsg').innerHTML = msg;
   $('#ovAd').classList.add('hidden');               // só a vitória oferece o vídeo
-  $('#ovNG').classList.add('hidden');                // só vencer a masmorra 20 oferece o NG+
+  $('#ovNG').classList.add('hidden');                // só vencer a masmorra 33 oferece o NG+
   $('#overlay').classList.remove('hidden');
 }
 $('#ovBack').addEventListener('click', () => {
@@ -4044,6 +4250,7 @@ $('#ovBack').addEventListener('click', () => {
   MUSIC.stop();
   $('#menu').classList.remove('hidden');
   renderMenu();
+  MUSIC.camp();
 });
 
 /* ================================================================
@@ -4391,13 +4598,14 @@ bindHold('cAtk', playerAttack);
 bindHold('cFury', playerSpecial);
 bindHold('cSeq', playerSeq);
 bindHold('cCombo', playerCombo);
-bindHold('cPot', usePotion);
+bindHold('cBlade', playerBlade);
+bindHold('cPotHeal', useHealPotion);
+bindHold('cPotAdren', useAdrenalinePotion);
 bindHold('cRun', flee);
-bindHold('cFire', useHabilidade);
 $('#cSpec').addEventListener('click', openSpec);     // navegação: toque simples
 $('#cBack').addEventListener('click', closeSpec);
-$('#cHab').addEventListener('click', openHab);
-$('#cHabBack').addEventListener('click', closeSpec);
+$('#cPot').addEventListener('click', openPot);
+$('#cPotBack').addEventListener('click', closeSpec);
 $('#arrL').addEventListener('click', e => { e.stopPropagation(); cycleTarget(-1); });
 $('#arrR').addEventListener('click', e => { e.stopPropagation(); cycleTarget(1); });
 /* 🎓 "Pular tutorial": sinaliza o flag (tutMsg/tutWait resolvem na hora) e
