@@ -553,7 +553,7 @@
     <div id="cloudStatus">☁️ Campanha não sincronizada</div>
     <button id="cloudLogin">🔑 Já tenho uma campanha salva</button>
     <button id="cloudSave">☁️ Salvar campanha na nuvem</button>
-    <button id="sndToggle">🔊 efeitos sonoros</button>
+    <button id="sndToggle"><img class="icn-s" data-ico="icoSoundOn" alt="" style="margin-right:4px"><span id="sndTxt">efeitos sonoros</span></button>
     <button id="reset">zerar progresso</button>
   </div>
 
@@ -928,6 +928,8 @@ const UIA = {
   icoMeat: 'Icons/Icon_04.png',
   icoSword:'Icons/Icon_05.png',
   icoShield:'Icons/Icon_06.png',
+  icoSoundOn: 'Icons/Icon_12.png',
+  icoSoundOff:'Icons/Icon_09.png',
   gemBlue: 'Buttons/TinyRoundBlueButton.png',   // 💎 gema Nv.1
   gemRed:  'Buttons/TinyRoundRedButton.png',    // 💎 gema Nv.2 (mais forte)
 };
@@ -1894,16 +1896,19 @@ function drawActor(a, t){
   ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
   ctx.fillStyle = a.dead ? '#f87171' : '#c9cde4';
-  ctx.fillText(a.dead ? 'K.O.' : (a === player ? a.name + ' ' + hp + '/' + S.maxhp + ' ⚡' + fury + '/5' : a.name), a.x, by - 4);
+  ctx.fillText(a.dead ? 'K.O.' : (a === player ? a.name + ' ' + hp + '/' + S.maxhp + ' ' +
+    (heroClass === 'mago' ? '🃏' + hand.length + '/' + HAND_LIMIT : '⚡' + fury + '/5') : a.name), a.x, by - 4);
   if (!a.dead){
     const pct = Math.max(0, (a === player ? hp/S.maxhp : a.hp/a.maxhp));
     ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by-1, bw+2, 7);
     ctx.fillStyle = pct <= .3 ? '#f87171' : '#4ade80';
     ctx.fillRect(bx, by, bw*pct, 5);
   }
-  /* fúria do herói: barra com moldura/preenchimento do Tiny Swords (Bars) — cheia (5) pisca em vermelho */
+  /* fúria do herói: barra com moldura/preenchimento do Tiny Swords (Bars) — cheia (5) pisca em vermelho
+     (o Mago não usa fúria — mostra a contagem de cartas na mão no nome, sem essa barra) */
   if (a === player && !a.dead){
-    const barH = 10, barY = by + 7;
+    const barH = heroClass === 'mago' ? 0 : 10, barY = by + 7;   // mago não tem barra de fúria: sem espaço reservado
+    if (heroClass !== 'mago'){
     const drewUI = drawUIBar(bx-1, barY, bw+2, barH, fury/5);
     if (!drewUI){                                    // fallback (assets ainda não carregaram)
       const pw = (bw + 2) / 5;
@@ -1928,6 +1933,7 @@ function drawActor(a, t){
         ctx.fillRect(bx-1, barY, bw+2, barH);
       }
       ctx.restore();
+    }
     }
     /* exaustão do herói: cheia + dano de combo = rodada perdida */
     ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, barY+barH+1, bw+2, 6);
@@ -2287,7 +2293,11 @@ document.querySelectorAll('.shopbtn[data-buy]').forEach(b => b.addEventListener(
 }));
 SFX.enabled = S.sound !== false;
 function renderSnd(){
-  $('#sndToggle').textContent = SFX.enabled ? '🔊 efeitos sonoros' : '🔇 sons desligados';
+  $('#sndTxt').textContent = SFX.enabled ? 'efeitos sonoros' : 'sons desligados';
+  const key = SFX.enabled ? 'icoSoundOn' : 'icoSoundOff';
+  const img = $('#sndToggle img');
+  img.dataset.ico = key;
+  if (UIIMG[key]) img.src = UIIMG[key].src;
 }
 $('#sndToggle').addEventListener('click', () => {
   SFX.enabled = !SFX.enabled;
