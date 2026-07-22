@@ -277,24 +277,6 @@
   #seqCur.lock{background:var(--gold);animation:none;box-shadow:0 0 16px var(--gold)}
   @keyframes curpulse{from{box-shadow:0 0 5px #fff}to{box-shadow:0 0 18px #fff}}
 
-  /* ---- QTE 4: traçar o padrão da magia (Mago Arcanista) ---- */
-  #trace{
-    position:absolute;inset:0;z-index:5;visibility:hidden;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
-    background:rgba(167,139,250,.07);
-  }
-  #trace.on{visibility:visible}
-  #trace .tip{font-size:14px;font-weight:700;letter-spacing:.08em;color:#d8ccff;text-shadow:0 2px 6px #000}
-  #trace svg{width:220px;height:220px;touch-action:none}
-  #trace .g-guide{fill:none;stroke:#4b4f7a;stroke-width:4;stroke-dasharray:2 11;stroke-linecap:round;stroke-linejoin:round}
-  #trace .g-user{fill:none;stroke:var(--accent);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px var(--accent))}
-  #trace .g-dot{fill:#4b4f7a;stroke:#0c0e18;stroke-width:2}
-  #trace .g-dot.hit{fill:var(--gold)}
-  #trace .g-dot.next{fill:#fff;animation:curpulse .5s ease-in-out infinite alternate}
-  #trace .timerbar{width:82%;max-width:220px;height:6px;border-radius:4px;background:#0c0e18;overflow:hidden;border:1px solid var(--border)}
-  #trace .timerfill{height:100%;width:100%;background:var(--accent);transition:width .05s linear}
-  #trace.perfect .tip{color:var(--gold)}
-
   /* ---- 🦅 botão de ATAQUE AÉREO (aparece após pular o rasteiro) ---- */
   #quickAtk{
     position:absolute;left:50%;top:60%;translate:-50% -50%;z-index:8;
@@ -375,22 +357,28 @@
     will-change:transform;user-select:none;
   }
   #hand .card:active{transform:translateY(-6px)}
-  #hand .card.dragging{transition:none;z-index:20;box-shadow:0 12px 26px rgba(0,0,0,.6)}
-  #hand .card.fuseTarget{border-color:var(--gold);box-shadow:0 0 16px rgba(251,191,36,.6)}
+  #hand .card.selected{border-color:var(--gold);box-shadow:0 0 16px rgba(251,191,36,.6);transform:translateY(-10px)}
   #hand .card.nope{animation:cardnope .3s ease}
   @keyframes cardnope{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
   .card .cd-ico{font-size:26px;line-height:1}
   .card .cd-nome{font-size:9px;font-weight:700;text-align:center;line-height:1.1;padding:0 3px;color:#e7e9f4}
   .card .cd-dano{font-size:10px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
   .card .cd-el{position:absolute;top:3px;right:5px;font-size:9px}
-  .card[data-el="fogo"]{border-color:#f8717188} .card[data-el="gelo"]{border-color:#38bdf888}
-  .card[data-el="raio"]{border-color:#fbbf2488} .card[data-el="luz"]{border-color:#4ade8088}
-  .card[data-el="vento"]{border-color:#a7f3d088}
+  .card[data-cor="roxo"]{border-color:#a78bfa88;background:linear-gradient(160deg,#3b2f5e,#1f1a33)}
+  .card[data-cor="verde"]{border-color:#4ade8088;background:linear-gradient(160deg,#1f3b2b,#14251c)}
+  .card[data-cor="preto"]{border-color:#6b7280aa;background:linear-gradient(160deg,#1c1c22,#08080a)}
   #magoBar{
-    position:absolute;top:8px;left:8px;z-index:7;font-size:11px;color:var(--ink-dim);
-    background:rgba(15,17,23,.8);border:1px solid var(--border);border-radius:8px;padding:4px 9px;
+    position:absolute;left:0;right:0;bottom:108px;z-index:7;
+    display:flex;justify-content:center;flex-wrap:wrap;gap:8px;padding:0 10px;
   }
-  #magoBar b{color:var(--accent)}
+  #magoBar button{position:relative;overflow:hidden;font-size:13px;font-weight:700;padding:9px 16px;white-space:nowrap}
+  #magoBar .num{color:var(--gold);margin-left:4px}
+  #magoBar button.hold::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg,rgba(167,139,250,.18),rgba(167,139,250,.42));
+    transform:scaleX(0);transform-origin:left;
+  }
+  #magoBar button.hold.holding::after{transform:scaleX(1);transition:transform .9s linear}
 
   /* overlay de fim de masmorra */
   #overlay{
@@ -398,6 +386,7 @@
     display:flex;align-items:center;justify-content:center;padding:24px;
   }
   #overlay .card{width:100%;max-width:360px;text-align:center;display:flex;flex-direction:column;gap:12px;padding:22px}
+  #chestCv{width:96px;height:96px;align-self:center;image-rendering:pixelated}
   #ovTitle{font-size:24px;font-weight:800}
   #ovMsg{font-size:14px;line-height:1.55;color:var(--ink-dim)}
   #ovMsg b{color:var(--gold)}
@@ -641,11 +630,6 @@
         </div>
         <div class="sub" id="seqTrips">3 idas e voltas</div>
       </div>
-      <div id="trace">
-        <div class="tip">DESENHE O PADRÃO!</div>
-        <svg id="traceSvg" viewBox="0 0 220 220"></svg>
-        <div class="timerbar"><div class="timerfill" id="traceFill"></div></div>
-      </div>
       <button id="quickAtk" class="hidden">⚡ ATAQUE RÁPIDO!</button>
 
       <div class="card" id="cmds">
@@ -668,8 +652,12 @@
         </div>
       </div>
 
-      <!-- 🃏 Mão do Mago Arcanista (protótipo) -->
-      <div id="magoBar" class="hidden"></div>
+      <!-- 🃏 Mago Arcanista: menu de batalha + mão de cartas -->
+      <div id="magoBar" class="hidden">
+        <button id="cMagoAtk" class="hold">✨ Ataque simples</button>
+        <button id="cMagoCast" class="hold" disabled>🔮 Conjurar<span class="num" id="magoCastN"></span></button>
+        <button id="cMagoDestroy" class="hold hidden">🗑️ Destruir carta</button>
+      </div>
       <div id="hand" class="hidden"></div>
     </div>
 
@@ -685,6 +673,7 @@
   <!-- ================= FIM DE MASMORRA ================= -->
   <div id="overlay" class="hidden">
     <div class="card">
+      <canvas id="chestCv" class="hidden" width="112" height="112"></canvas>
       <div id="ovTitle">VITÓRIA!</div>
       <div id="ovMsg"></div>
       <button id="ovAd" class="hidden">🎬 Dobrar o prêmio</button>
@@ -1395,6 +1384,39 @@ let rocksLeft = 1;                  // 🪨 pedradas restantes na rodada (a Gema
 let rockDrag = null, rockFly = null;
 const atkMul = () => 1;             // reservado p/ futuros bônus de dano temporários
 
+/* ---------- 🎁 baús: animação de abertura (vitória de masmorra / Baú do Dia) ----------
+   12 desenhos diferentes (assets/chests/chest1.png … chest12.png), cada um uma tira
+   de 4 quadros de 112×112px (fechado → tremendo → abrindo → aberto com tesouro). */
+const CHEST_FRAME = 112, CHEST_FRAMES = 4;
+const CHEST_IMGS = [];
+for (let i = 1; i <= 12; i++){
+  const img = new Image();
+  img.src = 'assets/chests/chest' + i + '.png';
+  CHEST_IMGS[i] = img;
+}
+const chestIdxForLv = lv => 1 + ((lv - 1) % 12);
+let chestAnimIdx = 0, chestAnimFrame = 0, chestAnimAcc = 0, chestAnimDone = true;
+function startChestAnim(idx){
+  chestAnimIdx = idx; chestAnimFrame = 0; chestAnimAcc = 0; chestAnimDone = false;
+  $('#chestCv').classList.remove('hidden');
+}
+function stopChestAnim(){ chestAnimDone = true; $('#chestCv').classList.add('hidden'); }
+function drawChestAnim(dt){
+  if (chestAnimDone) return;
+  chestAnimAcc += dt;
+  if (chestAnimAcc >= 220){
+    chestAnimAcc = 0; chestAnimFrame++;
+    if (chestAnimFrame >= CHEST_FRAMES - 1){ chestAnimFrame = CHEST_FRAMES - 1; chestAnimDone = true; }
+  }
+  const cv = $('#chestCv'), ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const img = CHEST_IMGS[chestAnimIdx];
+  if (img && img.naturalWidth){
+    ctx.drawImage(img, chestAnimFrame*CHEST_FRAME, 0, CHEST_FRAME, CHEST_FRAME, 0, 0, cv.width, cv.height);
+  }
+}
+
 /* ---------- 🧨 dinamites: goblins de fogo grudam marcadores no herói;
    no início de cada rodada do herói, 1 explode e causa dano ---------- */
 let dynamite = 0, dynPower = 0, dynFly = null;
@@ -1936,10 +1958,17 @@ function drawActor(a, t){
       }
     }
     /* pedrada disponível: 🪨 pulsando ao lado do herói */
-    if (phase === 'player' && rocksLeft > 0){
+    if (targetable() && rocksLeft > 0){
       ctx.globalAlpha = 0.6 + Math.sin(t/250)*0.4;
       ctx.font = '15px sans-serif';
       ctx.fillText(rocksLeft > 1 ? '🪨×' + rocksLeft : '🪨', a.x - bw/2 - 14, by + 4);
+      ctx.globalAlpha = 1;
+    }
+    /* 🛡️ couraça arcana do mago: escudo pendente pulsando do outro lado */
+    if (magoWard > 0){
+      ctx.globalAlpha = 0.6 + Math.sin(t/250)*0.4;
+      ctx.font = '15px sans-serif';
+      ctx.fillText('🛡️' + magoWard, a.x + bw/2 + 14, by + 4);
       ctx.globalAlpha = 1;
     }
   }
@@ -1968,7 +1997,7 @@ function drawActor(a, t){
     ctx.fillText('⚠️', a.x, shieldY - (a.shield > 0 ? 16 : 0));
   }
   /* marcador de alvo: colchetes do kit de UI (ou seta, sem assets) */
-  if (phase === 'player' && !a.dead && enemies[targetIdx] === a){
+  if (targetable() && !a.dead && enemies[targetIdx] === a){
     if (UIIMG.brackets){
       const bs = a.size*0.95 + Math.sin(t/180)*6;
       ctx.drawImage(UIIMG.brackets, a.x - bs/2, a.y - bs/2 - a.size*0.06, bs, bs);
@@ -2079,6 +2108,7 @@ function loop(t){
   } else if (!$('#worldmap').classList.contains('hidden')){
     drawMap(t);
   }
+  if (!chestAnimDone) drawChestAnim(dt);      // 🎁 anima por cima, independente da tela de baixo
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
@@ -2146,7 +2176,8 @@ $('#chestBtn').addEventListener('click', async () => {
     save();
     SFX.play('coin');
     showOverlay('🎁 BAÚ ABERTO!',
-      'O baú da Masmorra Nv. ' + S.dgLv + ' continha <b>🪙 ' + gold + '</b>!<br>Volte amanhã para abrir outro.');
+      'O baú da Masmorra Nv. ' + S.dgLv + ' continha <b>🪙 ' + gold + '</b>!<br>Volte amanhã para abrir outro.',
+      chestIdxForLv(S.dgLv));
   } else {
     b.innerHTML = '🎁 Baú do Dia<small>vídeo indisponível — tente de novo</small>';
     b.disabled = false;
@@ -2609,7 +2640,7 @@ function startDuel(id){
   stagger = 0; guardBroken = false;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
-  if (heroClass === 'mago') magoInitDeck();
+  if (heroClass === 'mago') magoResetHand();
   player = makePlayer(); enemies = [];
   resizeCanvas(); setCmds(false); magoHideHand();
   log('⚔ Duelo pela lealdade de ' + HEROES[id].nome + ' — 2 ondas e o confronto final!');
@@ -2895,9 +2926,10 @@ function renderTurnbar(){
 }
 function setTurn(who){ turnActive = who; renderTurnbar(); }
 const aliveIdx = () => enemies.map((e,i) => e.dead ? -1 : i).filter(i => i >= 0);
+const targetable = () => phase === 'player' || phase === 'mago_mao';
 function cycleTarget(dir){
   const alive = aliveIdx();
-  if (!alive.length || phase !== 'player') return;
+  if (!alive.length || !targetable()) return;
   let pos = alive.indexOf(targetIdx);
   pos = pos < 0 ? 0 : (pos + dir + alive.length) % alive.length;
   targetIdx = alive[pos];
@@ -3077,7 +3109,7 @@ async function startRun(){
   stagger = 0; guardBroken = false;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
-  if (heroClass === 'mago') magoInitDeck();          // 🃏 deck novo a cada masmorra
+  if (heroClass === 'mago') magoResetHand();         // 🃏 mão zerada a cada masmorra
   player = makePlayer();
   enemies = [];
   $('#menu').classList.add('hidden');
@@ -4084,6 +4116,12 @@ function applyHit(en, type, result, atk, inCombo){
   }
   if (dmg > 0 && result !== 'block') gainFury(1);    // dano sofrido vira fúria (bloqueio já deu o dele)
   if (dmg > 0) heroStagger(dmg, inCombo);                                // e também exaustão
+  if (dmg > 0 && magoWard > 0){                      // 🛡️ couraça arcana do mago absorve o golpe
+    const absorvido = Math.min(magoWard, dmg);
+    dmg -= absorvido; magoWard -= absorvido;
+    addFloat(player, '🛡️ -' + absorvido, '#60a5fa');
+    log('🛡️ A couraça arcana absorveu ' + absorvido + ' de dano!');
+  }
   hp = Math.max(0, hp - dmg);
   renderHUD();
 }
@@ -4178,6 +4216,7 @@ function duelVictory(){
 function victory(){
   if (duel) return duelVictory();                     // 🦸 vitória de duelo não conta como masmorra
   phase = 'menu';
+  const conqueredLv = S.dgLv;                          // nível vencido agora, antes do ++ abaixo
   const bonus = Math.round((150 + 60*(S.dgLv-1)) * ngMult());
   /* 📜 o chefe da masmorra 1 e os das masmorras 5, 10, 15 derrubam um pergaminho de gema */
   let scrollMsg = '';
@@ -4198,7 +4237,8 @@ function victory(){
   showOverlay('🏆 MASMORRA CONQUISTADA!',
     'As 3 ondas caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
     scrollMsg +
-    'A próxima é a Masmorra <b style="color:' + nx.hex + '">' + nx.nome + '</b> (Nv. ' + S.dgLv + ngTag() + ')…');
+    'A próxima é a Masmorra <b style="color:' + nx.hex + '">' + nx.nome + '</b> (Nv. ' + S.dgLv + ngTag() + ')…',
+    chestIdxForLv(conqueredLv));
   offerDoubleReward(bonus);
 }
 /* 👑 masmorra 33 vencida: fim do ciclo — oferece iniciar o próximo NG+
@@ -4209,7 +4249,8 @@ function gameComplete(bonus, scrollMsg){
     'As 33 masmorras caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
     scrollMsg +
     'Quer tentar o <b>NG+' + (S.ngPlus + 1) + '</b>? Seus atributos e seu ouro continuam os mesmos, ' +
-    'mas os monstros voltam mais rápidos, mais fortes e com combos maiores.');
+    'mas os monstros voltam mais rápidos, mais fortes e com combos maiores.',
+    chestIdxForLv(S.dgLv));
   offerDoubleReward(bonus);
   offerNGPlus();
 }
@@ -4264,16 +4305,18 @@ function defeat(){
     'O guerreiro caiu na onda ' + wave + '.<br>' +
     'O ouro coletado (<b>🪙 ' + S.gold + '</b> no total) foi mantido.<br>Fortaleça-se e tente de novo!');
 }
-function showOverlay(title, msg){
+function showOverlay(title, msg, chestIdx){
   $('#ovTitle').textContent = title;
   $('#ovMsg').innerHTML = msg;
   $('#ovAd').classList.add('hidden');               // só a vitória oferece o vídeo
   $('#ovNG').classList.add('hidden');                // só vencer a masmorra 33 oferece o NG+
   $('#overlay').classList.remove('hidden');
+  if (chestIdx) startChestAnim(chestIdx); else stopChestAnim();   // 🎁 só vitória/baú do dia animam
 }
 $('#ovBack').addEventListener('click', () => {
   $('#overlay').classList.add('hidden');
   $('#battle').classList.add('hidden');
+  stopChestAnim();
   MUSIC.stop();
   $('#menu').classList.remove('hidden');
   renderMenu();
@@ -4281,61 +4324,43 @@ $('#ovBack').addEventListener('click', () => {
 });
 
 /* ================================================================
-   🃏 MAGO ARCANISTA DE CARTAS — protótipo de combate (Fase A)
-   Deckbuilding + gerenciamento de mão + QTEs rítmicos por toque,
-   plugado na mesma máquina de turnos do guerreiro (phase/enemies).
+   🃏 MAGO ARCANISTA DE CARTAS — combate por menu + mão de cartas
+   Menu de batalha (Ataque simples / Conjurar) plugado na mesma
+   máquina de turnos do guerreiro (phase/enemies).
    Teste: abra o jogo com #mago na URL.
    ================================================================ */
 
-/* --- CATÁLOGO (declarativo: nova carta = nova entrada) --- */
+/* --- CATÁLOGO --- */
+/* cor:'roxo' = ataque elemental · 'verde' = suporte · 'preto' = morte (nunca combina) */
 const CARDS = {
-  fogo:    { nome:'Fogo',             ico:'🔥', el:'fogo',  base:8 },
-  gelo:    { nome:'Lasca de Gelo',    ico:'❄️', el:'gelo',  base:11 },
-  raio:    { nome:'Faísca',           ico:'⚡', el:'raio',  base:7 },
-  vento:   { nome:'Corte de Vento',   ico:'🌬️', el:'vento', base:9 },
-  cura:    { nome:'Bênção',           ico:'💚', el:'luz',   base:14, alvo:'aliado' },
-  // resultados de fusão (não entram no deck inicial)
-  labareda:{ nome:'Grande Labareda',  ico:'🔥', el:'fogo',  base:24, fused:true },
-  plasma:  { nome:'Plasma',           ico:'🌩️', el:'raio',  base:26, fused:true },
-  nevasca: { nome:'Nevasca',          ico:'🌨️', el:'gelo',  base:22, fused:true },
-  vapor:   { nome:'Explosão de Vapor',ico:'♨️', el:'vento', base:18, fused:true },
+  fogo:   { nome:'Bola de Fogo',   ico:'🔥', el:'fogo',   cor:'roxo',  base:9 },
+  gelo:   { nome:'Lasca de Gelo',  ico:'❄️', el:'gelo',   cor:'roxo',  base:10 },
+  agua:   { nome:'Jato d\'Água',   ico:'💧', el:'agua',   cor:'roxo',  base:9 },
+  raio:   { nome:'Faísca',         ico:'⚡', el:'raio',   cor:'roxo',  base:8 },
+  cura:   { nome:'Bênção',        ico:'💚', el:'cura',   cor:'verde', base:14, alvo:'aliado' },
+  defesa: { nome:'Couraça Arcana', ico:'🛡️', el:'defesa', cor:'verde', base:12, alvo:'aliado' },
+  morte:  { nome:'Carta da Morte', ico:'💀', el:'morte',  cor:'preto', base:0 },
 };
-/* RECEITAS de fusão — tabela à parte (escala melhor que espalhar no catálogo) */
-const FUSIONS = {
-  'fogo+fogo':'labareda', 'fogo+raio':'plasma', 'gelo+gelo':'nevasca',
-  'fogo+gelo':'vapor',    'gelo+vento':'nevasca',
-};
-const fuseKey = (a, b) => [a, b].sort().join('+');
+/* elemento sorteado a cada Ataque Simples (a carta da morte só vem de um abate) */
+const DRAW_POOL = ['fogo', 'gelo', 'agua', 'raio', 'cura', 'defesa'];
+/* o poder das cartas escala com o Ataque comprado no acampamento — os valores de
+   "base" valem no Ataque inicial do mago; acima disso, escalam na mesma proporção */
+const MAGO_BASE_ATK = HEROES.mago.base.atk;
+const cardAtkMul = () => S.atk / MAGO_BASE_ATK;
+
 let _cuid = 0;
 const makeCard = id => ({ uid:++_cuid, id, ...CARDS[id] });
 
-/* --- DECK / MÃO (estado puro) --- */
-const STARTER_DECK = ['fogo','fogo','gelo','raio','raio','gelo','vento','cura'];
-const HAND_SIZE = 4, DISCARDS_PER_TURN = 1, CASTS_PER_TURN = 1;
-let drawPile = [], discardPile = [], hand = [];
-let magoDiscards = 0, magoCasts = 0;
-const shuffle = a => { for (let i=a.length-1;i>0;i--){ const j=rnd(0,i); [a[i],a[j]]=[a[j],a[i]]; } return a; };
-function magoInitDeck(){ drawPile = shuffle(STARTER_DECK.slice()); discardPile = []; hand = []; _cuid = 0; }
-function drawOne(){
-  if (!drawPile.length){                     // recicla o descarte quando o deck esvazia
-    if (!discardPile.length) return null;
-    drawPile = shuffle(discardPile); discardPile = [];
-  }
-  return makeCard(drawPile.pop());
-}
-function drawHand(n){ for (let i=0;i<n && hand.length<HAND_SIZE;i++){ const c = drawOne(); if (c) hand.push(c); } }
-
-/* --- FUSÃO DE CARTAS NA MÃO (entregável pedido) --- */
-function tryFuse(dragged, target){
-  if (!dragged || !target || dragged.uid === target.uid) return false;
-  const out = FUSIONS[fuseKey(dragged.id, target.id)];
-  if (!out){ bumpCard(target.uid); return false; }       // sem receita: recusa com feedback
-  hand = hand.filter(c => c.uid !== dragged.uid && c.uid !== target.uid);
-  hand.push(makeCard(out));
-  SFX.play('magic');
-  addFloat(player, CARDS[out].ico + ' ' + CARDS[out].nome + '!', '#a78bfa', true);
-  renderHand();
-  return true;
+/* --- MÃO (estado puro): começa vazia, cartas entram por ataque/abate/compra automática --- */
+const HAND_LIMIT = 7, MAX_COMBO = 3;
+let hand = [], selected = [];
+let magoWard = 0;   // 🛡️ couraça arcana: absorve dano do próximo golpe recebido
+function magoResetHand(){ hand = []; selected = []; magoWard = 0; _cuid = 0; }
+function magoGainCard(id){
+  if (hand.length >= HAND_LIMIT){ log('🃏 Mão cheia — a carta se dissipou!'); return; }
+  hand.push(makeCard(id));
+  SFX.play('coin');
+  log('🃏 Nova carta: ' + CARDS[id].ico + ' ' + CARDS[id].nome + '!');
 }
 function bumpCard(uid){
   const el = handEl(uid); if (!el) return;
@@ -4343,247 +4368,240 @@ function bumpCard(uid){
   SFX.play('block');
 }
 
-/* --- FORMAS DOS PADRÕES: pontos normalizados (0..1) que o jogador deve traçar em ordem --- */
-function traceShape(el){
-  const SHAPES = {
-    fogo:  [[0.5,0.92],[0.24,0.62],[0.72,0.52],[0.3,0.22],[0.52,0.06]],           // chama em zigue-zague
-    gelo:  [[0.5,0.06],[0.86,0.5],[0.5,0.94],[0.14,0.5],[0.5,0.06]],              // cristal (losango fechado)
-    raio:  [[0.62,0.05],[0.28,0.48],[0.56,0.48],[0.26,0.95]],                     // raio, poucos vértices e afiado
-    vento: [[0.12,0.78],[0.38,0.28],[0.62,0.72],[0.88,0.22]],                     // rajada em "S"
-    luz:   Array.from({ length:9 }, (_, i) => {                                  // halo: círculo quase fechado
-      const a = -Math.PI/2 + i * (2*Math.PI*0.97/8);
-      return [0.5 + 0.4*Math.cos(a), 0.5 + 0.4*Math.sin(a)];
-    }),
-  };
-  return SHAPES[el] || SHAPES.fogo;
-}
-
-const SVGNS = 'http://www.w3.org/2000/svg';
-const svgEl = (tag, attrs) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const k in attrs) el.setAttribute(k, attrs[k]);
-  return el;
-};
-
-/* --- QTE único do Mago: desenhar o padrão da carta antes do tempo acabar --- */
-function runMagoTrace(card){
-  return new Promise(resolve => {
-    phase = 'mago_trace';
-    const wrap = $('#trace'), svg = $('#traceSvg'), tip = wrap.querySelector('.tip'), fill = $('#traceFill');
-    wrap.classList.remove('perfect');
-    svg.innerHTML = '';
-    const pad = 24, span = 220 - pad*2;
-    const pts = traceShape(card.el).map(([x, y]) => [pad + x*span, pad + y*span]);
-    svg.appendChild(svgEl('polyline', { class:'g-guide', points: pts.map(p => p.join(',')).join(' ') }));
-    const userPath = svgEl('polyline', { class:'g-user', points:'' });
-    svg.appendChild(userPath);
-    const dots = pts.map((p, i) => {
-      const d = svgEl('circle', { class:'g-dot' + (i === 0 ? ' next' : ''), cx:p[0], cy:p[1], r: i === 0 ? 9 : 7 });
-      svg.appendChild(d);
-      return d;
-    });
-    tip.textContent = 'DESENHE O PADRÃO!';
-    fill.style.width = '100%';
-    wrap.classList.add('on');
-
-    const dur = card.fused ? 1700 : 2300, tol = 24;
-    let idx = 0, drawing = false, userPts = [], done = false, raf = 0;
-    const t0 = performance.now();
-    const dist = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
-    function svgPoint(e){
-      const r = svg.getBoundingClientRect();
-      return [ (e.clientX - r.left) / r.width * 220, (e.clientY - r.top) / r.height * 220 ];
-    }
-    function finish(mult){
-      if (done) return;
-      done = true;
-      cancelAnimationFrame(raf);
-      svg.removeEventListener('pointerdown', onDown);
-      svg.removeEventListener('pointermove', onMove);
-      svg.removeEventListener('pointerup', onUp);
-      svg.removeEventListener('pointercancel', onUp);
-      wrap.classList.toggle('perfect', mult >= 2);
-      tip.textContent = mult >= 2 ? '✨ PADRÃO PERFEITO ×2!' : mult >= 1.5 ? '👍 QUASE LÁ ×1.5' : mult >= 1 ? 'TRAÇADO ×1' : '💨 INCOMPLETO ×' + mult;
-      setTimeout(() => { wrap.classList.remove('on','perfect'); phase = 'busy'; resolve(mult); }, 550);
-    }
-    function step(t){
-      if (done) return;
-      const left = 1 - (t - t0) / dur;
-      fill.style.width = Math.max(0, left*100) + '%';
-      if (left <= 0){
-        const frac = idx / pts.length;
-        finish(frac >= 0.999 ? 1 : frac >= 0.5 ? 0.5 : 0.4);
-        return;
-      }
-      raf = requestAnimationFrame(step);
-    }
-    function onDown(e){
-      svg.setPointerCapture(e.pointerId);
-      drawing = true;
-      SFX.play('parry');
-      onMove(e);
-    }
-    function onMove(e){
-      if (!drawing || done) return;
-      const p = svgPoint(e);
-      userPts.push(p);
-      userPath.setAttribute('points', userPts.map(q => q.join(',')).join(' '));
-      if (idx < pts.length && dist(p, pts[idx]) <= tol){
-        dots[idx].classList.remove('next'); dots[idx].classList.add('hit');
-        SFX.play('coin');
-        idx++;
-        if (idx < pts.length){
-          dots[idx].classList.add('next');
-        } else {
-          const leftFrac = 1 - (performance.now() - t0) / dur;
-          finish(leftFrac >= 0.45 ? 2 : leftFrac >= 0.15 ? 1.5 : 1);
-        }
-      }
-    }
-    function onUp(){ drawing = false; }
-    svg.addEventListener('pointerdown', onDown);
-    svg.addEventListener('pointermove', onMove);
-    svg.addEventListener('pointerup', onUp);
-    svg.addEventListener('pointercancel', onUp);
-    raf = requestAnimationFrame(step);
-  });
-}
-
 /* --- RENDER DA MÃO (DOM sobre o campo) --- */
-const EL_ICO = { fogo:'🔥', gelo:'❄️', raio:'⚡', luz:'✨', vento:'🌬️' };
+const EL_ICO = { fogo:'🔥', gelo:'❄️', agua:'💧', raio:'⚡', cura:'💚', defesa:'🛡️', morte:'💀' };
 function handEl(uid){ return document.querySelector('#hand .card[data-uid="' + uid + '"]'); }
 function renderHand(){
   const box = $('#hand');
   box.innerHTML = '';
   for (const c of hand){
     const el = document.createElement('div');
-    el.className = 'card'; el.dataset.uid = c.uid; el.dataset.el = c.el;
+    el.className = 'card' + (selected.includes(c.uid) ? ' selected' : '');
+    el.dataset.uid = c.uid; el.dataset.el = c.el; el.dataset.cor = c.cor;
+    const danoTxt = c.id === 'morte' ? 'MORTE' : (c.alvo === 'aliado' ? '+' : '') + c.base;
     el.innerHTML = '<span class="cd-el">' + (EL_ICO[c.el] || '') + '</span>' +
       '<span class="cd-ico">' + c.ico + '</span>' +
       '<span class="cd-nome">' + c.nome + '</span>' +
-      '<span class="cd-dano">' + (c.alvo === 'aliado' ? '+' : '') + c.base + '</span>';
-    bindCardDrag(el, c);
+      '<span class="cd-dano">' + danoTxt + '</span>';
+    el.addEventListener('click', () => toggleSelect(c.uid));
     box.appendChild(el);
   }
   updateMagoBar();
 }
-function updateMagoBar(){
-  $('#magoBar').innerHTML = '🃏 Deck <b>' + drawPile.length + '</b> · Descarte <b>' + discardPile.length + '</b>' +
-    ' · Conjurar <b>' + (CASTS_PER_TURN - magoCasts) + '</b> · Descarte <b>' + (DISCARDS_PER_TURN - magoDiscards) + '</b>';
-}
-
-/* --- GESTOS: drag-play / drag-fuse / swipe-descarte --- */
-function bindCardDrag(el, card){
-  let sx = 0, sy = 0, dragging = false, hoverFuse = null;
-  el.addEventListener('pointerdown', e => {
-    if (phase !== 'mago_mao') return;
-    e.stopPropagation(); e.preventDefault();
-    try { el.setPointerCapture(e.pointerId); } catch(_){}
-    sx = e.clientX; sy = e.clientY; dragging = true;
-    el.classList.add('dragging');
-  });
-  el.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    el.style.transform = 'translate(' + (e.clientX - sx) + 'px,' + (e.clientY - sy) + 'px) scale(1.05)';
-    el.style.pointerEvents = 'none';
-    const under = document.elementFromPoint(e.clientX, e.clientY);
-    el.style.pointerEvents = '';
-    const overCard = under && under.closest && under.closest('#hand .card');
-    if (hoverFuse && hoverFuse !== overCard) hoverFuse.classList.remove('fuseTarget');
-    hoverFuse = (overCard && overCard !== el) ? overCard : null;
-    if (hoverFuse) hoverFuse.classList.add('fuseTarget');
-  });
-  const end = e => {
-    if (!dragging) return;
-    dragging = false;
-    el.classList.remove('dragging');
-    el.style.transform = ''; el.style.pointerEvents = '';
-    const fuseEl = hoverFuse; if (hoverFuse){ hoverFuse.classList.remove('fuseTarget'); hoverFuse = null; }
-    const other = fuseEl && hand.find(c => c.uid == fuseEl.dataset.uid);
-    if (other){ tryFuse(card, other); return; }                        // 1) fusão
-    const rct = $('#field').getBoundingClientRect();
-    if (e.clientX < rct.left + 34 || e.clientX > rct.right - 34){ magoDiscard(card); return; }   // 2) descarte lateral
-    if (card.alvo === 'aliado'){ magoCast(card, null); return; }       // 3a) cura: solta no campo
-    const en = enemyAtClient(e.clientX, e.clientY);
-    if (en){ magoCast(card, en); return; }                             // 3b) jogar sobre inimigo
-    // senão: volta pra mão (snap automático ao limpar o transform)
-  };
-  el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', end);
-}
-function enemyAtClient(cx, cy){
-  const r = cv.getBoundingClientRect();
-  const x = cx - r.left, y = cy - r.top;
-  return enemies.find(e => !e.dead && !e.gone &&
-    Math.abs(x - e.x) < e.size*0.55 && Math.abs(y - e.y) < e.size*0.6);
-}
-function magoDiscard(card){
-  if (magoDiscards >= DISCARDS_PER_TURN){ bumpCard(card.uid); return; }
-  magoDiscards++;
-  hand = hand.filter(c => c.uid !== card.uid);
-  discardPile.push(card.id);
-  const nova = drawOne(); if (nova) hand.push(nova);
-  SFX.play('whoosh');
+function toggleSelect(uid){
+  if (phase !== 'mago_mao') return;
+  const i = selected.indexOf(uid);
+  if (i >= 0) selected.splice(i, 1);
+  else {
+    if (selected.length >= MAX_COMBO) selected.shift();   // no máx. 3 selecionadas por vez
+    selected.push(uid);
+  }
   renderHand();
 }
+function updateMagoBar(){
+  $('#cMagoCast').disabled = selected.length === 0;
+  $('#magoCastN').textContent = selected.length ? ' (' + selected.length + ')' : '';
+  const selCards = selected.map(uid => hand.find(c => c.uid === uid)).filter(Boolean);
+  const allMorte = selCards.length > 0 && selCards.every(c => c.id === 'morte');
+  $('#cMagoDestroy').classList.toggle('hidden', !allMorte);
+}
+/* "Destruir carta": na verdade funde até 3 cartas da morte selecionadas numa única
+   carta aleatória qualquer — quanto mais cartas da morte fundidas, mais forte ela sai
+   (base × nº de cartas). Consome o turno, igual às outras ações de combate. */
+async function magoDestroyCard(){
+  if (phase !== 'mago_mao' || !selected.length) return;
+  const cards = selected.map(uid => hand.find(c => c.uid === uid)).filter(Boolean);
+  if (!cards.length || !cards.every(c => c.id === 'morte')) return;
+  phase = 'busy';
+  selected = [];
+  hand = hand.filter(c => !cards.includes(c));
+  renderHand(); magoHideHand();
+  const nova = makeCard(DRAW_POOL[rnd(0, DRAW_POOL.length - 1)]);
+  nova.base = Math.round(nova.base * cards.length);
+  if (hand.length < HAND_LIMIT) hand.push(nova);
+  SFX.play('magic');
+  showMoveName('🔀 Transformação');
+  addFloat(player, nova.ico + ' ' + nova.nome + '!', '#a78bfa', true);
+  log('🔀 ' + cards.length + ' Carta' + (cards.length > 1 ? 's' : '') + ' da Morte viraram ' + nova.ico + ' ' + nova.nome + '!');
+  renderHUD(); renderTurnbar();
+  await wait(500);
+  magoEndTurn();
+}
 
-/* --- MÁQUINA DE TURNO DO MAGO: Compra → Decisão/Fusão → QTE → Resolução → Fim --- */
-function magoBeginTurn(){
-  if (!drawPile.length && !discardPile.length && !hand.length) magoInitDeck();
+/* --- DANO MÁGICO: aplica no alvo, quebra escudo, detecta abate e entrega a carta da morte --- */
+function magoDamage(dmg, en, nome, ico, crit, shieldBreak){
+  if (!en || en.dead) return;
+  if (en.shield > 0){
+    /* várias cartas no mesmo monstro: quebra 1 escudo por carta usada */
+    const n = shieldBreak != null ? shieldBreak : (crit || dmg >= 18 ? 2 : 1);
+    const broke = breakShield(en, n, crit || dmg >= 18 || n >= 2);
+    log('🃏 ' + nome + ' estilhaçou ' + broke + (broke > 1 ? ' escudos' : ' escudo') + ' de ' + en.name + '!');
+    return;
+  }
+  en.hp = Math.max(0, en.hp - dmg);
+  en.flash = 1; SFX.play(crit ? 'crit' : 'magic');
+  addFloat(en, dmg, crit ? '#fbbf24' : '#fff', crit || dmg >= 18);
+  log((crit ? 'CRÍTICO! ' : '') + ico + ' ' + nome + '! ' + dmg + ' de dano em ' + en.name + '.');
+  if (crit) shakeApp();
+  if (en.hp <= 0){
+    slayEnemy(en);
+    log('💥 ' + en.name + ' foi consumido pela magia!');
+    magoGainCard('morte');
+  }
+}
+/* nº de cartas conjuradas = nº de monstros atingidos: 1 carta mira só o alvo,
+   2 cartas atingem o alvo + outro monstro, 3 cartas acertam todos com crítico */
+function pickTargets(count){
+  const alive = enemies.filter(e => !e.dead);
+  if (count >= 3) return alive;
+  const primeiro = enemies[targetIdx] && !enemies[targetIdx].dead ? [enemies[targetIdx]] : [];
+  const resto = alive.filter(e => !primeiro.includes(e));
+  return primeiro.concat(resto).slice(0, count);
+}
+function magoHealCombo(cards, overrideHeal){
+  const heal = overrideHeal != null ? overrideHeal : comboPower(cards);
+  hp = Math.min(S.maxhp, hp + heal); player.flash = 1;
+  SFX.play('heal');
+  addFloat(player, '+' + heal + ' 💚', '#4ade80', true);
+  log('💚 ' + cards.map(c => c.nome).join(' + ') + ' curou ' + heal + ' de HP!');
+}
+/* 🛡️ couraça arcana: soma ao escudo que absorve o próximo golpe recebido */
+function magoShield(amount, label){
+  magoWard += amount;
+  player.flash = 1;
+  SFX.play('shield');
+  addFloat(player, '🛡️+' + amount, '#60a5fa', true);
+  log('🛡️ ' + label + ' formou uma couraça arcana (+' + amount + ' de escudo)!');
+}
+/* cartas verdes (cura/defesa) misturadas: os dois efeitos, cada um pela metade do poder */
+function magoGreenCombo(cards){
+  if (sameType(cards)){
+    if (cards[0].id === 'cura') magoHealCombo(cards);
+    else magoShield(comboPower(cards), cards.map(c => c.nome).join(' + '));
+    return;
+  }
+  const curaCards = cards.filter(c => c.id === 'cura');
+  const defCards = cards.filter(c => c.id === 'defesa');
+  if (curaCards.length) magoHealCombo(curaCards, Math.round(comboPower(curaCards) / 2));
+  if (defCards.length) magoShield(Math.round(comboPower(defCards) / 2), defCards.map(c => c.nome).join(' + '));
+}
+/* todas as cartas selecionadas são do mesmo tipo exato (ex: fogo+fogo) */
+function sameType(cards){ return cards.every(c => c.id === cards[0].id); }
+/* poder do combo: quanto mais cartas juntas, mais forte — nº de cartas × soma delas,
+   escalado pelo Ataque atual do mago (cresce com as compras no acampamento) */
+function comboPower(cards){
+  return Math.round(cards.reduce((s, c) => s + c.base, 0) * cards.length * cardAtkMul());
+}
+/* combo válido = todas as cartas selecionadas são da mesma cor */
+function comboValid(cards){
+  return cards.length <= 1 || cards.every(c => c.cor === cards[0].cor);
+}
+/* carta da morte: abate o alvo na hora; qualquer outra carta na mão vira dano no mago */
+function magoCastMorte(){
+  const en = enemies[targetIdx];
+  if (en && !en.dead){
+    slayEnemy(en);
+    en.flash = 1; SFX.play('crit');
+    addFloat(en, '💀 MORTE', '#a78bfa', true);
+    log('💀 A Carta da Morte consumiu ' + en.name + ' instantaneamente!');
+    shakeApp();
+  }
+  if (hand.length){
+    const dano = Math.round(hand.reduce((s, c) => s + (c.base || 0), 0) * cardAtkMul());
+    hand = [];
+    hp = Math.max(0, hp - dano);
+    player.flash = 1; SFX.play('hurt');
+    addFloat(player, '-' + dano + ' ☠️', '#f87171', true);
+    log('☠️ As demais cartas se voltaram contra você: ' + dano + ' de dano!');
+    fieldFx('bad');
+  }
+}
+
+/* --- MÁQUINA DE TURNO DO MAGO --- */
+/* reexibe a mão/menu sem sortear carta nova nem resetar as pedras — usado para
+   retomar a decisão do mago após um efeito colateral (ex.: explosão de goblin
+   encadeada por uma pedrada) que deixou a fase presa no meio do turno. */
+function magoResumeHand(){
   phase = 'mago_mao';
-  rocksLeft = 0;                             // mago não arremessa pedra
-  magoDiscards = 0; magoCasts = 0;
   setCmds(false);                            // esconde o menu do guerreiro
+  $('#arrL').classList.remove('hidden'); $('#arrR').classList.remove('hidden');
   const alive = aliveIdx();
   if (!alive.includes(targetIdx)) targetIdx = alive[0];
-  drawHand(HAND_SIZE);                       // repõe a mão até HAND_SIZE (mantém sobras)
   renderHand();
   $('#hand').classList.remove('hidden');
   $('#magoBar').classList.remove('hidden');
   setTurn('player');
-  log('🃏 Sua mão está pronta — arraste a carta sobre o alvo, sobre outra carta (fundir) ou para a lateral (descartar).');
 }
-function magoHideHand(){ $('#hand').classList.add('hidden'); $('#magoBar').classList.add('hidden'); }
-async function magoCast(card, en){
-  if (phase !== 'mago_mao' || magoCasts >= CASTS_PER_TURN){ bumpCard(card.uid); return; }
-  magoCasts++;
-  phase = 'busy';
-  hand = hand.filter(c => c.uid !== card.uid);
-  renderHand(); magoHideHand();
-  if (en) targetIdx = enemies.indexOf(en);
-  showMoveName(card.ico + ' ' + card.nome);
+function magoBeginTurn(){
+  rocksLeft = rocksPerRound();                // mago também pode jogar pedra
+  selected = [];
+  magoGainCard(DRAW_POOL[rnd(0, DRAW_POOL.length - 1)]);   // 🃏 compra automática: sempre há uma carta em mãos
+  magoResumeHand();
+  log('🃏 Use "Ataque simples" para conjurar e ganhar uma carta, ou toque cartas da mão e "Conjurar" para jogá-las.');
+}
+function magoHideHand(){
+  $('#hand').classList.add('hidden'); $('#magoBar').classList.add('hidden');
+  $('#arrL').classList.add('hidden'); $('#arrR').classList.add('hidden');
+}
+async function magoAtaqueSimples(){
+  if (phase !== 'mago_mao') return;
+  phase = 'busy'; magoHideHand();
+  const en = enemies[targetIdx];
+  showMoveName('✨ Ataque Simples');
   playOnce(player, 'attack');
-  await wait(160);
-  const mult = await runMagoTrace(card);
-  if (card.alvo === 'aliado'){
-    const heal = Math.round(card.base * mult);
-    hp = Math.min(S.maxhp, hp + heal); player.flash = 1;
-    SFX.play('heal');
-    addFloat(player, '+' + heal + ' 💚', '#4ade80', true);
-    log('💚 ' + card.nome + ' ×' + mult.toFixed(1) + ' — curou ' + heal + ' de HP!');
-  } else magoDamage(card, mult);
-  discardPile.push(card.id);
+  await wait(200);
+  const dmg = Math.max(1, Math.round(S.atk * 0.8) + rnd(-1, 2));
+  magoDamage(dmg, en, 'Ataque Simples', '✨');
+  magoGainCard(DRAW_POOL[rnd(0, DRAW_POOL.length - 1)]);
   renderHUD(); renderTurnbar();
-  await wait(500);
+  await wait(400);
   if (await processBooms()){ magoEndTurn(); return; }
   if (await waveCleared()) return;
   magoEndTurn();
 }
-function magoDamage(card, mult){
-  const en = enemies[targetIdx];
-  if (!en || en.dead) return;
-  const raw = Math.round(card.base * mult);
-  if (en.shield > 0){
-    breakShield(en, mult >= 1.5 ? 2 : 1, mult >= 2);
-    log('🃏 ' + card.nome + ' ×' + mult.toFixed(1) + ' estilhaçou o escudo de ' + en.name + '!');
+async function magoConjurar(){
+  if (phase !== 'mago_mao' || !selected.length) return;
+  const cards = selected.map(uid => hand.find(c => c.uid === uid)).filter(Boolean);
+  if (cards.length > 1 && cards.some(c => c.id === 'morte')){
+    cards.forEach(c => bumpCard(c.uid));
+    log('💀 A Carta da Morte deve ser jogada sozinha.');
     return;
   }
-  en.hp = Math.max(0, en.hp - raw);
-  en.flash = 1; SFX.play(mult >= 2 ? 'crit' : 'magic');
-  addFloat(en, raw, mult >= 2 ? '#fbbf24' : '#fff', mult >= 1.5);
-  log('🃏 ' + card.nome + ' ×' + mult.toFixed(1) + '! ' + raw + ' de dano em ' + en.name + '.');
-  if (mult >= 1.5) shakeApp();
-  if (en.hp <= 0){ slayEnemy(en); log('💥 ' + en.name + ' foi consumido pela magia!'); }
+  if (!comboValid(cards)){
+    cards.forEach(c => bumpCard(c.uid));
+    log('🃏 Essas cartas não combinam — precisam ser da mesma cor.');
+    return;
+  }
+  phase = 'busy';
+  selected = [];
+  hand = hand.filter(c => !cards.includes(c));
+  renderHand(); magoHideHand();
+  const label = cards.map(c => c.nome).join(' + ');
+  showMoveName((cards.length > 1 ? '🃏 ' : cards[0].ico + ' ') + label);
+  playOnce(player, 'attack');
+  await wait(200);
+  if (cards[0].id === 'morte') magoCastMorte();                    // sempre sozinha (validado acima)
+  else if (cards[0].cor === 'verde') magoGreenCombo(cards);
+  else if (sameType(cards)){
+    /* mesma cor + mesmo tipo: nº de cartas × soma delas, atinge tantos monstros quanto cartas (3 = todos, crítico) */
+    const crit = cards.length >= 3;
+    const dmg = comboPower(cards);
+    const ico = cards.map(c => c.ico).join('');
+    const targets = pickTargets(cards.length);
+    /* várias cartas concentradas num único monstro: quebra 1 escudo por carta usada */
+    const shieldBreak = (cards.length > 1 && targets.length === 1) ? cards.length : undefined;
+    for (const en of targets) magoDamage(dmg, en, label, ico, crit, shieldBreak);
+  } else {
+    /* mesma cor, tipos diferentes: nº de cartas × soma delas, atinge só o alvo mirado (sempre 1 monstro) */
+    const dmg = comboPower(cards);
+    magoDamage(dmg, enemies[targetIdx], label, cards.map(c => c.ico).join(''), false, cards.length);
+  }
+  renderHUD(); renderTurnbar();
+  await wait(500);
+  if (hp <= 0) return defeat();
+  if (await processBooms()){ magoEndTurn(); return; }
+  if (await waveCleared()) return;
+  magoEndTurn();
 }
 function magoEndTurn(){
   if (hp <= 0) return defeat();
@@ -4629,6 +4647,9 @@ bindHold('cBlade', playerBlade);
 bindHold('cPotHeal', useHealPotion);
 bindHold('cPotAdren', useAdrenalinePotion);
 bindHold('cRun', flee);
+bindHold('cMagoAtk', magoAtaqueSimples);
+bindHold('cMagoCast', magoConjurar);
+bindHold('cMagoDestroy', magoDestroyCard);
 $('#cSpec').addEventListener('click', openSpec);     // navegação: toque simples
 $('#cBack').addEventListener('click', closeSpec);
 $('#cPot').addEventListener('click', openPot);
@@ -4705,8 +4726,9 @@ async function throwRock(tp){
     log('💥 ' + tgt.name + ' caiu com uma pedrada! +' + tgt.gold + ' de ouro.');
     if (await processBooms()) return;
     if (await waveCleared()) return;
-    if (phase !== 'player' && hp > 0){               // a explosão do goblin deixou a fase presa
-      phase = 'player'; setCmds(true); setTurn('player');
+    if (!targetable() && hp > 0){                    // a explosão do goblin deixou a fase presa
+      if (heroClass === 'mago') magoResumeHand();
+      else { phase = 'player'; setCmds(true); setTurn('player'); }
     }
   }
   tutEvent('rockHit');
@@ -4716,7 +4738,7 @@ async function throwRock(tp){
 let swipeX = null, swipeY = null;
 $('#field').addEventListener('pointerdown', e => {
   swipeX = e.clientX; swipeY = e.clientY;
-  if (phase === 'player' && rocksLeft > 0 && player){
+  if (targetable() && rocksLeft > 0 && player){
     const p = canvasPos(e);
     if (Math.abs(p.x - player.x) < player.size*0.5 && Math.abs(p.y - player.y) < player.size*0.55){
       rockDrag = p;                                  // começou a mirar no herói
@@ -4730,7 +4752,7 @@ $('#field').addEventListener('pointerup', e => {
     const p = canvasPos(e);
     rockDrag = null; swipeX = null;
     /* precisa arrastar de verdade (não é um toque no herói) */
-    if (phase === 'player' && Math.hypot(p.x - player.x, p.y - player.y) > player.size*0.6) throwRock(p);
+    if (targetable() && Math.hypot(p.x - player.x, p.y - player.y) > player.size*0.6) throwRock(p);
     return;
   }
   if (swipeX === null) return;
@@ -4738,7 +4760,7 @@ $('#field').addEventListener('pointerup', e => {
   const r = cv.getBoundingClientRect();
   const mx = e.clientX - r.left, my = e.clientY - r.top;
   swipeX = null;
-  if (phase !== 'player') return;
+  if (!targetable()) return;
   if (Math.abs(dx) > 40) return cycleTarget(dx > 0 ? 1 : -1);
   /* toque: mira no inimigo sob o dedo */
   enemies.forEach((en, i) => {
