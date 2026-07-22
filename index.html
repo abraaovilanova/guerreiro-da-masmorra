@@ -148,7 +148,8 @@
   #bestTag{text-align:center;font-size:12px;color:var(--ink-dim)}
   #reset,#sndToggle{background:none;border:none;color:var(--ink-dim);font-size:11px;text-decoration:underline;padding:2px}
   #cloudStatus{text-align:center;font-size:11px;color:var(--ink-dim);margin-top:6px}
-  #cloudSave{width:100%;font-size:13px;font-weight:600;padding:9px}
+  #cloudLogin,#cloudSave{width:100%;font-size:13px;font-weight:600;padding:9px}
+  #cloudLogin{margin-bottom:6px}
 
   /* ============ BATALHA ============ */
   #battle{padding:10px;gap:8px}
@@ -561,6 +562,7 @@
     <button id="enter">🏰 Entrar na Masmorra</button>
     <div id="bestTag">Masmorras conquistadas: 0</div>
     <div id="cloudStatus">☁️ Campanha não sincronizada</div>
+    <button id="cloudLogin">🔑 Já tenho uma campanha salva</button>
     <button id="cloudSave">☁️ Salvar campanha na nuvem</button>
     <button id="sndToggle">🔊 efeitos sonoros</button>
     <button id="reset">zerar progresso</button>
@@ -2288,14 +2290,6 @@ $('#cloudSave').addEventListener('click', async () => {
     if (!window.Cloud.user){
       btn.textContent = '☁️ Conectando…';
       await window.Cloud.signIn();
-      const cloud = await window.Cloud.load();
-      if (cloud && (cloud.entries || 0) > 0 && confirm(
-        'Encontramos uma campanha salva na nuvem para esta conta.\n' +
-        'Carregar esse progresso agora? Isso substitui o progresso deste aparelho.'
-      )){
-        S = Object.assign(structuredClone(DEFAULTS), cloud);
-        save(); renderMenu();
-      }
     }
     btn.textContent = '☁️ Salvando…';
     await window.Cloud.save(S);
@@ -2304,6 +2298,39 @@ $('#cloudSave').addEventListener('click', async () => {
   } catch(e){
     console.error(e);
     btn.textContent = '⚠️ Falha ao salvar';
+  } finally {
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1800);
+  }
+});
+/* 🔑 login pra quem já tem campanha salva noutro aparelho — só entra e
+   carrega, nunca sobrescreve a nuvem com o progresso local (vazio/novo) */
+$('#cloudLogin').addEventListener('click', async () => {
+  const btn = $('#cloudLogin'), original = btn.textContent;
+  if (!window.Cloud){ alert('Nuvem indisponível — verifique sua conexão e tente de novo.'); return; }
+  btn.disabled = true;
+  try {
+    btn.textContent = '🔑 Conectando…';
+    if (!window.Cloud.user) await window.Cloud.signIn();
+    const cloud = await window.Cloud.load();
+    if (cloud && (cloud.entries || 0) > 0){
+      if (confirm(
+        'Encontramos uma campanha salva na nuvem para esta conta.\n' +
+        'Carregar esse progresso agora? Isso substitui o progresso deste aparelho.'
+      )){
+        S = Object.assign(structuredClone(DEFAULTS), cloud);
+        save(); renderMenu();
+        btn.textContent = '✅ Campanha carregada!';
+      } else {
+        btn.textContent = original;
+      }
+    } else {
+      alert('Nenhuma campanha salva na nuvem para esta conta ainda.');
+      btn.textContent = original;
+    }
+    renderCloudStatus();
+  } catch(e){
+    console.error(e);
+    btn.textContent = '⚠️ Falha ao entrar';
   } finally {
     setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1800);
   }
