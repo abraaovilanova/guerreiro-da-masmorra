@@ -324,7 +324,7 @@
      #cmds é só um ponto-âncora (sem fundo); cada botão flutua isolado,
      posicionado em arco por arcLayout() (left/top em px, calculados por JS). */
   #cmds{ position:absolute;z-index:4; }
-  #cmdMain,#cmdSpec,#cmdPot{ position:absolute;inset:0; }
+  #cmdMain,#cmdPot{ position:absolute;inset:0; }
   #cmds button{
     position:absolute;left:0;top:0;translate:-50% -50%;
     font-size:12px;font-weight:700;padding:7px 10px;background:none;border:none;
@@ -340,6 +340,29 @@
     transform:scaleX(0);transform-origin:left;
   }
   #cmds button.hold.holding::after{transform:scaleX(1);transition:transform .9s linear}
+
+  /* ============ ✨ ataques especiais do guerreiro: carrossel fixo, 2 por página ============ */
+  #specBar{
+    position:absolute;left:0;right:0;bottom:108px;z-index:7;
+    display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;
+  }
+  #specRow{display:flex;align-items:center;gap:8px;pointer-events:auto}
+  #specBar #cBack{flex:none;font-size:15px;font-weight:700;padding:9px 10px}
+  .specArrow{
+    flex:none;width:32px;height:44px;font-size:15px;padding:0;
+    background:rgba(35,39,66,.7);border-radius:9px;
+  }
+  .specArrow:disabled{opacity:.3}
+  #specView{flex:none;width:216px;overflow:hidden}
+  #specTrack{display:flex;transition:transform .22s ease;touch-action:pan-y}
+  .specPage{flex:none;width:216px;display:flex;gap:8px}
+  .specPage button{
+    flex:1;min-width:0;font-size:12px;font-weight:700;padding:9px 4px;
+    white-space:normal;line-height:1.2;overflow:hidden;
+  }
+  #specDots{display:flex;gap:5px;pointer-events:auto}
+  #specDots span{width:6px;height:6px;border-radius:99px;background:var(--border)}
+  #specDots span.on{background:var(--accent)}
 
   /* ============ 🃏 MAGO ARCANISTA — mão de cartas na base da tela ============ */
   #hand{
@@ -463,17 +486,34 @@
     border-image:var(--ui-btn-red) 47 45 47 45 fill stretch;
     image-rendering:pixelated;box-shadow:none;text-shadow:0 1px 2px rgba(0,0,0,.55);
   }
-  /* pergaminho do Tiny Swords no menu de comandos de batalha (Atacar, Poção…) */
-  .skinned #cmds button{
+  /* pergaminho do Tiny Swords no menu de comandos de batalha (Atacar, Poção…)
+     — o mesmo visual se aplica ao carrossel de especiais do guerreiro (#specBar)
+     e ao menu/mão de cartas do mago (#magoBar, #hand), pra unificar a UI de batalha. */
+  .skinned #cmds button,.skinned #specBar #cBack,.skinned .specPage button,.skinned #magoBar button{
     background:none;border-radius:0;border:10px solid transparent;
     border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
     image-rendering:pixelated;color:#3b2a16;text-shadow:none;
   }
-  .skinned #cmds button:not(:disabled):active{color:#7c2d12}
-  .skinned #cmds .num{color:#7c2d12}
-  .skinned #cmds button.hold::after{
+  .skinned #cmds button:not(:disabled):active,
+  .skinned #specBar #cBack:not(:disabled):active,
+  .skinned .specPage button:not(:disabled):active,
+  .skinned #magoBar button:not(:disabled):active{color:#7c2d12}
+  .skinned #cmds .num,.skinned #specBar .num,.skinned #magoBar .num{color:#7c2d12}
+  .skinned #cmds button.hold::after,
+  .skinned .specPage button.hold::after,
+  .skinned #magoBar button.hold::after{
     background:linear-gradient(90deg,rgba(146,64,14,.12),rgba(146,64,14,.34));
   }
+  /* setas ◀▶ do carrossel continuam neutras (só os cards de ataque viram pergaminho) */
+  /* pergaminho também nas cartas do mago (sobrepõe o fundo colorido padrão) */
+  .skinned #hand .card{
+    background:none;border-radius:0;border:11px solid transparent;
+    border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
+    image-rendering:pixelated;box-shadow:none;
+  }
+  .skinned #hand .card .cd-nome{color:#3b2a16}
+  .skinned #hand .card .cd-dano{color:#7c2d12}
+  .skinned #hand .card.selected{border-image:none;filter:drop-shadow(0 0 8px rgba(251,191,36,.85))}
   /* mesmo pergaminho no botão de Ataque Aéreo (após esquivar um golpe rasteiro) */
   .skinned #quickAtk{
     background:none;border-radius:0;border:14px solid transparent;
@@ -643,13 +683,28 @@
           <button id="cPotAdren"><span class="cur">▶</span><img class="icn-s" src="assets/potion-adrenaline.png" alt="" style="margin-right:4px">Adrenalina <span class="num" id="adrenN">×3</span></button>
           <button id="cPotBack"><span class="cur">▶</span>↩ Voltar</button>
         </div>
-        <div id="cmdSpec" class="hidden">
-          <button id="cFury"><span class="cur">▶</span>⚡ Fúria <span class="num" id="furyM">(⚡1+)</span></button>
-          <button id="cSeq"><span class="cur">▶</span>☠ Seq. Mortal <span class="num">(⚡2+)</span></button>
-          <button id="cCombo"><span class="cur">▶</span>🗡 Combo <span class="num" id="comboM">(⚡1+)</span></button>
-          <button id="cBlade"><span class="cur">▶</span>👻 Lâmina Invisível <span class="num" id="bladeM">(⚡1+)</span></button>
-          <button id="cBack"><span class="cur">▶</span>↩ Voltar</button>
+      </div>
+
+      <!-- ✨ ataques especiais do guerreiro: carrossel horizontal, 2 por página -->
+      <div id="specBar" class="hidden">
+        <div id="specRow">
+          <button id="cBack" aria-label="Voltar">↩</button>
+          <button id="specPrev" class="specArrow" aria-label="Ataques anteriores">◀</button>
+          <div id="specView">
+            <div id="specTrack">
+              <div class="specPage">
+                <button id="cFury">⚡ Fúria <span class="num" id="furyM">(⚡1+)</span></button>
+                <button id="cSeq">☠ Seq. Mortal <span class="num">(⚡2+)</span></button>
+              </div>
+              <div class="specPage">
+                <button id="cCombo">🗡 Combo <span class="num" id="comboM">(⚡1+)</span></button>
+                <button id="cBlade">👻 Lâmina Invisível <span class="num" id="bladeM">(⚡1+)</span></button>
+              </div>
+            </div>
+          </div>
+          <button id="specNext" class="specArrow" aria-label="Próximos ataques">▶</button>
         </div>
+        <div id="specDots"><span class="on"></span><span></span></div>
       </div>
 
       <!-- 🃏 Mago Arcanista: menu de batalha + mão de cartas -->
@@ -1522,7 +1577,7 @@ const COMMONS = [
   { unit:'turtle',      name:'Tartaruga Blindada', hp:48, atk:11, def:6, solo:true, lv:10 },   // muro de defesa
   { unit:'wlancer',     name:'Cavaleiro Selvagem', hp:40, atk:14, def:4, solo:true, lv:12 },
 ];
-/* chefes possíveis da onda 3 — sorteado a cada masmorra (liberados aos poucos, ver `lv`) */
+/* chefes possíveis da onda 3 — cada masmorra tem um chefe fixo (liberados aos poucos, ver `lv`) */
 const BOSS_DEFS = [
   { unit:'boss',      name:'Chefe',        hp:160, atk:20, def:6 },              // Cavaleiro da cor
   { unit:'kingslime', name:'Rei Slime',    hp:200, atk:18, def:4, solo:true },
@@ -1545,7 +1600,12 @@ const ngTag  = () => S.ngPlus > 0 ? ' · NG+' + S.ngPlus : '';
 
 function makeWave(w){
   const L = S.dgLv, EL = effLv();
-  const pool = COMMONS.filter(c => !c.lv || EL >= c.lv);   // goblins só na masmorra 3+ (ou sempre, após desbloquear em ciclo anterior)
+  const fullPool = COMMONS.filter(c => !c.lv || EL >= c.lv);   // goblins só na masmorra 3+ (ou sempre, após desbloquear em ciclo anterior)
+  /* cada masmorra sorteia monstros só do seu "grupo" (subconjunto fixo do pool desbloqueado),
+     não do pool inteiro — mesma masmorra (mesmo L e EL) sempre gera o mesmo grupo */
+  const groupSize = Math.min(4, fullPool.length);
+  const groupStart = (L - 1) % fullPool.length;
+  const pool = Array.from({ length: groupSize }, (_, i) => fullPool[(groupStart + i) % fullPool.length]);
   const mult = (1 + (L-1)*0.25) * ngMult() * (w === 2 ? 1.3 : 1);
   const mk = (base, i, n) => ({
     ...base,
@@ -1568,7 +1628,7 @@ function makeWave(w){
   }
   if (w === 3){
     const bossPool = BOSS_DEFS.filter(b => !b.lv || EL >= b.lv);
-    const bd = bossPool[rnd(0, bossPool.length-1)];
+    const bd = bossPool[(L - 1) % bossPool.length];   // chefe fixo desta masmorra (mesmo L e EL → mesmo chefe sempre)
     const b = mk(bd, 0, 1);
     b.boss = true;
     b.p2 = EL >= 3 && Math.random() < 0.6;   // 😡 alguns chefes (Nv.3+) têm FASE 2 aos 50% de HP
@@ -2801,7 +2861,6 @@ function setCmds(on){
   if (on){
     placeCmds();
     arcLayout('#cmdMain', 130, 100);
-    arcLayout('#cmdSpec', 140, 95);
     arcLayout('#cmdPot', 110, 85);
   }
   $('#cAtk').disabled = !on;
@@ -2819,14 +2878,31 @@ function setCmds(on){
   $('#comboM').textContent = fury >= 4 ? '4 golpes' : fury >= 3 ? '3 golpes' : fury >= 1 ? '2 golpes' : '(⚡1+)';
   $('#bladeM').textContent = fury >= 1 ? fury + (fury > 1 ? ' golpes' : ' golpe') : '(⚡1+)';
 }
-/* submenu de ataques especiais (troca o conteúdo da caixa de comandos) */
+/* submenu de ataques especiais: carrossel fixo (2 por página) em vez do menu em arco */
+const SPEC_PAGES = 2;                                 // 4 especiais → 2 páginas de 2
+let specPage = 0;
+function renderSpecPage(){
+  $('#specTrack').style.transform = 'translateX(-' + (specPage * 216) + 'px)';
+  $('#specPrev').disabled = specPage <= 0;
+  $('#specNext').disabled = specPage >= SPEC_PAGES - 1;
+  document.querySelectorAll('#specDots span').forEach((d, i) => d.classList.toggle('on', i === specPage));
+}
+function specGo(dir){
+  const p = Math.max(0, Math.min(SPEC_PAGES - 1, specPage + dir));
+  if (p === specPage) return;
+  specPage = p;
+  renderSpecPage();
+  SFX.play('whoosh');
+}
 function openSpec(){
   if (phase !== 'player') return;
   $('#cmdMain').classList.add('hidden');
-  $('#cmdSpec').classList.remove('hidden');
+  specPage = 0;
+  renderSpecPage();
+  $('#specBar').classList.remove('hidden');
 }
 function closeSpec(){
-  $('#cmdSpec').classList.add('hidden');
+  $('#specBar').classList.add('hidden');
   $('#cmdPot').classList.add('hidden');
   $('#cmdMain').classList.remove('hidden');
 }
@@ -4662,6 +4738,16 @@ bindHold('cMagoCast', magoConjurar);
 bindHold('cMagoDestroy', magoDestroyCard);
 $('#cSpec').addEventListener('click', openSpec);     // navegação: toque simples
 $('#cBack').addEventListener('click', closeSpec);
+$('#specPrev').addEventListener('click', e => { e.stopPropagation(); specGo(-1); });
+$('#specNext').addEventListener('click', e => { e.stopPropagation(); specGo(1); });
+/* arraste horizontal no carrossel de especiais troca de página (mesmo gesto do seletor de herói) */
+let specSwX = null;
+$('#specView').addEventListener('pointerdown', e => { specSwX = e.clientX; });
+$('#specView').addEventListener('pointerup', e => {
+  if (specSwX === null) return;
+  const dx = e.clientX - specSwX; specSwX = null;
+  if (Math.abs(dx) > 40) specGo(dx < 0 ? 1 : -1);
+});
 $('#cPot').addEventListener('click', openPot);
 $('#cPotBack').addEventListener('click', closeSpec);
 $('#arrL').addEventListener('click', e => { e.stopPropagation(); cycleTarget(-1); });
