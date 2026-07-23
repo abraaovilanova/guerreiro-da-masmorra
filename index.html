@@ -111,7 +111,16 @@
     display:inline-block;width:24px;height:24px;vertical-align:-5px;
     background-repeat:no-repeat;background-size:144px 144px;image-rendering:pixelated;
   }
-  #menuRow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  /* 🦸 herói grande no centro, com os atalhos do acampamento nas laterais */
+  #campWrap{display:flex;align-items:center;gap:6px}
+  .campSide{display:flex;flex-direction:column;flex:0 0 auto;width:82px;gap:6px}
+  .campSide button{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2px;padding:8px 4px;text-align:center;font-weight:700;font-size:13px;line-height:1.15;
+  }
+  .campSide button small{display:block;font-weight:400;font-size:9px;color:var(--ink-dim);line-height:1.25;margin-top:1px}
+  #chestBtn:not(:disabled) small{color:var(--gold)}
+  #campWrap #herocard{flex:1;min-width:0}
   /* 🦸 troca de herói no acampamento */
   #herocard{position:relative}
   .heroArr{
@@ -130,9 +139,6 @@
     background:linear-gradient(180deg,#16a34a,#15803d);border-color:#4ade80}
   .recbtn:disabled{opacity:.4}
   .recadge{font-size:10px;color:var(--ink-dim)}
-  #menuRow button{text-align:center;font-weight:700;font-size:14px;padding:8px 10px}
-  #menuRow button small{display:block;font-weight:400;font-size:11px;color:var(--ink-dim);margin-top:2px}
-  #chestBtn:not(:disabled) small{color:var(--gold)}
   h1{font-size:clamp(22px,6vw,30px);text-align:center;letter-spacing:-.01em;text-wrap:balance;line-height:1.15}
   h1 em{font-style:normal;color:var(--accent)}
   #goldbar{display:flex;justify-content:center;align-items:center;gap:8px;font-size:19px;color:var(--gold);font-weight:700}
@@ -143,6 +149,15 @@
   .uprow .info{flex:1;min-width:0}
   .uprow .val{font-size:16px;font-weight:600}
   .uprow .desc{font-size:11px;color:var(--ink-dim)}
+  /* atributos do herói (Vida/Ataque/Defesa) lado a lado, botão de compra embaixo de cada um */
+  #attrsRow{display:flex;align-items:stretch;gap:4px}
+  #attrsRow .uprow{
+    flex:1;flex-direction:column;justify-content:flex-start;gap:6px;
+    padding:4px 6px;text-align:center;border-top:none;min-width:0;
+  }
+  #attrsRow .uprow + .uprow{border-top:none;border-left:1px solid var(--border)}
+  #attrsRow .uprow .info{width:100%}
+  #attrsRow .upbtn{width:100%;min-width:0}
   .upbtn,.shopbtn{
     flex:none;min-width:92px;text-align:center;font-weight:600;font-size:13px;padding:9px 10px;
     background:linear-gradient(180deg,var(--accent-deep),#53389e);border-color:var(--accent);
@@ -444,8 +459,8 @@
   .icn{width:22px;height:22px;image-rendering:pixelated;vertical-align:-5px}
   .icn-s{width:15px;height:15px;image-rendering:pixelated;vertical-align:-3px}
   .ava{width:34px;height:34px;image-rendering:pixelated;vertical-align:-11px}
-  #herocard{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 14px;min-height:0}
-  #heroCv{height:min(140px,17vh);width:auto;aspect-ratio:220/140;flex:0 1 auto;min-height:0}
+  #herocard{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 14px;min-height:0;min-width:0}
+  #heroCv{width:100%;height:auto;max-height:min(220px,28vh);aspect-ratio:220/140;flex:0 1 auto;min-height:0;min-width:0;image-rendering:pixelated}
   #herocard .hname{font-size:19px;font-weight:800;letter-spacing:.03em}
   #herocard .hsub{font-size:11px;color:var(--ink-dim);margin-top:2px}
   /* telas baixas: comprime tudo para caber sem scroll */
@@ -455,7 +470,7 @@
     h1{font-size:18px}
     .ribboned{padding:8px 4px 15px}
     #goldbar{font-size:16px}
-    #heroCv{height:min(110px,13vh)}
+    #heroCv{height:min(165px,22vh)}
     #herocard .hname{font-size:15px}
     #herocard .hsub{display:none}
     .uprow{padding:5px 0}
@@ -463,7 +478,9 @@
     .uprow .ico{font-size:17px}
     .upbtn,.shopbtn{min-width:80px;padding:7px 8px;font-size:12px}
     #enter,#shopBack{padding:10px;font-size:14px}
-    #menuRow button{padding:6px 8px;font-size:13px}
+    .campSide{width:70px}
+    .campSide button{padding:6px 4px;font-size:12px}
+    .campSide button small{font-size:9px}
   }
   /* telas muito baixas (ex.: 360×640) */
   @media (max-height:680px){
@@ -471,12 +488,13 @@
     #menu,#shop{gap:6px}
     h1{font-size:16px}
     .ribboned{padding:6px 4px 12px}
-    #heroCv{height:min(88px,12vh)}
+    #heroCv{height:min(130px,18vh)}
     .uprow{padding:4px 0}
     #bestTag{display:none}
     #enter,#shopBack{padding:8px;font-size:13px}
-    #menuRow button{padding:5px 8px;font-size:12px}
-    #menuRow button small{font-size:10px}
+    .campSide{width:60px;gap:4px}
+    .campSide button{padding:5px 3px;font-size:11px}
+    .campSide button small{font-size:8px}
   }
   .skinned .card{
     background:none;border-radius:0;border:13px solid transparent;
@@ -562,40 +580,48 @@
       <span id="torchTimer"></span>
     </div>
 
-    <div class="card" id="herocard">
-      <button id="heroPrev" class="heroArr" aria-label="Herói anterior">◀</button>
-      <button id="heroNext" class="heroArr" aria-label="Próximo herói">▶</button>
-      <canvas id="heroCv" width="220" height="140"></canvas>
-      <div class="hname"><img id="menuAva" class="ava" alt=""> <span id="heroName">GUERREIRO</span></div>
-      <div class="hsub" id="heroSub">Cavaleiro do acampamento</div>
-      <div id="heroDots"></div>
+    <div id="campWrap">
+      <div class="campSide">
+        <button id="openShop">🛒<small>Mercado</small></button>
+        <button id="openRecruit">🦸<small>Recrutar</small></button>
+      </div>
+
+      <div class="card" id="herocard">
+        <button id="heroPrev" class="heroArr" aria-label="Herói anterior">◀</button>
+        <button id="heroNext" class="heroArr" aria-label="Próximo herói">▶</button>
+        <canvas id="heroCv" width="220" height="140"></canvas>
+        <div class="hname"><img id="menuAva" class="ava" alt=""> <span id="heroName">GUERREIRO</span></div>
+        <div class="hsub" id="heroSub">Cavaleiro do acampamento</div>
+        <div id="heroDots"></div>
+      </div>
+
+      <div class="campSide">
+        <button id="openMap">🗺️<small>Mapa</small></button>
+        <button id="chestBtn">🎁<small>Baú do Dia</small></button>
+      </div>
     </div>
 
     <div class="card">
       <div class="label" style="margin-bottom:2px">Atributos</div>
-      <div class="uprow">
-        <div class="ico"><img class="icn" data-ico="icoMeat" alt="vida"></div>
-        <div class="info"><div class="label">Vida máxima</div><div class="val num" id="mVida">60</div></div>
-        <button class="upbtn" data-up="vida">+20 vida<small>🪙 <span class="num">50</span></small></button>
-      </div>
-      <div class="uprow">
-        <div class="ico"><img class="icn" data-ico="icoSword" alt="ataque"></div>
-        <div class="info"><div class="label">Ataque</div><div class="val num" id="mAtk">10</div></div>
-        <button class="upbtn" data-up="atk">+3 ataque<small>🪙 <span class="num">60</span></small></button>
-      </div>
-      <div class="uprow">
-        <div class="ico"><span id="shieldIco"></span></div>
-        <div class="info"><div class="label">Defesa</div><div class="val num" id="mDef">3</div></div>
-        <button class="upbtn" data-up="def">+2 defesa<small>🪙 <span class="num">60</span></small></button>
+      <div id="attrsRow">
+        <div class="uprow">
+          <div class="ico"><img class="icn" data-ico="icoMeat" alt="vida"></div>
+          <div class="info"><div class="label">Vida máxima</div><div class="val num" id="mVida">60</div></div>
+          <button class="upbtn" data-up="vida">+20 vida<small>🪙 <span class="num">50</span></small></button>
+        </div>
+        <div class="uprow">
+          <div class="ico"><img class="icn" data-ico="icoSword" alt="ataque"></div>
+          <div class="info"><div class="label">Ataque</div><div class="val num" id="mAtk">10</div></div>
+          <button class="upbtn" data-up="atk">+3 ataque<small>🪙 <span class="num">60</span></small></button>
+        </div>
+        <div class="uprow">
+          <div class="ico"><span id="shieldIco"></span></div>
+          <div class="info"><div class="label">Defesa</div><div class="val num" id="mDef">3</div></div>
+          <button class="upbtn" data-up="def">+2 defesa<small>🪙 <span class="num">60</span></small></button>
+        </div>
       </div>
     </div>
 
-    <div id="menuRow">
-      <button id="openShop">🛒 Mercado<small>tochas e gemas</small></button>
-      <button id="openRecruit">🦸 Recrutar<small>heróis</small></button>
-      <button id="openMap">🗺️ Mapa<small>mapa-múndi</small></button>
-      <button id="chestBtn">🎁 Baú do Dia<small>…</small></button>
-    </div>
     <button id="enter">🏰 Entrar na Masmorra</button>
     <div id="bestTag">Masmorras conquistadas: 0</div>
     <div id="cloudStatus">☁️ Campanha não sincronizada</div>
