@@ -170,6 +170,11 @@
   #attrsRow .uprow + .uprow{border-top:none;border-left:1px solid var(--border)}
   #attrsRow .uprow .info{width:100%}
   #attrsRow .upbtn{width:100%;min-width:0}
+  /* 🎯 barra de marcos: 5 upgrades completam um ciclo (golpe novo, escudo novo…) */
+  .milebar{display:flex;gap:2px;justify-content:center;margin:3px auto 0;max-width:64px}
+  .milebar span{flex:1;height:5px;border-radius:2px;background:var(--border)}
+  .milebar span.on{background:var(--accent)}
+  .milebar.full span{background:var(--gold)}
   .upbtn,.shopbtn{
     flex:none;min-width:92px;text-align:center;font-weight:600;font-size:13px;padding:9px 10px;
     background:linear-gradient(180deg,var(--accent-deep),#53389e);border-color:var(--accent);
@@ -202,6 +207,26 @@
     font-size:11px;letter-spacing:.1em;color:var(--ink-dim);
     background:rgba(26,29,46,.85);border:1px solid var(--border);border-radius:99px;padding:4px 12px;
     white-space:nowrap;
+  }
+  /* 👑 barra fixa do chefe no topo do campo — clima de luta especial */
+  #bossBar{
+    position:absolute;top:34px;left:14px;right:14px;z-index:3;pointer-events:none;
+    display:flex;flex-direction:column;gap:3px;
+  }
+  #bossName{
+    text-align:center;font-size:12px;font-weight:800;letter-spacing:.14em;
+    color:#ffe9a8;text-shadow:0 1px 3px rgba(0,0,0,.9);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;
+  }
+  #bossTrack{
+    height:13px;border-radius:99px;border:2px solid #b45309;
+    background:rgba(10,12,20,.85);overflow:hidden;
+    box-shadow:0 2px 12px rgba(0,0,0,.55), inset 0 1px 3px rgba(0,0,0,.6);
+  }
+  #bossFill{
+    height:100%;width:100%;border-radius:99px;
+    background:linear-gradient(180deg,#fca5a5,#dc2626 55%,#991b1b);
+    transition:width .3s ease;
   }
   .side{
     position:absolute;top:50%;translate:0 -50%;z-index:3;
@@ -629,22 +654,22 @@
       <div id="attrsRow">
         <div class="uprow">
           <div class="ico"><img class="icn" data-ico="icoMeat" alt="vida"></div>
-          <div class="info"><div class="label">Vida máxima</div><div class="val num" id="mVida">60</div></div>
+          <div class="info"><div class="label">Vida máxima</div><div class="val num" id="mVida">60</div><div class="milebar" id="mb-vida"><span></span><span></span><span></span><span></span><span></span></div></div>
           <button class="upbtn" data-up="vida">+20 vida<small>🪙 <span class="num">50</span></small></button>
         </div>
         <div class="uprow">
           <div class="ico"><img class="icn" data-ico="icoSword" alt="ataque"></div>
-          <div class="info"><div class="label">Ataque</div><div class="val num" id="mAtk">10</div></div>
+          <div class="info"><div class="label">Ataque</div><div class="val num" id="mAtk">10</div><div class="milebar" id="mb-atk"><span></span><span></span><span></span><span></span><span></span></div></div>
           <button class="upbtn" data-up="atk">+3 ataque<small>🪙 <span class="num">60</span></small></button>
         </div>
         <div class="uprow">
           <div class="ico"><span id="shieldIco"></span></div>
-          <div class="info"><div class="label">Defesa</div><div class="val num" id="mDef">3</div></div>
+          <div class="info"><div class="label">Defesa</div><div class="val num" id="mDef">3</div><div class="milebar" id="mb-def"><span></span><span></span><span></span><span></span><span></span></div></div>
           <button class="upbtn" data-up="def">+2 defesa<small>🪙 <span class="num">60</span></small></button>
         </div>
         <div class="uprow">
           <div class="ico">✨</div>
-          <div class="info"><div class="label">Habilidade <span id="habInfo" style="font-weight:400;font-size:11px;color:var(--ink-dim)"></span></div><div class="val num" id="mHab">0</div></div>
+          <div class="info"><div class="label">Habilidade <span id="habInfo" style="font-weight:400;font-size:11px;color:var(--ink-dim)"></span></div><div class="val num" id="mHab">0</div><div class="milebar" id="mb-hab"><span></span><span></span><span></span><span></span><span></span></div></div>
           <button class="upbtn" data-up="hab">+1 habilidade<small>🪙 <span class="num">40</span></small></button>
         </div>
       </div>
@@ -711,6 +736,11 @@
     <div id="field">
       <canvas id="cv"></canvas>
       <div id="wavechip">MASMORRA NV. 1 · ONDA 1/3</div>
+      <!-- 👑 barra de vida fixa do chefe: só aparece na onda do boss -->
+      <div id="bossBar" class="hidden">
+        <div id="bossName">👑 CHEFE</div>
+        <div id="bossTrack"><div id="bossFill"></div></div>
+      </div>
       <button class="side" id="arrL" aria-label="Alvo anterior">◀</button>
       <button class="side" id="arrR" aria-label="Próximo alvo">▶</button>
       <div id="swipehint">setas/toque para mirar · arraste do herói para jogar uma 🪨</div>
@@ -1767,7 +1797,7 @@ const BIOMES = {
       { src:B+'Tower.png',  x:0.16,y:0.22,w:0.16,alpha:0.50,mirror:true,bg:true },
       { src:D+'Rocks/Rock'+rnd(1,4)+'.png',   x:0.10,y:0.56,w:0.14,alpha:0.55 },
       { src:D+'Bushes/Bushe'+rnd(1,4)+'.png', x:0.90,y:0.66,w:0.16,alpha:0.55 },
-      { src:D+'Rocks/Rock'+rnd(1,4)+'.png',   x:0.46,y:0.90,w:0.13,alpha:0.45 },
+      { src:D+'Rocks/Rock'+rnd(1,4)+'.png',   x:0.13,y:0.87,w:0.13,alpha:0.45 },
     ];
   }},
   floresta: { nome:'Floresta', tint:'rgba(30,74,28,.16)', build(){ return [
@@ -1776,7 +1806,7 @@ const BIOMES = {
     item(treeKey(), 0.60,0.10,0.17,{mirror:true,bg:true,alpha:0.7}),
     item('bush', 0.10,0.58,0.13,{alpha:0.9}),
     item('bush', 0.90,0.64,0.15,{mirror:false,alpha:0.9}),
-    item('bush', 0.46,0.92,0.12,{alpha:0.8}),
+    item('bush', 0.15,0.88,0.12,{alpha:0.8}),
   ];}},
   cemiterio: { nome:'Cemitério', tint:'rgba(64,64,96,.20)', build(){ return [
     item('statue', 0.80,0.16,0.15,{mirror:true,bg:true,alpha:0.9}),
@@ -1790,7 +1820,7 @@ const BIOMES = {
     item('statue', 0.82,0.17,0.14,{mirror:true,bg:true,alpha:0.85}),
     item(treeKey(),0.14,0.13,0.18,{bg:true,alpha:0.5}),
     item('crate',  0.60,0.14,0.08,{mirror:true,bg:true,alpha:0.9}),
-    item('altar',  0.48,0.90,0.24,{alpha:0.55}),
+    item('altar',  0.14,0.88,0.22,{alpha:0.55}),
     item('rockBig',0.10,0.58,0.14,{alpha:0.9}),
     item('crate',  0.90,0.64,0.09,{alpha:0.9}),
   ];}},
@@ -1821,6 +1851,37 @@ function drawPlatform(img, cx, cy, w, h, sx, sy, single){
       ctx.drawImage(img, sx + pick(c, cols)*T, sy + pick(r, rows)*T, T, T,
                     x0 + c*tw, y0 + r*th, tw + 0.6, th + 0.6);
 }
+/* 🛣️ estrada em perspectiva: fatias horizontais que alargam e ficam mais
+   altas conforme se aproximam da câmera; as colunas das pontas usam os tiles
+   de borda do autotile (single = chão de tile único, sem bordas).
+   roadScroll desloca as divisas das fileiras — na marcha entre ondas o chão
+   "flui" para a câmera, como se o herói avançasse pelo corredor. */
+let roadScroll = 0;
+function drawRoad(img, sx, sy, single){
+  if (!img || !img.naturalWidth) return;
+  const T = 64, rows = 8, cols = 5;
+  const yTop = H*0.30, yBot = H*1.02, wTop = W*0.40, wBot = W*1.15;
+  const ease = t => t*t*0.6 + t*0.4;                 // fatias próximas crescem mais rápido
+  const scol = c => single ? 0 : (c === 0 ? 0 : (c === cols-1 ? 2 : 1));
+  const frac = ((roadScroll % 1) + 1) % 1;
+  for (let i = -1; i <= rows; i++){
+    const t0 = Math.max(0, (i + frac) / rows), t1 = Math.min(1, (i + 1 + frac) / rows);
+    if (t1 <= t0) continue;
+    const e0 = ease(t0), e1 = ease(t1);
+    const ya = yTop + (yBot-yTop)*e0, yb = yTop + (yBot-yTop)*e1;
+    const w = wTop + (wBot-wTop)*e0;
+    const x0 = (W - w)/2, tw = w/cols;
+    const srow = t0 <= 0 && !single ? 0 : single ? 0 : 1;   // fatia do horizonte = beirada
+    for (let c = 0; c < cols; c++)
+      ctx.drawImage(img, sx + scol(c)*T, sy + srow*T, T, T,
+                    x0 + c*tw, ya, tw + 0.6, yb - ya + 0.6);
+    /* faixa alternada sutil: marca as fileiras — é ela que dá a leitura de
+       movimento quando o chão rola (parece contínua ao cruzar o inteiro) */
+    if ((((i + Math.floor(roadScroll)) % 2) + 2) % 2){
+      ctx.fillStyle = 'rgba(0,0,0,.06)'; ctx.fillRect(x0, ya, w, yb - ya);
+    }
+  }
+}
 function drawSceneryItems(list){
   for (const s of list){
     const img = DECOR_IMGS[s.src];
@@ -1839,11 +1900,14 @@ function drawScenery(){
   const b = BIOMES[battleBiome];                     // 🌍 clima do bioma (leve tinta de cor)
   if (timg){
     const fsx = b && b.floor ? b.floor.sx : 0, fsy = b && b.floor ? b.floor.sy : 0, fsingle = b && b.floor && b.floor.single;
-    drawPlatform(timg, mirrorX(W*0.70), H*0.34, W*0.64, H*0.38, fsx, fsy, fsingle);   // arena dos monstros
-    drawPlatform(timg, mirrorX(W*0.26), H*0.76, W*0.46, H*0.20, fsx, fsy, fsingle);   // arena do herói
+    drawRoad(timg, fsx, fsy, fsingle);               // 🛣️ estrada rumo ao horizonte
   }
   if (b && b.tint){ ctx.fillStyle = b.tint; ctx.fillRect(0, 0, W, H); }
   drawSceneryItems(scenery.filter(s => s.bg));       // estruturas/árvores ao fundo
+  /* névoa de distância: escurece o fim do corredor (cenário sim, monstros não) */
+  const fog = ctx.createLinearGradient(0, H*0.16, 0, H*0.50);
+  fog.addColorStop(0, 'rgba(6,8,16,.55)'); fog.addColorStop(1, 'rgba(6,8,16,0)');
+  ctx.fillStyle = fog; ctx.fillRect(0, 0, W, H*0.50);
   drawSceneryItems(scenery.filter(s => !s.bg));      // pedras/arbustos na frente
 }
 
@@ -1859,27 +1923,36 @@ function resizeCanvas(){
 }
 window.addEventListener('resize', resizeCanvas);
 
-/* layout estilo Pokémon Red: inimigos num canto superior (lado sorteado),
-   herói embaixo no canto oposto, ambos virados um para o outro */
-const pFlip = () => enemySide === 'left';            // herói olha para o lado dos inimigos
-const eFlip = () => enemySide === 'right';           // sprites olham p/ direita por padrão
+/* 🎥 layout "corredor": câmera atrás do herói — ele fica embaixo, no centro,
+   DE COSTAS (direção N dos sheets de 8 direções, escolhida sozinha por
+   atk8Pos, já que os monstros ficam acima dele na tela). Os monstros vêm à
+   frente, na estrada; enemySide segue existindo só p/ variar entradas/esquivas. */
+const pFlip = () => false;                           // herói de costas: flip não se aplica
+const inwardFlip = en => en.homeX > W*0.5;           // monstro na direita olha p/ dentro da estrada
 const mirrorX = x => enemySide === 'right' ? x : W - x;
-const frontOfEnemy = en => en.x + (enemySide === 'right' ? -1 : 1) * en.size*0.55;
-const frontOfHero = () => player.x + (enemySide === 'right' ? 1 : -1) * player.size*0.55;
+/* pontos de engate corpo-a-corpo: quem ataca para do lado da câmera do alvo
+   (abaixo dele na tela), deslocado p/ o lado de origem para o golpe em visão
+   lateral "ler" na diagonal */
+const engageEnemy = en => [en.x, en.y + en.size*0.52];
+const engageHero  = en => [player.homeX + (en.homeX < W*0.5 ? -1 : 1) * player.size*0.45,
+                           player.homeY - player.size*0.42];
+/* profundidade fake: quanto mais alto na tela (fundo do corredor), menor */
+const depthK = y => 0.58 + 0.55 * (y / H);
 function layoutActors(){
   if (!player) return;
   const base = Math.min(H*0.32, W*0.30);
-  player.size = base*1.15;
-  player.homeX = mirrorX(W*0.26); player.homeY = H*0.72;
+  player.size = base*1.28;
+  player.homeX = W*0.50; player.homeY = H*0.78;
   player.flip = pFlip();
   const slots = enemies.length === 1
-    ? [{x:W*0.70, y:H*0.30}]
-    : [{x:W*0.66, y:H*0.25}, {x:W*0.83, y:H*0.38}, {x:W*0.56, y:H*0.46}];
+    ? [{x:0.50, y:0.40}]
+    : [{x:0.50, y:0.34}, {x:0.28, y:0.47}, {x:0.72, y:0.47}];
   enemies.forEach((en, i) => {
-    en.size = en.boss ? base*1.7 : en.escort ? base*0.85 : base;
-    en.homeX = mirrorX(slots[i % slots.length].x);
-    en.homeY = slots[i % slots.length].y;
-    en.flip = eFlip();
+    const s = slots[i % slots.length];
+    en.size = en.boss ? base*1.85 : en.escort ? base*0.95 : base*1.1;
+    en.homeX = mirrorX(W*s.x);
+    en.homeY = H*s.y;
+    en.flip = inwardFlip(en);
   });
   [player, ...enemies].forEach(a => { if (!a.tween){ a.x = a.homeX; a.y = a.homeY; } });
   placeCmds();
@@ -1902,6 +1975,16 @@ const tween = (a, tx, ty, ms, anim) => new Promise(res => {
 });
 
 function frameCount(a){
+  /* 🧍 idle novo do guerreiro: direcional (15 frames) ou, sem ele, o de frente (17) */
+  if (a === player && a.unit === 'warrior' && a.anim === 'idle'){
+    if (IDLE8_IMG.naturalWidth) return ATK8.frames;
+    if (CAMP_HERO_IMG.naturalWidth) return CAMP_HERO.frames;
+  }
+  /* 🛡️ parry novo: 15 frames (formato de blocos, igual ao ataque) */
+  if (a === player && a.anim === 'parry8') return ATK8.frames;
+  /* 🏃 andar novo do guerreiro: idem */
+  if (a === player && a.unit === 'warrior' && a.anim === 'run' && WALK8_IMG.naturalWidth)
+    return ATK8.frames;
   const spec = UNITS[a.unit].anims[a.anim];
   if (spec && typeof spec === 'object' && spec.frames) return spec.frames;   // sheet multi-linha
   const img = IMGS[a.unit + '.' + a.anim];
@@ -1921,7 +2004,10 @@ function updateActor(a, dt){
     if (k >= 1){ a.tween = null; t.res(); }
   }
   a.acc += dt;
-  const spd = a.anim === 'attack' ? 90 : 110;   // ms por frame
+  const spd = a.anim === 'attack' ? 90
+    : a.anim === 'parry8' ? 35                       // 15 frames em ~0,5s
+    : (a === player && a.anim === 'run' && a.unit === 'warrior' && WALK8_IMG.naturalWidth) ? 55   // passada ágil no sheet novo
+    : 110;   // ms por frame
   while (a.acc >= spd){
     a.acc -= spd;
     if (a.frame + 1 >= frameCount(a)){
@@ -1942,9 +2028,118 @@ function enrage(en){
   log('😡 ' + (en.art || 'O') + ' ' + en.name + ' entra em FÚRIA! Golpes mais fortes, mais rápidos — e turnos extras!');
 }
 
+/* ⚔️ golpe do guerreiro em 8 direções (assets/new-hero/atack-8-directions.png):
+   grade 12×12 de células 64px agrupada em blocos 3×3 — cada bloco é UM frame do
+   golpe nas 8 direções (célula 9 vazia); os 15 blocos em ordem de leitura são a
+   linha do tempo. Direções verificadas por simetria espelhada dos pixels:
+   pos1=E · pos6=W · pos2=S · pos4=N · pos0=SE · pos7=SW · pos3=NE · pos5=NW */
+const ATK8 = { src:'assets/new-hero/atack-8-directions.png', fs:64, frames:15 };
+const ATK8_IMG = new Image();
+ATK8_IMG.src = ATK8.src;
+const ATK8_BLOCKS = [];
+for (let br = 0; br < 4; br++) for (let bc = 0; bc < 4; bc++)
+  if (!(br === 3 && bc === 3)) ATK8_BLOCKS.push([br, bc]);
+function atk8Pos(dx, dy){
+  const oct = Math.round(Math.atan2(dy, dx) / (Math.PI/4)) & 7;   // 0=E,1=SE… (y cresce p/ baixo)
+  return [1, 0, 2, 7, 6, 5, 4, 3][oct];
+}
+function drawAttack8(a, f, count){
+  const idx = Math.min(ATK8.frames - 1, Math.floor(f * ATK8.frames / count));
+  const en = (enemies[targetIdx] && !enemies[targetIdx].dead)
+    ? enemies[targetIdx] : enemies.find(e => !e.dead && !e.gone);
+  const dx = en ? en.x - a.x : 1, dy = en ? en.y - a.y : 0;
+  const k = (dx || dy) ? atk8Pos(dx, dy) : 1;
+  const [br, bc] = ATK8_BLOCKS[idx];
+  const r = (k / 3) | 0, c = k % 3;
+  const d = a.size * 0.85;                            // porte parecido com o do cavaleiro antigo
+  ctx.drawImage(ATK8_IMG, (bc*3 + c)*ATK8.fs, (br*3 + r)*ATK8.fs, ATK8.fs, ATK8.fs,
+                -d/2, a.size*0.30 - d*0.867, d, d);   // pés da célula (y≈55/64) na base do herói
+}
+/* 🦘 pulo em 8 direções (mesma estrutura de blocos do ataque): usado na
+   esquiva de arrastar para cima. O frame segue o TEMPO do salto (não o
+   ciclo normal de animação), pra caber toda a linha nos ~340ms do pulo. */
+const JUMP8_IMG = new Image();
+JUMP8_IMG.src = 'assets/new-hero/jump-8-directions.png';
+const JUMP8_MS = 340;
+/* direção (posição no bloco) apontando para o monstro mais próximo (o atacante) */
+function nearestEnemyPos(a){
+  let en = null, best = Infinity;
+  for (const e of enemies){
+    if (e.dead || e.gone) continue;
+    const dd = (e.x - a.x)**2 + (e.y - a.y)**2;
+    if (dd < best){ best = dd; en = e; }
+  }
+  const dx = en ? en.x - a.x : 1, dy = en ? en.y - a.y : 0;
+  return (dx || dy) ? atk8Pos(dx, dy) : 1;
+}
+/* desenha a célula (frame idx, direção p) de um sheet no formato de blocos 3×3 */
+function draw8(img, a, idx, p){
+  const [br, bc] = ATK8_BLOCKS[idx];
+  const r = (p / 3) | 0, c = p % 3;
+  const d = a.size * 0.85;
+  ctx.drawImage(img, (bc*3 + c)*ATK8.fs, (br*3 + r)*ATK8.fs, ATK8.fs, ATK8.fs,
+                -d/2, a.size*0.30 - d*0.867, d, d);
+}
+function drawJump8(a){
+  const k = Math.min(1, (performance.now() - (a.jump8T || 0)) / JUMP8_MS);
+  const idx = Math.min(ATK8.frames - 1, Math.floor(k * ATK8.frames));
+  draw8(JUMP8_IMG, a, idx, nearestEnemyPos(a));
+}
+/* 🛡️ parry/bloqueio em 8 direções: animação 'parry8' tocada via playOnce,
+   acelerada no updateActor pra caber os 15 frames em ~0,5s */
+const PARRY8_IMG = new Image();
+PARRY8_IMG.src = 'assets/new-hero/parry-8-directions.png';
+const guardAnim = () => (player && player.unit === 'warrior' && PARRY8_IMG.naturalWidth) ? 'parry8' : 'guard';
+function drawParry8(a, f){
+  draw8(PARRY8_IMG, a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
+}
+/* 🧍 idle de batalha em 8 direções: o herói encara o inimigo mais próximo */
+const IDLE8_IMG = new Image();
+IDLE8_IMG.src = 'assets/new-hero/idle-8-directions.png';
+function drawIdle8(a, f){
+  draw8(IDLE8_IMG, a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
+}
+/* 💨 esquiva lateral em 8 direções: como o pulo, o frame segue o TEMPO do
+   dash (~330ms) e a direção fica travada no lado do deslize */
+const DODGE8_IMG = new Image();
+DODGE8_IMG.src = 'assets/new-hero/dodge-8-directions.png';
+const DODGE8_MS = 330;
+function drawDodge8(a){
+  const k = Math.min(1, (performance.now() - (a.dodge8T || 0)) / DODGE8_MS);
+  const idx = Math.min(ATK8.frames - 1, Math.floor(k * ATK8.frames));
+  draw8(DODGE8_IMG, a, idx, a.dodge8P != null ? a.dodge8P : nearestEnemyPos(a));
+}
+/* 🏃 andar/correr em 8 direções: a direção vem do VETOR do deslocamento
+   (investida, esquiva, volta pra base), não do inimigo */
+const WALK8_IMG = new Image();
+WALK8_IMG.src = 'assets/new-hero/walk-8-directions.png';
+function drawWalk8(a, f){
+  let p;
+  if (a.forceDir != null) p = a.forceDir;            // 🚶 marcha: direção travada (N)
+  else if (a.tween){
+    const dx = a.tween.tx - a.tween.sx, dy = a.tween.ty - a.tween.sy;
+    p = (dx || dy) ? atk8Pos(dx, dy) : nearestEnemyPos(a);
+  } else p = nearestEnemyPos(a);
+  draw8(WALK8_IMG, a, Math.min(ATK8.frames - 1, f), p);
+}
+/* 🧍 idle do herói novo na batalha (mesmo sheet do acampamento, de frente) */
+function drawIdleCam(a, f){
+  const fs = CAMP_HERO.fs;
+  const sx = (f % CAMP_HERO.cols) * fs, sy = Math.floor(f / CAMP_HERO.cols) * fs;
+  const d = a.size * 0.85;
+  ctx.drawImage(CAMP_HERO_IMG, sx, sy, fs, fs,
+                -d/2, a.size*0.30 - d*0.867, d, d);   // pés (y≈55/64) na base, como no ataque
+}
 function drawActor(a, t){
   const cfg = UNITS[a.unit];
-  const img = IMGS[a.unit + '.' + a.anim];
+  /* 🎥 perspectiva do corredor: escala tudo (sprite, sombra, barras) pela
+     profundidade — monstro que avança até o herói cresce no caminho */
+  const trueSize = a.size;
+  a.size *= depthK(a.y);
+  let img = IMGS[a.unit + '.' + a.anim];
+  if (a === player && a.anim === 'jump8') img = JUMP8_IMG;    // 🦘 anims só dos sheets novos
+  if (a === player && a.anim === 'parry8') img = PARRY8_IMG;  // 🛡️
+  if (a === player && a.anim === 'dodge8') img = DODGE8_IMG;  // 💨
   // sombra no chão
   ctx.save();
   ctx.globalAlpha = 0.3 * a.alpha;
@@ -1965,6 +2160,23 @@ function drawActor(a, t){
   if (img && img.naturalWidth){
     const f = Math.min(a.frame, frameCount(a)-1);
     ctx.translate(a.x, a.y);
+    /* ⚔️ guerreiro atacando: usa o sheet novo de 8 direções (sem flip — a
+       direção certa vem do próprio sheet, apontada para o alvo atual) */
+    if (a === player && a.unit === 'warrior' && a.anim === 'attack' && ATK8_IMG.naturalWidth){
+      drawAttack8(a, f, frameCount(a));
+    } else if (a === player && a.unit === 'warrior' && a.anim === 'idle' && IDLE8_IMG.naturalWidth){
+      drawIdle8(a, f);
+    } else if (a === player && a.unit === 'warrior' && a.anim === 'idle' && CAMP_HERO_IMG.naturalWidth){
+      drawIdleCam(a, f);
+    } else if (a === player && a.unit === 'warrior' && a.anim === 'run' && WALK8_IMG.naturalWidth){
+      drawWalk8(a, f);
+    } else if (a === player && a.unit === 'warrior' && a.anim === 'jump8' && JUMP8_IMG.naturalWidth){
+      drawJump8(a);
+    } else if (a === player && a.unit === 'warrior' && a.anim === 'parry8' && PARRY8_IMG.naturalWidth){
+      drawParry8(a, f);
+    } else if (a === player && a.unit === 'warrior' && a.anim === 'dodge8' && DODGE8_IMG.naturalWidth){
+      drawDodge8(a);
+    } else {
     const flip = cfg.faceLeft ? !a.flip : a.flip;   // sprites do THE PACK olham p/ esquerda
     if (flip) ctx.scale(-1,1);
     if (cfg.cont){
@@ -1978,6 +2190,7 @@ function drawActor(a, t){
       const ds = a.size * (cfg.fs/192) * 1.55 * (cfg.scale || 1);   // sheets maiores têm mais margem — compensa (cfg.scale ajusta caso a caso)
       ctx.drawImage(img, f*cfg.fs, animRow(a)*cfg.fs, cfg.fs, cfg.fs, -ds/2, -ds/2, ds, ds);
     }
+    }
   } else {
     ctx.font = Math.round(a.size*0.5) + 'px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1985,18 +2198,21 @@ function drawActor(a, t){
   }
   ctx.restore();
 
-  /* nome + barra de vida */
+  /* nome + barra de vida (👑 o chefe vivo usa a barra fixa do topo — sem duplicar aqui) */
   const bw = Math.max(56, a.size*0.6), bx = a.x - bw/2, by = a.y - a.size*0.42;
-  ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+  const miniBar = !(a.boss && !a.dead);
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.fillStyle = a.dead ? '#f87171' : '#c9cde4';
-  ctx.fillText(a.dead ? 'K.O.' : (a === player ? a.name + ' ' + hp + '/' + S.maxhp + ' ' +
-    (heroClass === 'mago' ? '🃏' + hand.length + '/' + HAND_LIMIT : '⚡' + fury + '/5') : a.name), a.x, by - 4);
-  if (!a.dead){
-    const pct = Math.max(0, (a === player ? hp/S.maxhp : a.hp/a.maxhp));
-    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by-1, bw+2, 7);
-    ctx.fillStyle = pct <= .3 ? '#f87171' : '#4ade80';
-    ctx.fillRect(bx, by, bw*pct, 5);
+  if (miniBar){
+    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+    ctx.fillStyle = a.dead ? '#f87171' : '#c9cde4';
+    ctx.fillText(a.dead ? 'K.O.' : (a === player ? a.name + ' ' + hp + '/' + S.maxhp + ' ' +
+      (heroClass === 'mago' ? '🃏' + hand.length + '/' + HAND_LIMIT : '⚡' + fury + '/5') : a.name), a.x, by - 4);
+    if (!a.dead){
+      const pct = Math.max(0, (a === player ? hp/S.maxhp : a.hp/a.maxhp));
+      ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by-1, bw+2, 7);
+      ctx.fillStyle = pct <= .3 ? '#f87171' : '#4ade80';
+      ctx.fillRect(bx, by, bw*pct, 5);
+    }
   }
   /* fúria do herói: barra com moldura/preenchimento do Tiny Swords (Bars) — cheia (5) pisca em vermelho
      (o Mago não usa fúria — mostra a contagem de cartas na mão no nome, sem essa barra) */
@@ -2109,10 +2325,32 @@ function drawActor(a, t){
       ctx.closePath(); ctx.fill();
     }
   }
+  a.size = trueSize;                                 // 🎥 desfaz a escala de profundidade
 }
 
+/* 👑 barra fixa do chefe: sincronizada a cada frame, mas só toca o DOM
+   quando algo muda (cache em string) */
+let bossBarKey = null;
+function updateBossBar(){
+  const b = enemies.find(e => e.boss && !e.dead && !e.gone);
+  const el = $('#bossBar');
+  if (!b){
+    if (bossBarKey !== null){ bossBarKey = null; el.classList.add('hidden'); }
+    return;
+  }
+  const key = b.name + '|' + b.hp + '|' + b.maxhp + '|' + (b.shield || 0) + '|' + (b.enraged ? 1 : 0);
+  if (key === bossBarKey) return;
+  bossBarKey = key;
+  el.classList.remove('hidden');
+  $('#bossName').textContent = '👑 ' + b.name.toUpperCase() +
+    ((b.shield || 0) > 0 ? ' · 🛡×' + b.shield : '') +
+    (b.enraged ? ' · 😡 EM FÚRIA' : '') +
+    ' · ' + b.hp + '/' + b.maxhp;
+  $('#bossFill').style.width = (100 * Math.max(0, Math.min(1, b.hp / b.maxhp))) + '%';
+}
 function draw(t){
   ctx.clearRect(0,0,W,H);
+  updateBossBar();
   drawScenery();
   [...enemies, player].filter(a => a && !a.gone)
     .sort((a,b) => a.y - b.y)
@@ -2175,6 +2413,11 @@ const addFloat = (a, txt, color, big) =>
 
 /* herói animado (idle) na tela de equipamento */
 const heroCv = $('#heroCv'), heroCtx = heroCv.getContext('2d');
+/* 🧍 idle de frente do guerreiro no acampamento: grade 5 colunas × 4 linhas
+   de células 64×64, 17 frames em ordem de leitura */
+const CAMP_HERO = { src:'assets/new-hero/idle-facing-camera.png', fs:64, cols:5, frames:17 };
+const CAMP_HERO_IMG = new Image();
+CAMP_HERO_IMG.src = CAMP_HERO.src;
 let menuAcc = 0, menuFrame = 0;
 function drawMenuHero(dt){
   menuAcc += dt;
@@ -2186,6 +2429,15 @@ function drawMenuHero(dt){
   heroCtx.ellipse(110, 118, 46, 10, 0, 0, Math.PI*2);
   heroCtx.fill();
   const spr = (HEROES[S.activeHero] || HEROES.guerreiro).sprite;
+  if (spr === 'warrior' && CAMP_HERO_IMG.naturalWidth){
+    const f = menuFrame % CAMP_HERO.frames;
+    const sx = (f % CAMP_HERO.cols) * CAMP_HERO.fs;
+    const sy = Math.floor(f / CAMP_HERO.cols) * CAMP_HERO.fs;
+    const d = 140;                                    // 64px ampliado, pés ancorados na sombra
+    heroCtx.drawImage(CAMP_HERO_IMG, sx, sy, CAMP_HERO.fs, CAMP_HERO.fs,
+                      110 - d/2, 118 - d*0.86, d, d);
+    return;
+  }
   const fs = UNITS[spr].fs;
   const img = IMGS[spr + '.idle'];
   if (img && img.naturalWidth){
@@ -2200,6 +2452,15 @@ function loop(t){
   const dt = Math.min(50, t - last); last = t;
   if (!$('#battle').classList.contains('hidden') && W > 0){
     [player, ...enemies].filter(Boolean).forEach(a => updateActor(a, dt));
+    if (marching){                                   // 🚶 o corredor flui para trás
+      roadScroll += dt * 0.0022;
+      for (const s of scenery){
+        const spd = dt * 0.00055 * (s.bg ? 0.25 : 1) * (0.3 + s.y);
+        s.y += spd;                                  // aproxima da câmera…
+        s.x = 0.5 + (s.x - 0.5) * (1 + spd*1.8);     // …abrindo para as laterais
+        s.w *= 1 + spd*1.2;                          // …e crescendo em perspectiva
+      }
+    }
     floats.forEach(f => f.el += dt);
     updateFx(dt);
     draw(t);
@@ -2246,6 +2507,14 @@ function renderMenu(){
     : '· golpes: ' + habCount() + '/' + habSkills().length +
       ' — próx. no Nv. ' + (habCount() + 1) * HAB_STEP;
   renderShieldIcon();
+  /* 🎯 barrinhas de marco: mostram quanto falta pro próximo ciclo de 5 upgrades */
+  for (const k of ['vida', 'atk', 'def', 'hab']){
+    const bar = $('#mb-' + k); if (!bar) continue;
+    const capped = k === 'hab' && habCount() >= habSkills().length;
+    const fill = capped ? 5 : (S.lv[k] || 0) % 5;
+    bar.classList.toggle('full', capped);
+    bar.querySelectorAll('span').forEach((sp, i) => sp.classList.toggle('on', i < fill));
+  }
   $('#nTocha').textContent = S.tochas;
   $('#nMapa').textContent = S.mapas;
   $('#bestTag').textContent = 'Masmorras conquistadas: ' + S.wins;
@@ -2897,15 +3166,15 @@ function heroStagger(dmg, inCombo){
   stagger = Math.min(100, stagger + Math.max(6, Math.round(dmg * 140 / S.maxhp)));
 }
 function shakeApp(){ $('#app').classList.add('shake'); setTimeout(() => $('#app').classList.remove('shake'), 400); }
-/* ancora o menu flutuante ao lado do herói, voltado para o centro do campo */
+/* ancora o menu flutuante na borda direita do campo, em arco para dentro —
+   com o herói no centro do corredor, o arco colado nele estourava a tela */
 function placeCmds(){
   if (!player || !W) return;
   const c = $('#cmds');
-  const arcRight = enemySide === 'right';             // herói à esquerda → arco abre p/ direita (e vice-versa)
-  c.classList.toggle('arcRight', arcRight);
-  c.classList.toggle('arcLeft', !arcRight);
-  c.style.top = Math.round(player.homeY) + 'px';
-  c.style.left = Math.round(player.homeX + (arcRight ? 1 : -1) * player.size*0.62) + 'px';
+  c.classList.remove('arcRight');
+  c.classList.add('arcLeft');
+  c.style.top = Math.round(player.homeY - player.size*0.10) + 'px';
+  c.style.left = Math.round(W - 8) + 'px';
 }
 /* 🎯 dispõe os botões de uma submenu em arco ao redor da âncora de #cmds
    (estilo Clair Obscur: Expedition 33); espelha o ângulo quando o arco abre p/ esquerda. */
@@ -3135,7 +3404,9 @@ async function tutDummyAttack(type){
   renderHUD();
   en.warn = true;
   showMoveName(type === 'jump' ? '⚔ Rasteira de Treino' : '⚔ Golpe de Treino');
-  await tween(en, frontOfHero(), player.y, 380, 'run');
+  en.flip = player.homeX < en.x;                     // corre encarando o herói
+  await tween(en, ...engageHero(en), 380, 'run');
+  en.flip = en.x > player.homeX;
   en.anim = 'idle'; en.frame = 0;
   await wait(250);
   const r = await runQte(type, '', 1400);
@@ -3144,9 +3415,9 @@ async function tutDummyAttack(type){
   applyHit(en, type, r, 5);
   await swing;
   en.warn = false;
-  en.flip = !eFlip();
+  en.flip = en.homeX < en.x;                         // volta olhando o caminho
   await tween(en, en.homeX, en.homeY, 380, 'run');
-  en.flip = eFlip(); en.anim = 'idle';
+  en.flip = inwardFlip(en); en.anim = 'idle';
   return r;
 }
 
@@ -3177,10 +3448,10 @@ async function startTutorial(){
   targetIdx = 0;
   layoutActors();
   renderHUD();
-  enemies[0].x = W + 60; enemies[0].y = enemies[0].homeY;
+  enemies[0].x = enemies[0].homeX; enemies[0].y = H*0.18;   // surge no fundo do corredor
   setTurn(null);
   await tween(enemies[0], enemies[0].homeX, enemies[0].homeY, 700, 'run');
-  enemies[0].anim = 'idle';
+  enemies[0].anim = 'idle'; enemies[0].flip = inwardFlip(enemies[0]);
 
   await tutMsg('🎓 <b>Campo de Treinamento</b><br>Vamos aprender a lutar contra o Boneco de Treino!');
 
@@ -3291,8 +3562,12 @@ async function startWave(){
   layoutActors();
   player.x = px; player.y = py;                      // herói corre até o novo canto
   renderHUD();
-  /* inimigos entram correndo pelo lado sorteado */
-  enemies.forEach((en, i) => { en.x = enemySide === 'right' ? W + 60 + i*70 : -60 - i*70; en.y = en.homeY; });
+  /* inimigos surgem no fundo do corredor e vêm pela estrada */
+  enemies.forEach((en, i) => {
+    en.x = W*0.5 + (en.homeX - W*0.5)*0.3;
+    en.y = H*0.20 - i*12;
+    en.flip = en.homeX < en.x;                       // corre olhando o caminho
+  });
   log(wave === 3
     ? '⚔ ' + (enemies[0].art || 'O') + ' ' + enemies[0].name + ' surge das sombras' + (enemies.length > 1 ? ' com sua escolta!' : '!')
     : 'Onda ' + wave + '/3 — monstros à vista!');
@@ -3309,7 +3584,7 @@ async function startWave(){
     }),
   ]);
   player.anim = 'idle'; player.flip = pFlip();
-  enemies.forEach(en => { en.anim = 'idle'; en.frame = 0; });
+  enemies.forEach(en => { en.anim = 'idle'; en.frame = 0; en.flip = inwardFlip(en); });
   startRound();                                      // rola a iniciativa da primeira rodada
 }
 
@@ -3457,7 +3732,7 @@ async function playerAttack(){
   phase = 'busy'; setCmds(false);
   const en = enemies[targetIdx];
   /* corre até o alvo, golpeia (2× com a Gema do Eco), volta */
-  await tween(player, frontOfEnemy(en), en.y, 340, 'run');
+  await tween(player, ...engageEnemy(en), 340, 'run');
   const strikes = gemLv('eco') ? 2 : 1;
   const echoMul = 0.375 + 0.125 * gemLv('eco');    // Nv.1 50% … Nv.5 100%
   for (let i = 0; i < strikes && !en.dead; i++){
@@ -3505,9 +3780,21 @@ async function playerReturn(){
 async function waveCleared(){
   if (aliveIdx().length > 0) return false;
   if (TUT){ tutEvent('cleared'); return true; }      // treino: sem onda seguinte
-  if (wave < 3){ wave++; log('Onda vencida! Prepare-se…'); await wait(900); startWave(); }
+  if (wave < 3){ wave++; log('Onda vencida! Avançando pelo corredor…'); await wait(700); await marchForward(); startWave(); }
   else victory();
   return true;
+}
+
+/* 🚶 marcha entre ondas: o herói anda corredor adentro sem sair do lugar —
+   é o cenário que flui para trás (chão rolando e adereços passando pela
+   câmera; o loop() cuida do deslocamento enquanto 'marching' estiver ligado) */
+let marching = false;
+async function marchForward(ms = 2000){
+  marching = true;
+  player.anim = 'run'; player.frame = 0; player.forceDir = 4;   // N: andando de costas
+  await wait(ms);
+  marching = false; player.forceDir = null;
+  player.anim = 'idle'; player.frame = 0;
 }
 
 /* ---- golpe especial FÚRIA: consome só a fatia de fúria usada na potência obtida ---- */
@@ -3517,8 +3804,7 @@ async function playerSpecial(){
   phase = 'busy'; closeSpec(); setCmds(false);
   fury = Math.max(0, fury - sp.cost); exhausted = true;   // custo: perde a próxima rodada
   const targets = sp.aoe ? enemies.filter(e => !e.dead) : [enemies[targetIdx]];
-  const tx = sp.aoe ? mirrorX(W*0.55) : frontOfEnemy(targets[0]);
-  const ty = sp.aoe ? H*0.38 : targets[0].y;
+  const [tx, ty] = sp.aoe ? [W*0.50, H*0.56] : engageEnemy(targets[0]);
   log(sp.aoe ? '⚡ FÚRIA TOTAL! Golpe giratório em TODOS!' : '⚡ Golpe de fúria (×' + sp.m + ')!');
   await tween(player, tx, ty, 320, 'run');
   const hit = playOnce(player, 'attack');
@@ -3558,7 +3844,7 @@ async function playerBlade(){
   phase = 'busy'; closeSpec(); setCmds(false);
   fury = Math.max(0, fury - hits); exhausted = true;   // custo: a fúria investida, perde a próxima rodada
   log('👻 LÂMINA INVISÍVEL! ' + hits + (hits > 1 ? ' golpes relâmpago!' : ' golpe relâmpago!'));
-  await tween(player, mirrorX(W*0.55), H*0.38, 260, 'run');
+  await tween(player, W*0.50, H*0.56, 260, 'run');
   const hit = playOnce(player, 'attack');
   await wait(160);
   SFX.play('crit');
@@ -3648,7 +3934,7 @@ async function playerSeq(){
     return;
   }
   const en = enemies[targetIdx];
-  await tween(player, frontOfEnemy(en), en.y, 300, 'run');
+  await tween(player, ...engageEnemy(en), 300, 'run');
   const hit = playOnce(player, 'attack');
   await wait(200);
   if (mult >= 1.5) shakeApp();
@@ -3722,7 +4008,7 @@ async function playerCombo(){
   renderHUD();
   const en = enemies[targetIdx];
   log('🗡 COMBO de ' + n + ' golpes em ' + en.name + '! Acerte o tempo de cada um!');
-  await tween(player, frontOfEnemy(en), en.y, 320, 'run');
+  await tween(player, ...engageEnemy(en), 320, 'run');
   let landed = 0;
   for (let i = 0; i < n && !en.dead; i++){
     const r = await comboQte((i+1) + '/' + n);
@@ -4085,8 +4371,11 @@ async function enemyAttack(en){
   log(combo.length > 1
     ? '⚠ ' + en.name + ' prepara: ' + mv.name + ' (' + combo.length + ' golpes)!'
     : '⚠ ' + en.name + ' prepara: ' + mv.name + '!');
-  if (!ranged) await tween(en, frontOfHero(), player.y, 380, 'run');
-  else await wait(380);
+  if (!ranged){
+    en.flip = player.homeX < en.x;                   // corre encarando o herói
+    await tween(en, ...engageHero(en), 380, 'run');
+    en.flip = en.x > player.homeX;
+  } else await wait(380);
   en.anim = 'idle'; en.frame = 0;
   await wait(220);
 
@@ -4140,9 +4429,9 @@ async function enemyAttack(en){
   }
   en.warn = false;
   if (!ranged && !en.dead){
-    en.flip = !eFlip();                              // volta olhando para trás
+    en.flip = en.homeX < en.x;                       // volta olhando o caminho
     await tween(en, en.homeX, en.homeY, 380, 'run');
-    en.flip = eFlip(); en.anim = 'idle';
+    en.flip = inwardFlip(en); en.anim = 'idle';
   }
 }
 
@@ -4239,7 +4528,7 @@ function applyHit(en, type, result, atk, inCombo){
     }
   } else if (result === 'perfect'){
     dmg = 0;
-    playOnce(player, 'guard');
+    playOnce(player, guardAnim());
     SFX.play('parry');
     addFloat(player, 'PARRY!', '#fbbf24', true);
     gainFury(1);                                     // parry perfeito também dá fúria
@@ -4259,7 +4548,7 @@ function applyHit(en, type, result, atk, inCombo){
     fieldFx('good');
   } else if (result === 'block'){
     dmg = Math.max(0, atk - S.def);
-    playOnce(player, 'guard');
+    playOnce(player, guardAnim());
     SFX.play('block');
     addFloat(player, '-' + dmg, '#a78bfa');
     gainFury(1);                                     // bloqueio também gera fúria
@@ -4309,8 +4598,11 @@ function tryJump(){
   qte.classList.add('dodged');
   qte.querySelector('.tip').textContent = '🦘 ESQUIVA! ATAQUE NO AR!';
   (async () => {                                     // animação: salto rápido
-    await tween(player, player.x, player.homeY - player.size*0.55, 150, 'run');
-    await tween(player, player.x, player.homeY, 180, 'run');
+    /* 🦘 guerreiro usa o sheet novo de pulo em 8 direções; demais heróis, o run */
+    const jAnim = (player.unit === 'warrior' && JUMP8_IMG.naturalWidth) ? 'jump8' : 'run';
+    if (jAnim === 'jump8') player.jump8T = performance.now();
+    await tween(player, player.x, player.homeY - player.size*0.55, 150, jAnim);
+    await tween(player, player.x, player.homeY, 180, jAnim);
     player.anim = 'idle';
   })();
 }
@@ -4358,8 +4650,11 @@ function trySide(){
   qte.querySelector('.tip').textContent = '💨 ESQUIVA LATERAL!';
   (async () => {                                     // animação: dash para o lado e volta
     const dir = enemySide === 'right' ? -1 : 1;
-    await tween(player, player.homeX + dir*player.size*0.7, player.homeY, 140, 'run');
-    await tween(player, player.homeX, player.homeY, 180, 'run');
+    /* 💨 guerreiro usa o sheet novo de esquiva, travado na direção do deslize */
+    const sAnim = (player.unit === 'warrior' && DODGE8_IMG.naturalWidth) ? 'dodge8' : 'run';
+    if (sAnim === 'dodge8'){ player.dodge8T = performance.now(); player.dodge8P = atk8Pos(dir, 0); }
+    await tween(player, player.homeX + dir*player.size*0.7, player.homeY, 140, sAnim);
+    await tween(player, player.homeX, player.homeY, 180, sAnim);
     player.anim = 'idle';
   })();
 }
