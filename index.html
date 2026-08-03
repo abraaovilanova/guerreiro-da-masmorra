@@ -1441,6 +1441,7 @@ const save = () => {
 
 /* ---------- estado da run ---------- */
 let hp = S.maxhp, wave = 1, potions = 3, adrenaline = 3;
+let flawless = true;                // 💎 run perfeita: nenhum dano sofrido → prêmios em dobro
 let fury = 0;                       // ⚡ contador 0–5: +1 por defesa/dano sofrido, gasto nos especiais
 let exhausted = false;              // após um especial, o herói perde a próxima rodada
 let stagger = 0;                    // 0–100 exaustão do herói: enche ao sofrer dano
@@ -2770,7 +2771,7 @@ function startDuel(id){
   $('#menu').classList.add('hidden');
   $('#battle').classList.remove('hidden');
   MUSIC.battle();
-  hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null;
+  hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null; flawless = true;
   stagger = 0; guardBroken = false;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
@@ -3151,7 +3152,7 @@ async function tutDummyAttack(type){
 
 async function startTutorial(){
   battleBiome = 'castelo';                            // treino no cenário familiar
-  hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null;
+  hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null; flawless = true;
   stagger = 0; guardBroken = false;
   rocksLeft = 0; rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
@@ -3261,7 +3262,7 @@ async function startRun(){
   /* a cada 5 entradas na masmorra, um vídeo de propaganda */
   S.entries = (S.entries || 0) + 1; save();
   if (S.entries % 5 === 0) await ADS.showInterstitial();
-  hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null;
+  hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null; flawless = true;
   stagger = 0; guardBroken = false;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
@@ -3316,6 +3317,7 @@ function beginPlayerTurn(){
   /* 🧨 dinamites grudadas: 1 explode no início de cada rodada do herói */
   if (dynamite > 0){
     dynamite--;
+    if (dynPower > 0) flawless = false;
     hp = Math.max(0, hp - dynPower);
     player.flash = 1;
     spawnExplosion(player.x, player.y - player.size*0.15, player.size*0.9);
@@ -3328,6 +3330,7 @@ function beginPlayerTurn(){
   /* encantamentos do Monge agem no início do turno do herói */
   if (curse){
     if (curse.type === 'dot'){
+      if (curse.power > 0) flawless = false;
       hp = Math.max(0, hp - curse.power);
       player.flash = 1;
       addFloat(player, '-' + curse.power + ' ☠', '#c084fc', true);
@@ -3408,6 +3411,7 @@ async function goblinBoom(en){
     log('💨 Você deslizou para o lado — a explosão de ' + en.name + ' não te alcançou!');
     fieldFx('good');
   } else {
+    if (dmg > 0) flawless = false;
     hp = Math.max(0, hp - dmg);
     player.flash = 1;
     SFX.play('hurt');
@@ -4278,6 +4282,7 @@ function applyHit(en, type, result, atk, inCombo){
     addFloat(player, '🛡️ -' + absorvido, '#60a5fa');
     log('🛡️ A couraça arcana absorveu ' + absorvido + ' de dano!');
   }
+  if (dmg > 0) flawless = false;
   hp = Math.max(0, hp - dmg);
   renderHUD();
 }
@@ -4373,9 +4378,13 @@ function victory(){
   if (duel) return duelVictory();                     // 🦸 vitória de duelo não conta como masmorra
   phase = 'menu';
   const conqueredLv = S.dgLv;                          // nível vencido agora, antes do ++ abaixo
-  const bonus = Math.round((150 + 60*(S.dgLv-1)) * ngMult());
+  /* 💎 masmorra vencida sem sofrer nenhum dano: ouro e Souls em dobro */
+  const perfect = flawless;
+  const bonus = Math.round((150 + 60*(S.dgLv-1)) * ngMult()) * (perfect ? 2 : 1);
   /* 📜 o chefe da masmorra 1 e os das masmorras 5, 10, 15 derrubam um pergaminho de gema */
-  let scrollMsg = '';
+  let scrollMsg = perfect
+    ? '<br>💎 <b>PERFEITO — nenhum dano sofrido!</b> Ouro e Souls em dobro!<br>'
+    : '';
   if (S.dgLv === 1 || S.dgLv % 5 === 0){
     const nova = GEM_ORDER.find(id => !S.gemas.un.includes(id));
     if (nova){
@@ -4385,9 +4394,12 @@ function victory(){
     }
   }
   S.gold += bonus; S.wins++;
-  /* 💠 todo chefe derrotado deixa uma Soul — ela revive o herói onde ele caiu */
-  S.souls++;
-  scrollMsg += '<br><img class="icn" src="assets/soul.png" alt=""> O chefe deixou uma <b>Soul</b>! ' +
+  /* 💠 todo chefe derrotado deixa uma Soul (duas na run perfeita) —
+     ela revive o herói onde ele caiu */
+  const soulsWon = perfect ? 2 : 1;
+  S.souls += soulsWon;
+  scrollMsg += '<br><img class="icn" src="assets/soul.png" alt=""> O chefe deixou ' +
+               (soulsWon > 1 ? '<b>' + soulsWon + ' Souls</b>' : 'uma <b>Soul</b>') + '! ' +
                'Se você cair em batalha, use-a para continuar de onde parou. (Total: <b>' + S.souls + '</b>)<br>';
   if (S.dgLv >= DUNGEON_CAP) return gameComplete(bonus, scrollMsg);   // 👑 masmorra 33: fim do ciclo
   S.dgLv++;
@@ -4702,6 +4714,7 @@ function magoCastMorte(){
   if (hand.length){
     const dano = Math.round(hand.reduce((s, c) => s + (c.base || 0), 0) * cardAtkMul());
     hand = [];
+    if (dano > 0) flawless = false;
     hp = Math.max(0, hp - dano);
     player.flash = 1; SFX.play('hurt');
     addFloat(player, '-' + dano + ' ☠️', '#f87171', true);
