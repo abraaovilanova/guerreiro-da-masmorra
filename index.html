@@ -380,19 +380,34 @@
   .tchip.done{opacity:.18;filter:grayscale(1)}
   .tchip canvas,.tchip img{width:30px;height:30px;image-rendering:pixelated}
 
-  /* menu em arco ao lado do herói, estilo Clair Obscur: Expedition 33 —
-     #cmds é só um ponto-âncora (sem fundo); cada botão flutua isolado,
-     posicionado em arco por arcLayout() (left/top em px, calculados por JS). */
-  #cmds{ position:absolute;z-index:4; }
-  #cmdMain,#cmdPot{ position:absolute;inset:0; }
+  /* menu de comandos: lista vertical encostada na lateral do campo — o arco
+     brigava com a câmera atrás do herói (os botões cruzavam a estrada e o
+     próprio guerreiro). #cmds continua sem fundo: cada botão flutua isolado. */
+  #cmds{
+    position:absolute;z-index:4;translate:0 -50%;
+    display:flex;flex-direction:column;pointer-events:none;
+    /* é só uma âncora: anula o visual de .card (com os botões em fluxo, o
+       fundo do card voltaria a aparecer e taparia o herói) */
+    background:none;border:none;box-shadow:none;padding:0;
+  }
+  /* largura = a do item mais largo, e todos esticam nela: com larguras soltas
+     o botão maior era o único a avançar sobre o herói */
+  #cmdMain,#cmdPot{
+    display:flex;flex-direction:column;gap:5px;
+    align-items:stretch;width:max-content;pointer-events:auto;
+  }
   #cmds button{
-    position:absolute;left:0;top:0;translate:-50% -50%;
     font-size:12px;font-weight:700;padding:7px 10px;background:none;border:none;
-    text-align:center;overflow:hidden;border-radius:8px;white-space:nowrap;
-    transition:left .16s ease,top .16s ease;
+    text-align:left;overflow:hidden;border-radius:8px;white-space:nowrap;
+    position:relative;
   }
   #cmds button:not(:disabled):active{color:var(--accent)}
-  #cmds .cur{display:none}                            /* seta ▶ não cabe/não combina no arco */
+  #cmds .cur{margin-right:3px;color:var(--accent)}    /* ▶ cabe de volta na lista */
+  #cmds button:disabled .cur{visibility:hidden}
+  /* telas estreitas: encolhe a lista para não cobrir o herói no meio da estrada */
+  @media (max-width:400px){
+    #cmds button{ font-size:11px;padding:6px 8px; }
+  }
   /* barra de carga: segure o comando para ativar */
   #cmds button.hold::after{
     content:"";position:absolute;inset:0;pointer-events:none;
@@ -1471,6 +1486,7 @@ const save = () => {
 
 /* ---------- estado da run ---------- */
 let hp = S.maxhp, wave = 1, potions = 3, adrenaline = 3;
+let runGold = 0;   // 🪙 ouro coletado NESTA masmorra — a morte custa metade dele
 let flawless = true;                // 💎 run perfeita: nenhum dano sofrido → prêmios em dobro
 let fury = 0;                       // ⚡ contador 0–5: +1 por defesa/dano sofrido, gasto nos especiais
 let exhausted = false;              // após um especial, o herói perde a próxima rodada
@@ -1788,8 +1804,23 @@ const item = (key, x, y, w, opt = {}) => {
   return { src, sx, sy, sw, sh, x, y, w, alpha: opt.alpha ?? 0.9, mirror: !!opt.mirror, bg: !!opt.bg };
 };
 const treeKey = () => ['treeBig','treeMed','treeSm'][rnd(0,2)];
+
+/* 🛣️ CHÃO DA ESTRADA (assets/biomas — folhas do PixelLab) ----------------
+   Cada arquivo é uma grade 4×4 de variantes com 1px de separação, então a
+   célula (r,c) começa em (c*(ts+1), r*(ts+1)). As células vêm com uma faixa
+   escura de "espessura" no topo e na base; 'top'/'bot' recortam só o miolo
+   aproveitável, senão viram tarjas pretas entre as fileiras da estrada.
+   'row' = qual linha da folha (o material), 'vars' = quantas variantes usar. */
+const GROUND = {
+  road:     { src:'assets/biomas/1._Road_floor_tile_a_seamless_repeatable_64_64.png', ts:32, top:5, bot:27, vars:4 },
+  forest:   { src:'assets/biomas/forest_land.png',                  ts:64, top:10, bot:53, vars:4 },
+  cracked:  { src:'assets/biomas/cracked_stone_from_the_ruins.png', ts:64, top:10, bot:53, vars:4 },
+  slabs:    { src:'assets/biomas/cemetery_slabs.png',               ts:64, top:10, bot:53, vars:4 },
+};
+const ground = (base, row, extra) => Object.assign({}, GROUND[base], { row }, extra || {});
+
 const BIOMES = {
-  castelo: { nome:'Castelo', build(cfg){
+  castelo: { nome:'Castelo', ground:ground('road', 0), build(cfg){
     const B = 'Tiny Swords (Free Pack)/Buildings/' + cfg.bdir;
     const D = 'Tiny Swords (Free Pack)/Terrain/Decorations/';
     return [
@@ -1800,7 +1831,10 @@ const BIOMES = {
       { src:D+'Rocks/Rock'+rnd(1,4)+'.png',   x:0.13,y:0.87,w:0.13,alpha:0.45 },
     ];
   }},
-  floresta: { nome:'Floresta', tint:'rgba(30,74,28,.16)', build(){ return [
+  /* 🌲 trilha de terra batida: as células de mato (forest_land) variam demais
+     de cor entre si e a estrada saía remendada — vira canteiro esparso */
+  floresta: { nome:'Floresta', tint:'rgba(30,74,28,.16)',
+    ground:ground('road', 1, { mix:GROUND.forest, mixRow:2, mixOdds:7 }), build(){ return [
     item('treeBig', 0.82,0.18,0.30,{mirror:true,bg:true,alpha:0.95}),
     item('treeMed', 0.14,0.16,0.22,{bg:true,alpha:0.85}),
     item(treeKey(), 0.60,0.10,0.17,{mirror:true,bg:true,alpha:0.7}),
@@ -1808,7 +1842,10 @@ const BIOMES = {
     item('bush', 0.90,0.64,0.15,{mirror:false,alpha:0.9}),
     item('bush', 0.15,0.88,0.12,{alpha:0.8}),
   ];}},
-  cemiterio: { nome:'Cemitério', tint:'rgba(64,64,96,.20)', build(){ return [
+  /* 🪦 no cemitério a calçada de pedra às vezes dá lugar a uma lápide deitada
+     (mix: 1 em cada 6 células vem da folha de lápides) */
+  cemiterio: { nome:'Cemitério', tint:'rgba(64,64,96,.20)',
+    ground:ground('road', 2, { mix:GROUND.slabs, mixRow:0, mixOdds:6 }), build(){ return [
     item('statue', 0.80,0.16,0.15,{mirror:true,bg:true,alpha:0.9}),
     item('cross',  0.15,0.20,0.09,{bg:true,alpha:0.85}),
     item('cross',  0.62,0.12,0.07,{mirror:true,bg:true,alpha:0.7}),
@@ -1816,7 +1853,9 @@ const BIOMES = {
     item('rockBig',0.10,0.60,0.13,{alpha:0.85}),
     item('cross',  0.90,0.66,0.10,{alpha:0.85}),
   ];}},
-  ruinas: { nome:'Ruínas', tint:'rgba(76,58,40,.18)', build(){ return [
+  /* 🏛️ linha 0 da folha: as 4 variantes partem do mesmo cinza (as outras
+     misturam bases marrons e a laje ficava manchada) */
+  ruinas: { nome:'Ruínas', tint:'rgba(76,58,40,.18)', ground:ground('cracked', 0), build(){ return [
     item('statue', 0.82,0.17,0.14,{mirror:true,bg:true,alpha:0.85}),
     item(treeKey(),0.14,0.13,0.18,{bg:true,alpha:0.5}),
     item('crate',  0.60,0.14,0.08,{mirror:true,bg:true,alpha:0.9}),
@@ -1834,6 +1873,10 @@ function buildScenery(){
   const b = BIOMES[battleBiome] || BIOMES.castelo;
   tileSrc = b.floor ? b.floor.src : 'Tiny Swords (Free Pack)/Terrain/Tileset/' + cfg.tiles;
   loadDecor(tileSrc);
+  if (b.ground){                                     // 🛣️ folhas novas de chão (assets/biomas)
+    loadDecor(b.ground.src);
+    if (b.ground.mix) loadDecor(b.ground.mix.src);
+  }
   scenery = b.build(cfg);
   scenery.forEach(s => loadDecor(s.src));
 }
@@ -1857,6 +1900,53 @@ function drawPlatform(img, cx, cy, w, h, sx, sy, single){
    roadScroll desloca as divisas das fileiras — na marcha entre ondas o chão
    "flui" para a câmera, como se o herói avançasse pelo corredor. */
 let roadScroll = 0;
+/* geometria única do corredor (o recorte e o chão precisam bater) */
+const roadGeom = () => ({ yTop:H*0.30, yBot:H*1.02, wTop:W*0.40, wBot:W*1.15, rows:8, cols:5 });
+const roadEase = t => t*t*0.6 + t*0.4;               // fatias próximas crescem mais rápido
+/* ruído estável por célula: a variante não pode sortear a cada frame (piscaria),
+   e precisa acompanhar a fileira quando a estrada rola */
+function cellHash(a, b){
+  let h = Math.imul(a | 0, 73856093) ^ Math.imul(b | 0, 19349663);
+  h = (h ^ (h >>> 13)) >>> 0;
+  return h;
+}
+/* 🛣️ chão do bioma (folhas do PixelLab): fatias em perspectiva recortadas
+   num trapézio contínuo — sem o recorte, cada fatia tem largura própria e a
+   estrada vira uma escada. Cada célula sorteia uma variante da linha. */
+function drawGround(g){
+  const img = DECOR_IMGS[g.src];
+  if (!img || !img.naturalWidth) return false;
+  const mix = g.mix ? DECOR_IMGS[g.mix.src] : null;
+  const { yTop, yBot, wTop, wBot, rows, cols } = roadGeom();
+  ctx.save();
+  ctx.beginPath();                                   // silhueta lisa do corredor
+  ctx.moveTo((W-wTop)/2, yTop); ctx.lineTo((W+wTop)/2, yTop);
+  ctx.lineTo((W+wBot)/2, yBot); ctx.lineTo((W-wBot)/2, yBot);
+  ctx.closePath();
+  ctx.clip();
+  const frac = ((roadScroll % 1) + 1) % 1, base = Math.floor(roadScroll);
+  for (let i = -1; i <= rows; i++){
+    const t0 = Math.max(0, (i + frac) / rows), t1 = Math.min(1, (i + 1 + frac) / rows);
+    if (t1 <= t0) continue;
+    const e0 = roadEase(t0), e1 = roadEase(t1);
+    const ya = yTop + (yBot-yTop)*e0, yb = yTop + (yBot-yTop)*e1;
+    const w = wTop + (wBot-wTop)*e0, tw = w/cols;
+    const x0 = (W - w)/2;
+    /* desenha além das bordas: quem define a silhueta é o recorte acima */
+    for (let c = -2; c < cols + 2; c++){
+      const h = cellHash(c, i - base);
+      const useMix = mix && g.mixOdds && (h % g.mixOdds) === 0;
+      const src = useMix ? mix : img, cfgS = useMix ? g.mix : g;
+      const row = useMix ? (g.mixRow || 0) : (g.row || 0);
+      const v = (h >>> 4) % (cfgS.vars || 1);
+      const st = cfgS.ts + 1;                        // 1px de separação entre células
+      ctx.drawImage(src, v*st, row*st + cfgS.top, cfgS.ts, cfgS.bot - cfgS.top,
+                    x0 + c*tw, ya, tw + 0.6, yb - ya + 0.6);
+    }
+  }
+  ctx.restore();
+  return true;
+}
 function drawRoad(img, sx, sy, single){
   if (!img || !img.naturalWidth) return;
   const T = 64, rows = 8, cols = 5;
@@ -1898,9 +1988,11 @@ function drawSceneryItems(list){
 function drawScenery(){
   const timg = DECOR_IMGS[tileSrc];                  // terreno primeiro (chão)
   const b = BIOMES[battleBiome];                     // 🌍 clima do bioma (leve tinta de cor)
-  if (timg){
+  /* 🛣️ estrada rumo ao horizonte: chão do bioma (assets/biomas) e, se ele
+     ainda não carregou, o tileset antigo como reserva */
+  if (!(b && b.ground && drawGround(b.ground)) && timg){
     const fsx = b && b.floor ? b.floor.sx : 0, fsy = b && b.floor ? b.floor.sy : 0, fsingle = b && b.floor && b.floor.single;
-    drawRoad(timg, fsx, fsy, fsingle);               // 🛣️ estrada rumo ao horizonte
+    drawRoad(timg, fsx, fsy, fsingle);
   }
   if (b && b.tint){ ctx.fillStyle = b.tint; ctx.fillRect(0, 0, W, H); }
   drawSceneryItems(scenery.filter(s => s.bg));       // estruturas/árvores ao fundo
@@ -3041,7 +3133,7 @@ function startDuel(id){
   $('#battle').classList.remove('hidden');
   MUSIC.battle();
   hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null; flawless = true;
-  stagger = 0; guardBroken = false;
+  stagger = 0; guardBroken = false; runGold = 0;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
   if (heroClass === 'mago') magoResetHand();
@@ -3166,39 +3258,27 @@ function heroStagger(dmg, inCombo){
   stagger = Math.min(100, stagger + Math.max(6, Math.round(dmg * 140 / S.maxhp)));
 }
 function shakeApp(){ $('#app').classList.add('shake'); setTimeout(() => $('#app').classList.remove('shake'), 400); }
-/* ancora o menu flutuante na borda direita do campo, em arco para dentro —
-   com o herói no centro do corredor, o arco colado nele estourava a tela */
+/* ancora a lista de comandos na lateral direita do campo, centrada na altura
+   do herói (que agora fica no meio do corredor, não mais num canto) */
 function placeCmds(){
   if (!player || !W) return;
   const c = $('#cmds');
-  c.classList.remove('arcRight');
-  c.classList.add('arcLeft');
-  c.style.top = Math.round(player.homeY - player.size*0.10) + 'px';
-  c.style.left = Math.round(W - 8) + 'px';
+  c.style.left = '';
+  c.style.right = '6px';
+  c.style.top = Math.round(player.homeY - player.size*0.12) + 'px';
 }
 /* 🎯 dispõe os botões de uma submenu em arco ao redor da âncora de #cmds
    (estilo Clair Obscur: Expedition 33); espelha o ângulo quando o arco abre p/ esquerda. */
-function arcLayout(menuSel, spread, radius){
-  const btns = $(menuSel).querySelectorAll('button');
-  const n = btns.length;
-  const arcRight = $('#cmds').classList.contains('arcRight');
-  btns.forEach((b, i) => {
-    const t = n > 1 ? (i/(n-1) - 0.5) : 0;
-    const deg = t * spread;
-    const a = (arcRight ? deg : 180 - deg) * Math.PI/180;
-    b.style.left = Math.round(Math.cos(a) * radius) + 'px';
-    b.style.top  = Math.round(Math.sin(a) * radius) + 'px';
-  });
+/* a lista vertical é puro CSS (flex) — sobrou só a limpeza das coordenadas
+   que o antigo arco gravava inline nos botões */
+function clearArcCoords(){
+  $('#cmds').querySelectorAll('button').forEach(b => { b.style.left = ''; b.style.top = ''; });
 }
 function setCmds(on){
   $('#cmds').classList.toggle('hidden', !on);   // menu de ataque só na vez do herói
   $('#arrL').classList.toggle('hidden', !on);   // setas de alvo idem
   $('#arrR').classList.toggle('hidden', !on);
-  if (on){
-    placeCmds();
-    arcLayout('#cmdMain', 130, 100);
-    arcLayout('#cmdPot', 110, 85);
-  }
+  if (on){ placeCmds(); clearArcCoords(); }
   $('#cAtk').disabled = !on;
   /* ✨ o menu de especiais só abre se o herói já aprendeu algum golpe (Habilidade) */
   $('#cSpec').disabled = !on || fury < 1 || habCount() === 0;
@@ -3534,7 +3614,7 @@ async function startRun(){
   S.entries = (S.entries || 0) + 1; save();
   if (S.entries % 5 === 0) await ADS.showInterstitial();
   hp = S.maxhp; wave = 1; potions = 3; adrenaline = 3; fury = 0; exhausted = false; curse = null; flawless = true;
-  stagger = 0; guardBroken = false;
+  stagger = 0; guardBroken = false; runGold = 0;
   rocksLeft = rocksPerRound(); rockDrag = null; rockFly = null;
   dynamite = 0; dynPower = 0; dynFly = null; pendingBooms = [];
   if (heroClass === 'mago') magoResetHand();         // 🃏 mão zerada a cada masmorra
@@ -3641,7 +3721,7 @@ function beginPlayerTurn(){
 /* ---- morte do monstro: 💥 explosão, some da tela e paga o ouro ---- */
 function slayEnemy(en){
   en.dead = true;
-  S.gold += en.gold; save();                         // ouro do abate é seu mesmo morrendo depois
+  S.gold += en.gold; runGold += en.gold; save();     // morrer custa metade do ouro da masmorra
   addFloat(en, '+' + en.gold + ' 🪙', '#fbbf24');
   if (en.fire) spawnExplosion(en.x, en.y, en.size * 1.5);     // 🔥 goblins explodem
   else spawnSkull(en.x, en.y + en.size*0.05, en.size * 1.1);  // 💀 os demais deixam a caveira
@@ -4768,9 +4848,15 @@ function defeat(){
       HEROES[wasDuel].nome + ' foi forte demais desta vez.<br>Fortaleça seu herói e volte para o duelo!');
     return;
   }
+  /* ☠ pena de morte: metade do ouro coletado NESTA masmorra se perde
+     (reviver com Soul não devolve — e morrer de novo corta a outra metade) */
+  const lost = Math.floor(runGold / 2);
+  if (lost > 0){ S.gold = Math.max(0, S.gold - lost); runGold -= lost; save(); renderHUD(); }
   showOverlay('☠ DERROTA…',
     'O guerreiro caiu na onda ' + wave + '.<br>' +
-    'O ouro coletado (<b>🪙 ' + S.gold + '</b> no total) foi mantido.<br>' +
+    (lost > 0
+      ? 'A queda custou metade do ouro desta masmorra: <b>-' + lost + ' 🪙</b>. Restam <b>🪙 ' + S.gold + '</b> no total.<br>'
+      : 'Você não havia coletado ouro nesta masmorra.<br>') +
     (S.souls > 0
       ? 'Você tem <b>' + S.souls + '</b> <img class="icn-s" src="assets/soul.png" alt="Soul"> — use uma para se reerguer <b>de onde parou</b>!'
       : 'Fortaleça-se e tente de novo!<br><span style="font-size:12px;color:var(--ink-dim)">Dica: chefes derrotados deixam <img class="icn-s" src="assets/soul.png" alt="Souls"> Souls, que revivem você de onde parou.</span>'));
