@@ -79,7 +79,19 @@
   button:disabled{opacity:.35;cursor:default}
 
   /* ============ TELA INICIAL (sem scroll: tudo cabe na tela) ============ */
-  #menu{justify-content:flex-start;gap:12px;overflow-y:auto}
+  #menu{justify-content:flex-start;gap:12px;overflow-y:auto;z-index:0}
+  /* 🎬 fundo em vídeo do acampamento: cobre a tela atrás do conteúdo
+     (z-index:-1 dentro do contexto do #menu), escurecido p/ leitura da UI */
+  #campVideo{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    z-index:-1;pointer-events:none;filter:brightness(.55);
+  }
+  /* 🎬 UI translúcida no acampamento: os painéis deixam o vídeo aparecer.
+     Só os containers de topo levam opacity (evita transparência dupla nos
+     botões aninhados); vale tanto pro visual padrão quanto pro skinned. */
+  #menu .card,
+  #menu .campSide button,
+  #menu #enter{opacity:.82}
   #menu > :first-child{margin-top:auto}
   #menu > :last-child{margin-bottom:auto}
   /* ============ MERCADO ============ */
@@ -572,31 +584,42 @@
 
   <!-- ================= TELA INICIAL: UPGRADES + LOJA ================= -->
   <div class="screen" id="menu">
-    <h1>⚔ Guerreiro da <em>Masmorra</em></h1>
+    <!-- 🎬 vídeo de fundo do acampamento (pausa sozinho fora desta tela) -->
+    <video id="campVideo" src="assets/backgoundvideo.mp4" autoplay muted loop playsinline preload="auto" disablepictureinpicture aria-hidden="true"></video>
     <div id="goldbar">
       <img class="icn" data-ico="icoCoin" alt="ouro"> <span class="num" id="gold">0</span>
       <span style="color:var(--border)">·</span>
       🔥 <span class="num" id="torchN">20</span><span style="font-size:14px;color:var(--ink-dim)">/20</span>
       <span id="torchTimer"></span>
+      <span style="color:var(--border)">·</span>
+      <img class="icn" src="assets/soul.png" alt="souls"> <span class="num" id="soulN">0</span>
     </div>
 
     <div id="campWrap">
       <div class="campSide">
         <button id="openShop">🛒<small>Mercado</small></button>
+        <!-- 🔒 PATCH FUTURO (outros heróis): recrutamento desativado por ora
         <button id="openRecruit">🦸<small>Recrutar</small></button>
+        -->
       </div>
 
       <div class="card" id="herocard">
+        <!-- 🔒 PATCH FUTURO (outros heróis): setas/pontos de troca de herói
         <button id="heroPrev" class="heroArr" aria-label="Herói anterior">◀</button>
         <button id="heroNext" class="heroArr" aria-label="Próximo herói">▶</button>
+        -->
         <canvas id="heroCv" width="220" height="140"></canvas>
         <div class="hname"><img id="menuAva" class="ava" alt=""> <span id="heroName">GUERREIRO</span></div>
         <div class="hsub" id="heroSub">Cavaleiro do acampamento</div>
+        <!-- 🔒 PATCH FUTURO (outros heróis):
         <div id="heroDots"></div>
+        -->
       </div>
 
       <div class="campSide">
+        <!-- 🔒 PATCH FUTURO (mapa-múndi): acesso ao mapa desativado por ora
         <button id="openMap">🗺️<small>Mapa</small></button>
+        -->
         <button id="chestBtn">🎁<small>Baú do Dia</small></button>
       </div>
     </div>
@@ -618,6 +641,11 @@
           <div class="ico"><span id="shieldIco"></span></div>
           <div class="info"><div class="label">Defesa</div><div class="val num" id="mDef">3</div></div>
           <button class="upbtn" data-up="def">+2 defesa<small>🪙 <span class="num">60</span></small></button>
+        </div>
+        <div class="uprow">
+          <div class="ico">✨</div>
+          <div class="info"><div class="label">Habilidade <span id="habInfo" style="font-weight:400;font-size:11px;color:var(--ink-dim)"></span></div><div class="val num" id="mHab">0</div></div>
+          <button class="upbtn" data-up="hab">+1 habilidade<small>🪙 <span class="num">40</span></small></button>
         </div>
       </div>
     </div>
@@ -642,7 +670,7 @@
           <div class="label">Tocha — <span class="num" id="nTocha">0</span>/20</div>
           <div class="desc">A chave da masmorra: 1 por entrada. Recarrega sozinha a cada 10 min; compre para recarregar na hora</div>
         </div>
-        <button class="shopbtn" data-buy="tocha">Comprar<small>🪙 40</small></button>
+        <button class="shopbtn" data-buy="tocha">Comprar<small><img class="icn-s" src="assets/soul.png" alt="Soul"> 1</small></button>
       </div>
       <div class="uprow">
         <div class="ico">🗺️</div>
@@ -650,7 +678,7 @@
           <div class="label">Mapa — <span class="num" id="nMapa">0</span></div>
           <div class="desc">Permite Fugir da masmorra levando todo o ouro coletado (consome 1)</div>
         </div>
-        <button class="shopbtn" data-buy="mapa">Comprar<small>🪙 30</small></button>
+        <button class="shopbtn" data-buy="mapa">Comprar<small><img class="icn-s" src="assets/soul.png" alt="Soul"> 1</small></button>
       </div>
     </div>
     <div class="card">
@@ -728,7 +756,7 @@
             <div id="specTrack">
               <div class="specPage">
                 <button id="cFury">⚡ Fúria <span class="num" id="furyM">(⚡1+)</span></button>
-                <button id="cSeq">☠ Seq. Mortal <span class="num">(⚡2+)</span></button>
+                <button id="cSeq">☠ Seq. Mortal <span class="num" id="seqM">(⚡2+)</span></button>
               </div>
               <div class="specPage">
                 <button id="cCombo">🗡 Combo <span class="num" id="comboM">(⚡1+)</span></button>
@@ -766,6 +794,7 @@
       <div id="ovTitle">VITÓRIA!</div>
       <div id="ovMsg"></div>
       <button id="ovAd" class="hidden">🎬 Dobrar o prêmio</button>
+      <button id="ovSoul" class="hidden"><img class="icn-s" src="assets/soul.png" alt="" style="margin-right:4px">Usar Soul</button>
       <button id="ovNG" class="hidden">👑 Iniciar NG+1</button>
       <button id="ovBack">Voltar ao acampamento</button>
     </div>
@@ -781,68 +810,6 @@
     </div>
   </div>
 </div>
-
-<!-- ============================================================
-     SEÇÃO "SOBRE" — conteúdo editorial legível (SEO + AdSense).
-     Fica abaixo do jogo (role a tela para ler). Descreve o jogo,
-     as classes, as mecânicas e a progressão de forma detalhada.
-     ============================================================ -->
-<main class="about">
-  <h2>Guerreiro da Masmorra — RPG de combate tático em turnos</h2>
-  <p><strong>Guerreiro da Masmorra</strong> é um jogo de RPG tático por turnos, gratuito e feito
-  inteiramente para navegadores web e dispositivos móveis. Desça a masmorra, enfrente hordas de
-  goblins, arqueiros, lanceiros, minotauros e chefes épicos — como o Rei Slime e a Árvore Anciã —
-  e prove seu valor a cada onda de inimigos. Cada masmorra é dividida em três ondas: monstros comuns,
-  monstros reforçados e, por fim, um confronto contra o Chefe.</p>
-
-  <h3>Como jogar</h3>
-  <p>O combate é ativo e depende do seu tempo de reação. Em vez de simplesmente escolher um comando e
-  esperar, você participa de cada golpe com eventos de tempo (QTE): toque na hora certa para executar
-  um <strong>parry</strong> perfeito, arraste para cima para <strong>saltar</strong> sobre golpes
-  rasteiros e deslize para os lados para a <strong>esquiva lateral</strong>. Defender bem enche sua
-  barra de fúria e cansa o inimigo, abrindo espaço para contra-ataques devastadores.</p>
-
-  <h3>Heróis e classes</h3>
-  <p>Você começa com o <strong>Guerreiro</strong>, um cavaleiro que acumula fúria e liberta ataques
-  especiais como a Sequência Mortal e o Combo. Ao longo da jornada é possível recrutar novos heróis,
-  cada um com identidade própria:</p>
-  <ul>
-    <li><strong>Mago Arcanista</strong> — usa um baralho de cartas mágicas: compre a mão, funda cartas
-    de mesmo elemento (Fogo + Fogo = Grande Labareda) e acerte o ritmo dos feitiços.</li>
-    <li><strong>Caçadora</strong> — arqueira ágil, com ataque alto e muita mobilidade.</li>
-    <li><strong>Lanceiro</strong> — uma muralha de vida e defesa, ideal para segurar chefes.</li>
-    <li><strong>Monge</strong> — equilíbrio entre disciplina, cura e resistência.</li>
-  </ul>
-  <p>Cada herói evolui de forma independente: recrutou alguém novo? Vale voltar às masmorras iniciais
-  para treiná-lo do zero. Troque de herói no acampamento simplesmente arrastando a tela para o lado.</p>
-
-  <h3>Mecânicas de combate</h3>
-  <p>Alguns chefes entram em <strong>Fase 2</strong> ao perder metade da vida: ficam mais rápidos, mais
-  fortes e ganham turnos extras. Goblins de fogo grudam dinamites que explodem no início do seu turno,
-  e monstros explosivos detonam ao morrer, exigindo esquiva. A ordem dos turnos segue a iniciativa —
-  a velocidade de cada unidade decide quem age primeiro.</p>
-
-  <h3>Progressão: mercado, gemas e recrutamento</h3>
-  <p>Derrotar inimigos rende <strong>ouro</strong>, usado no Mercado do acampamento para melhorar vida,
-  ataque e defesa, comprar tochas (a chave para entrar nas masmorras) e mapas de fuga. Chefes especiais
-  liberam <strong>Gemas</strong> — como a Gema do Arremesso, a Gema Vital e a Gema Perfurante — que
-  concedem poderes passivos e podem ser evoluídas até o nível máximo. No <strong>mapa-múndi</strong>,
-  navegue entre cidades no estilo Final Fantasy Tactics e desafie heróis em duelos para recrutá-los.</p>
-
-  <h3>Dicas para evoluir mais rápido</h3>
-  <ul>
-    <li>Priorize o parry perfeito: dano zero, mais fúria e o inimigo cansado.</li>
-    <li>Gaste ouro cedo em Vida e Defesa para sobreviver às primeiras masmorras.</li>
-    <li>Abra o Baú do Dia todos os dias para um bônus grátis de ouro.</li>
-    <li>Equipe a gema certa para o seu estilo antes de encarar os chefes.</li>
-  </ul>
-
-  <p>Guerreiro da Masmorra é jogável direto no navegador, sem instalação, e também disponível como
-  aplicativo. Bom jogo e boa sorte na masmorra!</p>
-
-  <p><a href="/privacidade.html">Política de Privacidade</a></p>
-</main>
-
 <script>
 'use strict';
 /* ================================================================
@@ -1101,8 +1068,10 @@ function drawUIBar(x, y, w, h, frac){
     if (UIIMG.barFill) R.setProperty('--ui-barfill',  cropURL(UIIMG.barFill, 0, 20, 64, 24));
     if (UIIMG.ribbons){
       const h1 = document.querySelector('h1');
-      h1.style.borderImage = nineURL(UIIMG.ribbons, NINE.ribbon) + ' 0 62 0 62 fill stretch';
-      h1.classList.add('ribboned');
+      if (h1){
+        h1.style.borderImage = nineURL(UIIMG.ribbons, NINE.ribbon) + ' 0 62 0 62 fill stretch';
+        h1.classList.add('ribboned');
+      }
     }
     if (UIIMG.paper && UIIMG.btnBlue) document.body.classList.add('skinned');
   } catch(err){
@@ -1382,7 +1351,7 @@ document.addEventListener('pointerdown', () => {
 
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
-const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'', gemas:{un:[],own:{},eq:[]}, mapPos:-1, ngPlus:0 };
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0,hab:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'', gemas:{un:[],own:{},eq:[]}, mapPos:-1, ngPlus:0, souls:0 };
 let S = structuredClone(DEFAULTS);
 try {
   const d = JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -1408,7 +1377,7 @@ if (!S.heroes){
     const b = HEROES[id].base;
     S.heroes[id] = id === 'guerreiro'
       ? { maxhp:S.maxhp, atk:S.atk, def:S.def, lv:S.lv, gemas:S.gemas, unlocked:true, wonDuel:false }
-      : { maxhp:b.maxhp, atk:b.atk, def:b.def, lv:{vida:0,atk:0,def:0}, gemas:{un:[],own:{},eq:[]}, unlocked:false, wonDuel:false };
+      : { maxhp:b.maxhp, atk:b.atk, def:b.def, lv:{vida:0,atk:0,def:0,hab:0}, gemas:{un:[],own:{},eq:[]}, unlocked:false, wonDuel:false };
   }
   S.activeHero = 'guerreiro';
 }
@@ -1416,13 +1385,18 @@ if (!S.heroes){
 for (const id of HERO_IDS){
   if (!S.heroes[id]){
     const b = HEROES[id].base;
-    S.heroes[id] = { maxhp:b.maxhp, atk:b.atk, def:b.def, lv:{vida:0,atk:0,def:0}, gemas:{un:[],own:{},eq:[]}, unlocked:!!HEROES[id].starter, wonDuel:false };
+    S.heroes[id] = { maxhp:b.maxhp, atk:b.atk, def:b.def, lv:{vida:0,atk:0,def:0,hab:0}, gemas:{un:[],own:{},eq:[]}, unlocked:!!HEROES[id].starter, wonDuel:false };
   }
   const h = S.heroes[id];
-  if (!h.lv) h.lv = {vida:0,atk:0,def:0};
+  if (!h.lv) h.lv = {vida:0,atk:0,def:0,hab:0};
+  if (h.lv.hab === undefined) h.lv.hab = 0;          // saves de antes da Habilidade
   if (!h.gemas || !Array.isArray(h.gemas.un)) h.gemas = {un:[],own:{},eq:[]};
 }
+/* 🔒 PATCH FUTURO (outros heróis): por ora o jogo foca só no Guerreiro — o herói
+   ativo é sempre ele (a progressão dos demais fica guardada no save). Antes era:
 if (!S.heroes[S.activeHero] || !S.heroes[S.activeHero].unlocked) S.activeHero = 'guerreiro';
+*/
+S.activeHero = 'guerreiro';
 
 /* carrega um herói para os campos vivos (lv/gemas por referência) */
 function loadHero(id){
@@ -1548,6 +1522,30 @@ const UPS = {
   vida:{ base:50, apply(){ S.maxhp += 20; } },
   atk: { base:60, apply(){ S.atk  += 3;  } },
   def: { base:60, apply(){ S.def  += 2;  } },
+  hab: { base:40, apply(){} },   // ✨ o nível em si é o atributo — cada 5 libera um golpe
+};
+/* ---------- ✨ HABILIDADE: o herói nasce só com o ataque básico.
+   A cada 5 níveis do atributo ele aprende um golpe especial novo,
+   na ordem abaixo (por classe). No treino (TUT) tudo fica liberado. ---------- */
+const HAB_STEP = 5;
+const HAB_SKILLS = {
+  guerreiro: [
+    { id:'fury',  nome:'⚡ Fúria' },
+    { id:'combo', nome:'🗡 Combo' },
+    { id:'blade', nome:'👻 Lâmina Invisível' },
+    { id:'seq',   nome:'☠ Sequência Mortal' },
+  ],
+  mago: [
+    { id:'cast1', nome:'🔮 Conjurar (1 carta)' },
+    { id:'cast2', nome:'🔮 Combo de 2 cartas' },
+    { id:'cast3', nome:'🔮 Combo de 3 cartas' },
+  ],
+};
+const habSkills = () => HAB_SKILLS[heroClass] || [];
+const habCount = () => TUT ? 9 : Math.floor((S.lv.hab || 0) / HAB_STEP);
+const hasSkill = id => {
+  const i = habSkills().findIndex(s => s.id === id);
+  return i >= 0 && habCount() > i;
 };
 /* 🛡 ícone da Defesa: troca a cada 5 níveis do upgrade — Shields1 → Shields2 →
    Shields3 → próxima linha do Shields1 → … (cada sheet é uma grade 6×6 de 16px) */
@@ -1561,7 +1559,8 @@ function renderShieldIcon(){
   el.style.backgroundPosition = (-c*24) + 'px ' + (-r*24) + 'px';
 }
 const upCost = k => Math.round(UPS[k].base * Math.pow(1.55, S.lv[k]));
-const SHOP = { tocha:{cost:40}, mapa:{cost:30} };
+/* tocha e mapa só se compram com 💠 Souls (derrubadas pelos chefes) */
+const SHOP = { tocha:{cost:1}, mapa:{cost:1} };
 
 /* ---------- 💎 GEMAS: liberadas por pergaminhos dos chefes das masmorras 1, 5, 10, 15.
    Toda gema nasce no Nv.1 (azul) e evolui no Mercado até o Nv.5 (vermelha),
@@ -2234,21 +2233,29 @@ function renderMenu(){
                return '· +1 em ' + Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); })()
     : '';
   $('#gold').textContent = S.gold;
+  $('#soulN').textContent = S.souls;
   renderChest();
   $('#mVida').textContent = S.maxhp;
   $('#mAtk').textContent = S.atk;
   $('#mDef').textContent = S.def;
+  /* ✨ Habilidade: nível atual + golpes aprendidos / próximo marco */
+  $('#mHab').textContent = S.lv.hab || 0;
+  $('#habInfo').textContent = habCount() >= habSkills().length
+    ? '· todos os golpes! (' + habSkills().length + '/' + habSkills().length + ')'
+    : '· golpes: ' + habCount() + '/' + habSkills().length +
+      ' — próx. no Nv. ' + (habCount() + 1) * HAB_STEP;
   renderShieldIcon();
   $('#nTocha').textContent = S.tochas;
   $('#nMapa').textContent = S.mapas;
   $('#bestTag').textContent = 'Masmorras conquistadas: ' + S.wins;
   renderHeroCard();
   document.querySelectorAll('.upbtn').forEach(b => {
-    b.querySelector('small .num').textContent = upCost(b.dataset.up);
-    b.disabled = S.gold < upCost(b.dataset.up);
+    const capped = b.dataset.up === 'hab' && habCount() >= habSkills().length;
+    b.querySelector('small .num').textContent = capped ? 'MÁX' : upCost(b.dataset.up);
+    b.disabled = capped || S.gold < upCost(b.dataset.up);
   });
   document.querySelectorAll('.shopbtn[data-buy]').forEach(b => {
-    b.disabled = S.gold < SHOP[b.dataset.buy].cost ||
+    b.disabled = S.souls < SHOP[b.dataset.buy].cost ||
                  (b.dataset.buy === 'tocha' && S.tochas >= TORCH_MAX);
   });
 }
@@ -2289,7 +2296,8 @@ $('#chestBtn').addEventListener('click', async () => {
 /* ---- MERCADO: tela própria ---- */
 function renderShop(){
   regenTorches();
-  $('#shopGold').textContent = '🪙 ' + S.gold + ' · 🔥 ' + S.tochas + '/' + TORCH_MAX;
+  $('#shopGold').innerHTML = '🪙 ' + S.gold + ' · 🔥 ' + S.tochas + '/' + TORCH_MAX +
+    ' · <img class="icn-s" src="assets/soul.png" alt="Souls"> ' + S.souls;
   renderGems();
   renderMenu();                                      // mantém contadores/botões em dia
 }
@@ -2363,21 +2371,36 @@ $('#shopBack').addEventListener('click', () => {
   renderMenu();
   MUSIC.camp();
 });
-/* relógio: recarga de tochas ao vivo no acampamento e no mercado */
+/* relógio: recarga de tochas ao vivo no acampamento e no mercado.
+   🎬 também liga/pausa o vídeo de fundo conforme o acampamento aparece */
 setInterval(() => {
-  if (!$('#menu').classList.contains('hidden')) renderMenu();
-  else if (!$('#shop').classList.contains('hidden')) renderShop();
+  const cv = $('#campVideo');
+  if (!$('#menu').classList.contains('hidden')){
+    renderMenu();
+    if (cv.paused) cv.play().catch(() => {});   // retoma (e destrava o autoplay)
+  } else {
+    if (!cv.paused) cv.pause();                  // fora do acampamento: economiza bateria
+    if (!$('#shop').classList.contains('hidden')) renderShop();
+  }
 }, 1000);
 document.querySelectorAll('.upbtn').forEach(b => b.addEventListener('click', () => {
   const k = b.dataset.up;
   if (S.gold < upCost(k)) return;
+  if (k === 'hab' && habCount() >= habSkills().length) return;   // já aprendeu todos os golpes
   S.gold -= upCost(k); UPS[k].apply(); S.lv[k]++;
   save(); renderMenu();
+  /* ✨ marco de Habilidade atingido: anuncia o golpe aprendido */
+  if (k === 'hab' && S.lv.hab % HAB_STEP === 0){
+    const nova = habSkills()[Math.floor(S.lv.hab / HAB_STEP) - 1];
+    if (nova) showOverlay('✨ NOVA HABILIDADE!',
+      HEROES[S.activeHero].nome + ' aprendeu <b>' + nova.nome + '</b>!<br>' +
+      'O golpe já está disponível no menu de batalha.');
+  }
 }));
 document.querySelectorAll('.shopbtn[data-buy]').forEach(b => b.addEventListener('click', () => {
   const k = b.dataset.buy;
-  if (S.gold < SHOP[k].cost) return;
-  S.gold -= SHOP[k].cost;
+  if (S.souls < SHOP[k].cost) return;
+  S.souls -= SHOP[k].cost;
   if (k === 'tocha'){
     if (S.tochas >= TORCH_MAX) return;
     S.tochas++;
@@ -2664,6 +2687,8 @@ mapCv.addEventListener('pointerup', e => {
   SFX.play('whoosh');
   updateMapEnter();
 });
+/* 🔒 PATCH FUTURO (mapa-múndi): botão de acesso comentado no acampamento —
+   descomente lá e aqui para reativar.
 $('#openMap').addEventListener('click', () => {
   ensureMapPos();
   MAP_CITIES.forEach(c => loadDecor(c.b));
@@ -2671,6 +2696,7 @@ $('#openMap').addEventListener('click', () => {
   $('#worldmap').classList.remove('hidden');
   updateMapEnter();
 });
+*/
 $('#mapBack').addEventListener('click', () => {
   $('#worldmap').classList.add('hidden');
   $('#menu').classList.remove('hidden');
@@ -2693,13 +2719,15 @@ function renderHeroCard(){
   const eqGems = S.gemas.eq.map(id => GEMS[id].ico + ' ' + GEMS[id].nome + ' Nv.' + (S.gemas.own[id] || 1));
   $('#heroSub').textContent = eqGems.length ? eqGems.join(' · ') : h.sub;
   const gn = $('#gemHeroName'); if (gn) gn.textContent = h.nome;
-  /* pontinhos: 1 por herói recrutado, destacando o ativo */
+  /* 🔒 PATCH FUTURO (outros heróis): pontinhos e setas de troca —
+     os elementos estão comentados no HTML do acampamento.
   const roster = rosterUnlocked();
   $('#heroDots').innerHTML = roster.map(id =>
     '<span class="dot' + (id === S.activeHero ? ' on' : '') + '"></span>').join('');
   const multi = roster.length > 1;
   $('#heroPrev').classList.toggle('hidden', !multi);
   $('#heroNext').classList.toggle('hidden', !multi);
+  */
   menuFrame = 0;                                      // reinicia a animação do novo sprite
 }
 function switchHero(dir){
@@ -2713,9 +2741,10 @@ function switchHero(dir){
   SFX.play('whoosh');
   renderMenu();
 }
+/* 🔒 PATCH FUTURO (outros heróis): troca por setas e por swipe no card —
+   reative junto com os botões heroPrev/heroNext no HTML.
 $('#heroPrev').addEventListener('click', e => { e.stopPropagation(); switchHero(-1); });
 $('#heroNext').addEventListener('click', e => { e.stopPropagation(); switchHero(1); });
-/* swipe horizontal no card do herói troca de personagem */
 let heroSwX = null;
 $('#herocard').addEventListener('pointerdown', e => { heroSwX = e.clientX; });
 $('#herocard').addEventListener('pointerup', e => {
@@ -2723,6 +2752,7 @@ $('#herocard').addEventListener('pointerup', e => {
   const dx = e.clientX - heroSwX; heroSwX = null;
   if (Math.abs(dx) > 50) switchHero(dx < 0 ? 1 : -1);
 });
+*/
 
 /* ================================================================
    🦸 FASE C — recrutamento: duelo nas cidades + menu Recrutar
@@ -2791,11 +2821,13 @@ $('#recruitList').addEventListener('click', e => {
     HEROES[id].nome + ' juntou-se à sua equipe!<br>No acampamento, <b>arraste para o lado</b> para trocar de herói.<br>' +
     'Ela começa no Nv. 1 — vale voltar às masmorras iniciais para treiná-la.');
 });
+/* 🔒 PATCH FUTURO (outros heróis): botão Recrutar comentado no acampamento.
 $('#openRecruit').addEventListener('click', () => {
   renderRecruit();
   $('#menu').classList.add('hidden');
   $('#recruit').classList.remove('hidden');
 });
+*/
 $('#recruitBack').addEventListener('click', () => {
   $('#recruit').classList.add('hidden');
   $('#menu').classList.remove('hidden');
@@ -2898,19 +2930,23 @@ function setCmds(on){
     arcLayout('#cmdPot', 110, 85);
   }
   $('#cAtk').disabled = !on;
-  $('#cSpec').disabled = !on || fury < 1;     // habilita se algum especial está disponível
+  /* ✨ o menu de especiais só abre se o herói já aprendeu algum golpe (Habilidade) */
+  $('#cSpec').disabled = !on || fury < 1 || habCount() === 0;
   $('#cPot').disabled = !on || ((potions <= 0 || hp >= S.maxhp) && (adrenaline <= 0 || fury >= 5));
   $('#cRun').disabled = !on || S.mapas <= 0;
-  $('#cFury').disabled = !on || fury < 1;
-  $('#cSeq').disabled = !on || fury < 2;
-  $('#cCombo').disabled = !on || fury < 1;
-  $('#cBlade').disabled = !on || fury < 1;
+  $('#cFury').disabled = !on || fury < 1 || !hasSkill('fury');
+  $('#cSeq').disabled = !on || fury < 2 || !hasSkill('seq');
+  $('#cCombo').disabled = !on || fury < 1 || !hasSkill('combo');
+  $('#cBlade').disabled = !on || fury < 1 || !hasSkill('blade');
   $('#cPotHeal').disabled = !on || potions <= 0 || hp >= S.maxhp;
   $('#cPotAdren').disabled = !on || adrenaline <= 0 || fury >= 5;
   const sp = specialInfo();
-  $('#furyM').textContent = sp ? sp.tag : '(⚡1+)';
-  $('#comboM').textContent = fury >= 4 ? '4 golpes' : fury >= 3 ? '3 golpes' : fury >= 1 ? '2 golpes' : '(⚡1+)';
-  $('#bladeM').textContent = fury >= 1 ? fury + (fury > 1 ? ' golpes' : ' golpe') : '(⚡1+)';
+  $('#furyM').textContent = !hasSkill('fury') ? '🔒 Hab.5' : sp ? sp.tag : '(⚡1+)';
+  $('#comboM').textContent = !hasSkill('combo') ? '🔒 Hab.10'
+    : fury >= 4 ? '4 golpes' : fury >= 3 ? '3 golpes' : fury >= 1 ? '2 golpes' : '(⚡1+)';
+  $('#bladeM').textContent = !hasSkill('blade') ? '🔒 Hab.15'
+    : fury >= 1 ? fury + (fury > 1 ? ' golpes' : ' golpe') : '(⚡1+)';
+  $('#seqM').textContent = !hasSkill('seq') ? '🔒 Hab.20' : '(⚡2+)';
 }
 /* submenu de ataques especiais: carrossel fixo (2 por página) em vez do menu em arco */
 const SPEC_PAGES = 2;                                 // 4 especiais → 2 páginas de 2
@@ -4349,6 +4385,10 @@ function victory(){
     }
   }
   S.gold += bonus; S.wins++;
+  /* 💠 todo chefe derrotado deixa uma Soul — ela revive o herói onde ele caiu */
+  S.souls++;
+  scrollMsg += '<br><img class="icn" src="assets/soul.png" alt=""> O chefe deixou uma <b>Soul</b>! ' +
+               'Se você cair em batalha, use-a para continuar de onde parou. (Total: <b>' + S.souls + '</b>)<br>';
   if (S.dgLv >= DUNGEON_CAP) return gameComplete(bonus, scrollMsg);   // 👑 masmorra 33: fim do ciclo
   S.dgLv++;
   S.dgColor = COLOR_KEYS[rnd(0, COLOR_KEYS.length-1)];   // sorteia a cor da próxima
@@ -4423,12 +4463,37 @@ function defeat(){
   }
   showOverlay('☠ DERROTA…',
     'O guerreiro caiu na onda ' + wave + '.<br>' +
-    'O ouro coletado (<b>🪙 ' + S.gold + '</b> no total) foi mantido.<br>Fortaleça-se e tente de novo!');
+    'O ouro coletado (<b>🪙 ' + S.gold + '</b> no total) foi mantido.<br>' +
+    (S.souls > 0
+      ? 'Você tem <b>' + S.souls + '</b> <img class="icn-s" src="assets/soul.png" alt="Soul"> — use uma para se reerguer <b>de onde parou</b>!'
+      : 'Fortaleça-se e tente de novo!<br><span style="font-size:12px;color:var(--ink-dim)">Dica: chefes derrotados deixam <img class="icn-s" src="assets/soul.png" alt="Souls"> Souls, que revivem você de onde parou.</span>'));
+  if (S.souls > 0) offerSoulRevive();
+}
+/* 💠 SOUL: revive o herói na mesma onda, com os inimigos como estavam */
+function offerSoulRevive(){
+  const b = $('#ovSoul');
+  b.innerHTML = '<img class="icn-s" src="assets/soul.png" alt="" style="margin-right:4px">Usar 1 Soul e continuar da onda ' + wave + ' (restam ' + S.souls + ')';
+  b.disabled = false;
+  b.classList.remove('hidden');
+  b.onclick = () => {
+    if (S.souls <= 0 || !player || !player.dead) return;
+    S.souls--; save();
+    b.classList.add('hidden');
+    $('#overlay').classList.add('hidden');
+    player.dead = false;
+    hp = S.maxhp;
+    player.flash = 1;
+    addFloat(player, '+' + S.maxhp + ' 💠', '#7dd3fc', true);
+    log('💠 A Soul envolve o herói em luz… ele se reergue com a vida cheia!');
+    renderHUD();
+    startRound();
+  };
 }
 function showOverlay(title, msg, chestIdx){
   $('#ovTitle').textContent = title;
   $('#ovMsg').innerHTML = msg;
   $('#ovAd').classList.add('hidden');               // só a vitória oferece o vídeo
+  $('#ovSoul').classList.add('hidden');              // só a derrota (com Souls) oferece o revive
   $('#ovNG').classList.add('hidden');                // só vencer a masmorra 33 oferece o NG+
   $('#overlay').classList.remove('hidden');
   if (chestIdx) startChestAnim(chestIdx); else stopChestAnim();   // 🎁 só vitória/baú do dia animam
@@ -4473,6 +4538,8 @@ const makeCard = id => ({ uid:++_cuid, id, ...CARDS[id] });
 
 /* --- MÃO (estado puro): começa vazia, cartas entram por ataque/abate/compra automática --- */
 const HAND_LIMIT = 7, MAX_COMBO = 3;
+/* ✨ Habilidade do mago: Nv.5 libera Conjurar (1 carta); Nv.10 combos de 2; Nv.15 de 3 */
+const magoMaxCombo = () => Math.min(MAX_COMBO, habCount());
 let hand = [], selected = [];
 let magoWard = 0;   // 🛡️ couraça arcana: absorve dano do próximo golpe recebido
 function magoResetHand(){ hand = []; selected = []; magoWard = 0; _cuid = 0; }
@@ -4513,14 +4580,20 @@ function toggleSelect(uid){
   const i = selected.indexOf(uid);
   if (i >= 0) selected.splice(i, 1);
   else {
-    if (selected.length >= MAX_COMBO) selected.shift();   // no máx. 3 selecionadas por vez
+    if (magoMaxCombo() === 0){                        // ✨ ainda não aprendeu a conjurar
+      bumpCard(uid);
+      log('🔒 Suba <b>Habilidade</b> ao Nv.5 no acampamento para conjurar cartas!');
+      return;
+    }
+    if (selected.length >= magoMaxCombo()) selected.shift();   // respeita o combo aprendido
     selected.push(uid);
   }
   renderHand();
 }
 function updateMagoBar(){
-  $('#cMagoCast').disabled = selected.length === 0;
-  $('#magoCastN').textContent = selected.length ? ' (' + selected.length + ')' : '';
+  $('#cMagoCast').disabled = selected.length === 0 || magoMaxCombo() === 0;
+  $('#magoCastN').textContent = magoMaxCombo() === 0 ? ' 🔒 Hab.5'
+    : selected.length ? ' (' + selected.length + ')' : '';
   const selCards = selected.map(uid => hand.find(c => c.uid === uid)).filter(Boolean);
   const allMorte = selCards.length > 0 && selCards.every(c => c.id === 'morte');
   $('#cMagoDestroy').classList.toggle('hidden', !allMorte);
@@ -4680,7 +4753,7 @@ async function magoAtaqueSimples(){
   magoEndTurn();
 }
 async function magoConjurar(){
-  if (phase !== 'mago_mao' || !selected.length) return;
+  if (phase !== 'mago_mao' || !selected.length || magoMaxCombo() === 0) return;
   const cards = selected.map(uid => hand.find(c => c.uid === uid)).filter(Boolean);
   if (cards.length > 1 && cards.some(c => c.id === 'morte')){
     cards.forEach(c => bumpCard(c.uid));
@@ -4910,6 +4983,7 @@ document.addEventListener('keydown', e => {
 
 renderMenu();
 if (location.hash === '#batalha') startRun();   // atalho para testes
+/* 🔒 PATCH FUTURO (outros heróis): atalhos de teste do mago e do recrutamento.
 if (location.hash === '#mago'){                 // 🃏 protótipo do Mago Arcanista
   S.heroes.mago.unlocked = true; loadHero('mago'); S.tutDone = true; startRun();
 }
@@ -4917,6 +4991,7 @@ if (location.hash === '#recrutar'){             // atalho de teste: já com todo
   RECRUITABLE.forEach(id => { S.heroes[id].wonDuel = true; S.heroes[id].unlocked = true; });
   S.tutDone = true; renderMenu();
 }
+*/
 </script>
 <!--/ARTIFACT-B-->
 <script type="module">
