@@ -228,6 +228,17 @@
     background:linear-gradient(180deg,#fca5a5,#dc2626 55%,#991b1b);
     transition:width .3s ease;
   }
+  #bossStam{
+    width:50%;margin:0 auto;height:8px;display:flex;gap:2px;
+  }
+  #bossStam > i{
+    flex:1;border-radius:2px;background:rgba(10,12,20,.85);
+    border:1px solid rgba(96,214,255,.35);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.6);
+  }
+  #bossStam > i.on{ background:#60d6ff;border-color:#60d6ff; }
+  #bossStam.full > i.on{ animation:stamFlash .44s steps(2,end) infinite; }
+  @keyframes stamFlash{ 0%{background:#60d6ff;border-color:#60d6ff} 50%{background:#f87171;border-color:#f87171} }
   .side{
     position:absolute;top:50%;translate:0 -50%;z-index:3;
     width:42px;height:60px;font-size:19px;padding:0;text-align:center;
@@ -336,6 +347,29 @@
   }
   #seqCur.lock{background:var(--gold);animation:none;box-shadow:0 0 16px var(--gold)}
   @keyframes curpulse{from{box-shadow:0 0 5px #fff}to{box-shadow:0 0 18px #fff}}
+
+  /* ---- ⚔ Fúria total: barra de carga (mesmo estilo da barra de HP do chefe) ---- */
+  #mash{
+    position:absolute;inset:0;z-index:5;visibility:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    background:rgba(220,38,38,.07);
+  }
+  #mash.on{visibility:visible}
+  #mash .tip{font-size:14px;font-weight:700;letter-spacing:.08em;color:#fecaca;text-shadow:0 2px 6px #000}
+  #mash .sub{font-size:12px;font-weight:800;letter-spacing:.1em;color:#fde68a;text-shadow:0 2px 6px #000}
+  #mash .track{
+    width:82%;max-width:340px;height:22px;border-radius:99px;border:2px solid #b45309;
+    background:rgba(10,12,20,.85);overflow:hidden;
+    box-shadow:0 2px 12px rgba(0,0,0,.55), inset 0 1px 3px rgba(0,0,0,.6);
+  }
+  #mashFill{
+    height:100%;width:0%;border-radius:99px;
+    background:linear-gradient(180deg,#fca5a5,#dc2626 55%,#991b1b);
+    transition:width .08s linear;
+  }
+  #mash.full .track{border-color:var(--gold);box-shadow:0 0 18px rgba(251,191,36,.6)}
+  #mash.full #mashFill{background:linear-gradient(180deg,#fde68a,#fbbf24 55%,#b45309)}
+  #mash.full .sub{color:#fff7d6}
 
   /* ---- 🦅 botão de ATAQUE AÉREO (aparece após pular o rasteiro) ---- */
   #quickAtk{
@@ -759,6 +793,8 @@
       <div id="bossBar" class="hidden">
         <div id="bossName">👑 CHEFE</div>
         <div id="bossTrack"><div id="bossFill"></div></div>
+        <!-- 💫 exaustão do chefe: segmentada, azul, 50% da largura, centralizada -->
+        <div id="bossStam"></div>
       </div>
       <button class="side" id="arrL" aria-label="Alvo anterior">◀</button>
       <button class="side" id="arrR" aria-label="Próximo alvo">▶</button>
@@ -780,6 +816,12 @@
           <div id="seqCur"></div>
         </div>
         <div class="sub" id="seqTrips">3 idas e voltas</div>
+      </div>
+      <!-- ⚔ Fúria total: barra de marteladas — quanto mais cheia, maior a chance de crítico -->
+      <div id="mash">
+        <div class="tip">TOQUE SEM PARAR PARA CARREGAR O GOLPE!</div>
+        <div class="track"><div id="mashFill"></div></div>
+        <div class="sub" id="mashPct">0% de crítico</div>
       </div>
       <button id="quickAtk" class="hidden">⚡ ATAQUE RÁPIDO!</button>
 
@@ -1094,6 +1136,34 @@ function drawUIBar(x, y, w, h, frac){
     if (fw > 0) ctx.drawImage(fill, 0,20,64,24, x+inset, y+inset, fw, fh);
   }
   return true;
+}
+/* barra de exaustão no mesmo estilo da fúria: moldura do Tiny Swords + divisórias
+   marcando cada segmento (cap = quantos segmentos a barra tem). */
+function drawSegBar(x, y, w, h, val, cap, color, flash){
+  const frac = cap > 0 ? Math.min(1, val / cap) : 0;
+  const cheia = val >= cap && flash;
+  if (drawUIBar(x, y, w, h, frac)){
+    ctx.save();
+    ctx.strokeStyle = 'rgba(10,12,20,.75)'; ctx.lineWidth = 1;
+    for (let i = 1; i < cap; i++){
+      const tx = Math.round(x + w * i/cap) + 0.5;
+      ctx.beginPath(); ctx.moveTo(tx, y+1); ctx.lineTo(tx, y+h-1); ctx.stroke();
+    }
+    ctx.globalAlpha = cheia ? 0.5 : 0.35;
+    ctx.fillStyle = cheia ? '#f87171' : color;
+    ctx.fillRect(x, y, w*frac, h);
+    ctx.restore();
+  } else {                                   // fallback: segmentos desenhados à mão
+    const pw = w / cap;
+    for (let i = 0; i < cap; i++){
+      ctx.fillStyle = 'rgba(10,12,20,.85)';
+      ctx.fillRect(x + i*pw, y, Math.max(1, pw-2), h);
+      if (i < Math.floor(val) || (i < val && val >= cap)){
+        ctx.fillStyle = cheia ? '#f87171' : color;
+        ctx.fillRect(x+1 + i*pw, y+1, Math.max(1, pw-4), Math.max(1, h-2));
+      }
+    }
+  }
 }
 /* aplica a skin quando os assets chegam (sem eles o CSS padrão continua) */
 (async function applySkin(){
@@ -1495,7 +1565,7 @@ let runGold = 0;   // 🪙 ouro coletado NESTA masmorra — a morte custa metade
 let flawless = true;                // 💎 run perfeita: nenhum dano sofrido → prêmios em dobro
 let fury = 0;                       // ⚡ contador 0–5: +1 por defesa/dano sofrido, gasto nos especiais
 let exhausted = false;              // após um especial, o herói perde a próxima rodada
-let stagger = 0;                    // 0–100 exaustão do herói: enche ao sofrer dano
+let stagger = 0;                    // exaustão do herói em segmentos (0–heroStaggerCap()): enche ao sofrer dano
 let guardBroken = false;            // exaustão estourada: sem parry/pulo até agir de novo
 let rocksLeft = 1;                  // 🪨 pedradas restantes na rodada (a Gema do Arremesso dá extras)
 let rockDrag = null, rockFly = null;
@@ -2503,9 +2573,7 @@ function drawActor(a, t){
     }
     }
     /* exaustão do herói: cheia + dano de combo = rodada perdida */
-    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, barY+barH+1, bw+2, 6);
-    ctx.fillStyle = stagger >= 100 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
-    ctx.fillRect(bx, barY+barH+2, bw*stagger/100, 4);
+    drawSegBar(bx-1, barY+barH+1, bw+2, 8, stagger, heroStaggerCap(), '#60d6ff', Math.floor(t/220) % 2 === 1);
     /* pilha de status: encantamento, guarda quebrada */
     ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
     let sy = barY + barH + 19;
@@ -2545,16 +2613,12 @@ function drawActor(a, t){
       ctx.globalAlpha = 1;
     }
   }
-  /* exaustão dos monstros: barra proporcional ao limite da categoria
-     (5 normal · 10 boss · 15 Big Boss · 20 Huge Boss — ver staggerCap) */
-  if (a !== player && !a.dead){
-    const cap = staggerCap(a);
-    const pct = Math.min(1, (a.stagger || 0) / cap);
-    ctx.fillStyle = 'rgba(10,12,20,.85)'; ctx.fillRect(bx-1, by+7, bw+2, 6);
-    ctx.fillStyle = pct >= 1 && Math.floor(t/220) % 2 ? '#f87171' : '#60d6ff';
-    ctx.fillRect(bx, by+8, bw*pct, 4);
-    if (a.exhausted){ ctx.font = '13px sans-serif'; ctx.fillText('💫', a.x, by + 28); }
+  /* exaustão dos monstros: barra segmentada com um segmento por golpe resistido
+     (5 normal · 10 boss · 10 monstro de nível alto · 20 boss de nível alto — ver staggerCap) */
+  if (a !== player && !a.dead && miniBar){          // o chefe usa a barra fixa do topo
+    drawSegBar(bx-1, by+7, bw+2, 8, a.stagger || 0, staggerCap(a), '#60d6ff', Math.floor(t/220) % 2 === 1);
   }
+  if (a !== player && !a.dead && a.exhausted){ ctx.font = '13px sans-serif'; ctx.fillText('💫', a.x, by + 28); }
   /* escudos arcanos do boss */
   const shieldY = by - 18;
   if (!a.dead && a.shield > 0){
@@ -2595,7 +2659,9 @@ function updateBossBar(){
     if (bossBarKey !== null){ bossBarKey = null; el.classList.add('hidden'); }
     return;
   }
-  const key = b.name + '|' + b.hp + '|' + b.maxhp + '|' + (b.shield || 0) + '|' + (b.enraged ? 1 : 0);
+  const cap = staggerCap(b), st = Math.min(cap, b.stagger || 0);
+  const key = b.name + '|' + b.hp + '|' + b.maxhp + '|' + (b.shield || 0) + '|' + (b.enraged ? 1 : 0) +
+              '|' + st + '/' + cap;
   if (key === bossBarKey) return;
   bossBarKey = key;
   el.classList.remove('hidden');
@@ -2604,6 +2670,13 @@ function updateBossBar(){
     (b.enraged ? ' · 😡 EM FÚRIA' : '') +
     ' · ' + b.hp + '/' + b.maxhp;
   $('#bossFill').style.width = (100 * Math.max(0, Math.min(1, b.hp / b.maxhp))) + '%';
+  const stam = $('#bossStam');
+  if (stam.children.length !== cap){
+    stam.innerHTML = '';
+    for (let i = 0; i < cap; i++) stam.appendChild(document.createElement('i'));
+  }
+  stam.classList.toggle('full', st >= cap);
+  [...stam.children].forEach((seg, i) => seg.classList.toggle('on', i < st));
 }
 function draw(t){
   ctx.clearRect(0,0,W,H);
@@ -3379,7 +3452,7 @@ function renderHUD(){
 /* multiplicador do golpe especial conforme os pontos de fúria (0–5) */
 function specialInfo(){
   const aoeOK = true;
-  if (fury >= 5) return { m:1.5, aoe:aoeOK, tag: aoeOK ? '×1.5 TODOS' : '×1.5', cost:5 };
+  if (fury >= 5) return { m:2, aoe:aoeOK, crit:true, tag: aoeOK ? '×2 TODOS ⚔' : '×2 ⚔', cost:5 };
   if (fury >= 3) return { m:1.5, aoe:false, tag:'×1.5', cost:3 };
   if (fury >= 2) return { m:1.2, aoe:false, tag:'×1.2', cost:2 };
   if (fury >= 1) return { m:1.1, aoe:false, tag:'×1.1', cost:1 };
@@ -3391,14 +3464,16 @@ function gainFury(n = 1){
 }
 /* ---- exaustão: contador de golpes especiais sofridos que derruba quem
    estourar por 3 rodadas. O limite (resistência) varia por categoria:
-   Monstro normal 5 · Boss 10 · Big Boss 15 (masmorra 20+) · Huge Boss 20 (masmorra 30+).
+   Nível baixo: monstro 5 · boss 10. Nível alto (masmorra 20+): monstro 10 · boss 20.
    Herói: enche ao sofrer dano; cheia + dano de um COMBO inimigo → perde a rodada. */
 function staggerCap(en){
-  if (!en.boss) return 5;
-  const EL = effLv();
-  if (EL >= 30) return 20;    // Huge Boss
-  if (EL >= 20) return 15;    // Big Boss
-  return 10;                  // Boss padrão
+  const alto = effLv() >= 20;               // masmorra 20+ = monstros de nível alto
+  if (!en.boss) return alto ? 10 : 5;
+  return alto ? 20 : 10;
+}
+/* herói: 5 segmentos de base, +1 a cada 5 melhorias de 🛡 defesa (teto 20) */
+function heroStaggerCap(){
+  return Math.min(20, 5 + Math.floor((S.lv.def || 0) / HAB_STEP));
 }
 function enemyStagger(en, mult){
   if (en.dead) return;
@@ -3413,14 +3488,16 @@ function enemyStagger(en, mult){
   en.stagger = Math.min(cap, en.stagger + 1);
 }
 function heroStagger(dmg, inCombo){
-  if (stagger >= 100 && inCombo){
+  const cap = heroStaggerCap();
+  if (stagger >= cap && inCombo){
     stagger = 0; exhausted = true; guardBroken = true;
     SFX.play('stun');
     addFloat(player, 'EXAUSTO!', '#60d6ff', true);
     log('💫 O combo esmagou sua guarda — sem ação nem defesa até se recuperar!');
     return;
   }
-  stagger = Math.min(100, stagger + Math.max(6, Math.round(dmg * 140 / S.maxhp)));
+  /* enche em segmentos: o ritmo por golpe não muda, então mais segmentos = mais resistência */
+  stagger = Math.min(cap, stagger + Math.max(0.3, dmg * 7 / S.maxhp));
 }
 function shakeApp(){ $('#app').classList.add('shake'); setTimeout(() => $('#app').classList.remove('shake'), 400); }
 /* ancora a lista de comandos na lateral direita do campo, centrada na altura
@@ -4050,24 +4127,38 @@ async function playerSpecial(){
   fury = Math.max(0, fury - sp.cost); exhausted = true;   // custo: perde a próxima rodada
   const targets = sp.aoe ? enemies.filter(e => !e.dead) : [enemies[targetIdx]];
   const [tx, ty] = sp.aoe ? [W*0.50, H*0.56] : engageEnemy(targets[0]);
-  log(sp.aoe ? '⚡ FÚRIA TOTAL! Golpe giratório em TODOS!' : '⚡ Golpe de fúria (×' + sp.m + ')!');
+  log(sp.aoe ? '⚡ FÚRIA TOTAL! Golpe giratório em TODOS (×2)!' : '⚡ Golpe de fúria (×' + sp.m + ')!');
   await tween(player, tx, ty, 320, 'run');
+  /* ⚔ com a fúria cheia abre a barra de carga: quanto mais cheia, maior a
+     chance de crítico — cheia por completo, crítico garantido */
+  let mult = sp.m, crit = false;
+  if (sp.crit){
+    const carga = await runMashBar(Math.round(2200 * ngSpeedMult()));
+    crit = carga >= 1 || Math.random() < carga;
+    if (crit){
+      mult = sp.m * 2.5;                             // ×5 do ataque base: dano devastador
+      log('💥 CRÍTICO DE FÚRIA! Golpe carregado a ' + Math.round(carga*100) + '% — força devastadora (×' + mult + ')!');
+      fieldFx('good');
+    } else {
+      log('⚔️ Carga de ' + Math.round(carga*100) + '% — não saiu crítico desta vez.');
+    }
+  }
   const hit = playOnce(player, 'attack');
   await wait(200);
   shakeApp();
   SFX.play('crit');
   for (const en of targets){
-    enemyStagger(en, sp.m);
-    if (en.shield > 0){                              // golpe forte quebra 2 escudos
-      breakShield(en, 2, true);
-      pierceDamage(en, S.atk * sp.m * atkMul() - en.def);
+    enemyStagger(en, mult);
+    if (en.shield > 0){                              // golpe forte quebra 2 escudos (crítico leva todos)
+      breakShield(en, crit ? 4 : 2, true);
+      pierceDamage(en, S.atk * mult * atkMul() - en.def);
       if (en.hp <= 0) slayEnemy(en);
       continue;
     }
-    const dmg = Math.max(1, Math.round(S.atk * sp.m * atkMul()) - en.def + rnd(-1,3));
+    const dmg = Math.max(1, Math.round(S.atk * mult * atkMul()) - en.def + rnd(-1,3));
     en.hp = Math.max(0, en.hp - dmg);
     en.flash = 1;
-    addFloat(en, dmg, '#fbbf24', true);
+    addFloat(en, crit ? '💥' + dmg : dmg, crit ? '#f87171' : '#fbbf24', true);
     if (en.hp <= 0) slayEnemy(en);
   }
   save();
@@ -4077,6 +4168,51 @@ async function playerSpecial(){
   await playerReturn();
   if (await waveCleared()) return;
   enemyPhase();
+}
+
+/* ---- ⚔ CARGA DA FÚRIA TOTAL: barra que o jogador enche martelando a tela.
+   Cada toque soma 1/TAPS; a barra também escapa um pouco com o tempo, então
+   vale bater rápido. O quanto ela encheu = probabilidade de crítico (cheia = certo). */
+let mashTap = null;
+function runMashBar(ms = 2200){
+  return new Promise(resolve => {
+    const box = $('#mash'), fill = $('#mashFill'), pct = $('#mashPct');
+    const TAPS = 14;                                  // toques para encher do zero
+    let v = 0, done = false, raf = 0, last = performance.now();
+    phase = 'mash';
+    box.classList.remove('full');
+    fill.style.width = '0%'; pct.textContent = '0% de crítico';
+    box.querySelector('.tip').textContent = 'TOQUE SEM PARAR PARA CARREGAR O GOLPE!';
+    box.classList.add('on');
+    const timer = setTimeout(() => finish(), ms);
+    function render(){
+      fill.style.width = Math.round(v*100) + '%';
+      const cheia = v >= 1;
+      box.classList.toggle('full', cheia);
+      pct.textContent = cheia ? '💥 CRÍTICO GARANTIDO!' : Math.round(v*100) + '% de crítico';
+    }
+    function loop(now){                               // vazamento: a carga cai se parar de bater
+      const dt = (now - last)/1000; last = now;
+      if (v < 1){ v = Math.max(0, v - dt*0.22); render(); }
+      if (!done) raf = requestAnimationFrame(loop);
+    }
+    raf = requestAnimationFrame(loop);
+    mashTap = () => {
+      if (done || v >= 1) return;
+      v = Math.min(1, v + 1/TAPS);
+      SFX.play('hit');
+      render();
+      if (v >= 1) setTimeout(finish, 260);            // encheu: fecha logo
+    };
+    function finish(){
+      if (done) return;
+      done = true; mashTap = null;
+      clearTimeout(timer); cancelAnimationFrame(raf);
+      box.classList.remove('on');
+      phase = 'busy';
+      resolve(v);
+    }
+  });
 }
 
 /* ---- LÂMINA INVISÍVEL: N golpes relâmpago em alvos sorteados entre os
@@ -5465,6 +5601,7 @@ let gX = null, gY = null;
 $('#battle').addEventListener('pointerdown', e => {
   gX = e.clientX; gY = e.clientY;
   if (phase === 'qte' && qteType === 'parry') tryParry();
+  if (phase === 'mash' && mashTap) mashTap();
   if (phase === 'seq' && seqStop) seqStop();
   if (phase === 'combo' && comboTap) comboTap();
 });
@@ -5564,6 +5701,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') cycleTarget(1);
   if (e.key === 'ArrowUp' && phase === 'qte'){ tryJump(); e.preventDefault(); }
   if ((e.key === ' ' || e.key === 'Enter') && phase === 'qte'){ tryParry(); e.preventDefault(); }
+  if ((e.key === ' ' || e.key === 'Enter') && phase === 'mash' && mashTap){ mashTap(); e.preventDefault(); }
   if ((e.key === ' ' || e.key === 'Enter') && phase === 'seq' && seqStop){ seqStop(); e.preventDefault(); }
   if ((e.key === ' ' || e.key === 'Enter') && phase === 'combo' && comboTap){ comboTap(); e.preventDefault(); }
 });
