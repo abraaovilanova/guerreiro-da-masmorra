@@ -2426,6 +2426,13 @@ IDLE8_IMG.src = 'assets/new-hero/idle-8-directions.png';
 function drawIdle8(a, f){
   draw8(IDLE8_IMG, a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
 }
+/* 😮‍💨 exausto: barra de exaustão estourada — o herói fica ofegante e sem
+   defesa até voltar a agir. Mesmo formato de blocos dos outros sheets novos. */
+const TIRED8_IMG = new Image();
+TIRED8_IMG.src = 'assets/new-hero/tired.png';
+function drawTired8(a, f){
+  draw8(TIRED8_IMG, a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
+}
 /* 💨 esquiva lateral em 8 direções: como o pulo, o frame segue o TEMPO do
    dash (~330ms) e a direção fica travada no lado do deslize */
 const DODGE8_IMG = new Image();
@@ -2491,6 +2498,9 @@ function drawActor(a, t){
        direção certa vem do próprio sheet, apontada para o alvo atual) */
     if (a === player && a.unit === 'warrior' && a.anim === 'attack' && ATK8_IMG.naturalWidth){
       drawAttack8(a, f, frameCount(a));
+    } else if (a === player && a.unit === 'warrior' && a.anim === 'idle' &&
+               (guardBroken || exhausted) && TIRED8_IMG.naturalWidth){
+      drawTired8(a, f);                              // 😮‍💨 guarda quebrada: parado, ofegante
     } else if (a === player && a.unit === 'warrior' && a.anim === 'idle' && IDLE8_IMG.naturalWidth){
       drawIdle8(a, f);
     } else if (a === player && a.unit === 'warrior' && a.anim === 'idle' && CAMP_HERO_IMG.naturalWidth){
