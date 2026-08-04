@@ -488,6 +488,10 @@
   #ovTitle{font-size:24px;font-weight:800}
   #ovMsg{font-size:14px;line-height:1.55;color:var(--ink-dim)}
   #ovMsg b{color:var(--gold)}
+  /* 🪙 contador que sobe de 0 até o ouro ganho */
+  .cup{font-variant-numeric:tabular-nums;display:inline-block}
+  .cup.rolling{animation:cupPulse .28s ease-out infinite alternate}
+  @keyframes cupPulse{from{transform:scale(1)}to{transform:scale(1.16);text-shadow:0 0 10px rgba(251,191,36,.75)}}
   #ovAd{background:linear-gradient(180deg,#16a34a,#15803d);border-color:#4ade80;font-weight:700}
   #ovNG{background:linear-gradient(180deg,#fbbf24,#b45309);border-color:#fde68a;color:#1a1206;font-weight:700}
 
@@ -1396,13 +1400,13 @@ document.addEventListener('pointerdown', () => {
 
 /* ---------- estado persistente ---------- */
 const SAVE_KEY = 'rpg-guerreiro-v3';
-const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0,hab:0}, tochas:20, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'', gemas:{un:[],own:{},eq:[]}, mapPos:-1, ngPlus:0, souls:0 };
+const DEFAULTS = { maxhp:60, atk:10, def:3, gold:120, lv:{vida:0,atk:0,def:0,hab:0}, tochas:5, torchT:0, mapas:1, dgLv:1, wins:0, entries:0, dgColor:null, sound:true, tutDone:false, chestDay:'', gemas:{un:[],own:{},eq:[]}, mapPos:-1, ngPlus:0, souls:0 };
 let S = structuredClone(DEFAULTS);
 try {
   const d = JSON.parse(localStorage.getItem(SAVE_KEY));
   if (d && d.maxhp){
     S = Object.assign(structuredClone(DEFAULTS), d);
-    if (d.torchT === undefined) S.tochas = 20;   // migração: saves antigos ganham a carga cheia
+    if (d.torchT === undefined) S.tochas = 5;    // migração: saves antigos ganham a carga cheia
     if (d.tutDone === undefined) S.tutDone = (d.entries || 0) > 0;   // veterano pula o treino
   }
 } catch(e){}
@@ -1456,7 +1460,8 @@ const rosterUnlocked = () => HERO_IDS.filter(id => S.heroes[id].unlocked);
 loadHero(S.activeHero);
 
 /* ---------- tochas: a "chave" da masmorra (1 por entrada, recarga por tempo) ---------- */
-const TORCH_MAX = 20, TORCH_REGEN_MS = 10 * 60 * 1000;   // 10 min por tocha faltante
+const TORCH_MAX = 5, TORCH_REGEN_MS = 10 * 60 * 1000;    // 10 min por tocha faltante
+S.tochas = Math.min(S.tochas, TORCH_MAX);   // saves do limite antigo (20) descem para o novo teto
 function regenTorches(){
   if (S.tochas >= TORCH_MAX){ S.torchT = 0; return; }
   const now = Date.now();
@@ -1785,7 +1790,7 @@ function loadDecor(path){
   img.onload = () => { DECOR_IMGS[path] = img; };
   img.src = (window.EMBED && window.EMBED[path]) || path;
 }
-let scenery = [], tileSrc = null;
+let scenery = [], tileSrc = null, sideProps = [];
 
 /* ---------- 🌍 BIOMAS: cada masmorra ganha um cenário diferente ----------
    Sprites recortados das folhas do pacote Texture (TX Plant / TX Props).
@@ -1797,6 +1802,12 @@ const SPR = {   // [folha, sx, sy, sw, sh]
   bush:[TXPLANT,216,185,47,42],
   crate:[TXPROPS,160,18,32,46], statue:[TXPROPS,445,21,37,72], rockBig:[TXPROPS,3,430,57,42],
   cross:[TXPROPS,227,303,26,40], altar:[TXPROPS,353,269,94,72],
+};
+/* largura-base (fração da tela) de cada sprite quando ele passa colado na câmera —
+   usada pelos objetos das laterais do corredor, que escalam com a perspectiva */
+const SIDE_W = {
+  treeBig:0.46, treeMed:0.38, treeSm:0.30, bush:0.18,
+  crate:0.13, statue:0.22, rockBig:0.20, cross:0.14, altar:0.30,
 };
 /* item de cenário recortado: (sprite, x, y, largura-fração, opções) */
 const item = (key, x, y, w, opt = {}) => {
@@ -1819,8 +1830,153 @@ const GROUND = {
 };
 const ground = (base, row, extra) => Object.assign({}, GROUND[base], { row }, extra || {});
 
+/* ---------- 🌌 FUNDO: céu, astro, morros de silhueta e acostamento ----------
+   Tudo procedural (nada de asset novo): dois gradientes de céu, um astro com
+   brilho, duas camadas de silhueta em seno com parallax e a faixa de terra que
+   ladeia a estrada — sem ela, o corredor flutuava sobre o fundo do CSS. ------ */
+const SKIES = {
+  castelo:  { top:'#120f26', bot:'#3b2a54', haze:'#6b4d86', stars:70,
+              body:{ x:0.72, y:0.13, r:0.052, col:'#ffeec2', glow:'#8a6fd0' },
+              hills:['#1d1738','#2a2050'], verge:['#2a2140','#171227'] },
+  floresta: { top:'#0b1b23', bot:'#1f4136', haze:'#3f7a5c', stars:45,
+              body:{ x:0.28, y:0.11, r:0.045, col:'#dff6cf', glow:'#4f8f63' },
+              hills:['#12291f','#1b3b2a'], verge:['#24422c','#12241a'] },
+  cemiterio:{ top:'#0a0c1a', bot:'#2b2f4d', haze:'#6d7398', stars:95,
+              body:{ x:0.63, y:0.10, r:0.058, col:'#e8ecff', glow:'#7b83b8' },
+              hills:['#161a30','#232845'], verge:['#2d3050','#171a2c'] },
+  ruinas:   { top:'#1a1120', bot:'#5a3a2c', haze:'#b0714a', stars:25,
+              body:{ x:0.35, y:0.15, r:0.062, col:'#ffd9a0', glow:'#c2703a' },
+              hills:['#2a1c22','#3c2a2a'], verge:['#453425','#251a13'] },
+};
+/* silhueta de morro/muralha: seno duplo, estável (só a fase muda com o parallax) */
+function drawHills(color, yBase, amp, freq, phase){
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 8){
+    const u = x / W;
+    const y = yBase - Math.sin(u*freq + phase)*amp - Math.sin(u*freq*2.7 + phase*1.6)*amp*0.42;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+}
+function drawSky(t){
+  const sk = SKIES[battleBiome] || SKIES.castelo;
+  const { yTop } = roadGeom();
+  const g = ctx.createLinearGradient(0, 0, 0, yTop*1.15);
+  g.addColorStop(0, sk.top); g.addColorStop(1, sk.bot);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, yTop*1.15);
+  /* ✨ estrelas: posição fixa por índice (cellHash), brilho pulsando no tempo */
+  for (let i = 0; i < sk.stars; i++){
+    const h = cellHash(i, 7);
+    const x = (h % 1000)/1000 * W, y = ((h >>> 10) % 1000)/1000 * yTop*0.82;
+    const tw = 0.35 + 0.65 * Math.abs(Math.sin(t*0.0008 + i));
+    ctx.globalAlpha = tw * 0.75;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x, y, 1.6, 1.6);
+  }
+  ctx.globalAlpha = 1;
+  /* 🌕 astro do bioma, com halo */
+  const b = sk.body, bx = W*b.x, by = yTop*b.y*4, br = W*b.r;
+  const halo = ctx.createRadialGradient(bx, by, br*0.5, bx, by, br*4);
+  halo.addColorStop(0, b.glow + 'aa'); halo.addColorStop(1, b.glow + '00');
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(bx, by, br*4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = b.col;
+  ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI*2); ctx.fill();
+  /* ⛰️ duas fileiras de silhueta com parallax (a de trás desliza mais devagar) */
+  const ph = roadScroll * 0.08;
+  drawHills(sk.hills[1], yTop*0.94, H*0.055, 5.5, ph*0.45);
+  drawHills(sk.hills[0], yTop*1.02, H*0.038, 8.2, ph + 1.7);
+  /* névoa quente na linha do horizonte: costura o céu com o chão */
+  const hz = ctx.createLinearGradient(0, yTop*0.80, 0, yTop*1.10);
+  hz.addColorStop(0, sk.haze + '00'); hz.addColorStop(0.65, sk.haze + '66'); hz.addColorStop(1, sk.haze + '00');
+  ctx.fillStyle = hz; ctx.fillRect(0, yTop*0.80, W, yTop*0.32);
+}
+/* 🌱 acostamento: preenche o que sobra dos lados do trapézio da estrada */
+function drawVerges(){
+  const sk = SKIES[battleBiome] || SKIES.castelo;
+  const { yTop, yBot, wTop, wBot } = roadGeom();
+  const g = ctx.createLinearGradient(0, yTop, 0, yBot);
+  g.addColorStop(0, sk.verge[1]); g.addColorStop(1, sk.verge[0]);
+  ctx.fillStyle = g;
+  for (const sgn of [-1, 1]){
+    const xt = W/2 + sgn*wTop/2, xb = W/2 + sgn*wBot/2, edge = sgn < 0 ? 0 : W;
+    ctx.beginPath();
+    ctx.moveTo(xt, yTop); ctx.lineTo(xb, yBot); ctx.lineTo(edge, yBot); ctx.lineTo(edge, yTop);
+    ctx.closePath(); ctx.fill();
+  }
+  /* sombra na divisa estrada/acostamento — dá volume às beiradas */
+  ctx.globalAlpha = 0.45;
+  ctx.strokeStyle = '#05060c'; ctx.lineWidth = Math.max(2, W*0.012);
+  for (const sgn of [-1, 1]){
+    ctx.beginPath();
+    ctx.moveTo(W/2 + sgn*wTop/2, yTop); ctx.lineTo(W/2 + sgn*wBot/2, yBot); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+/* 💡 luz do corredor: clareia o miolo onde a luta acontece e escurece as bordas */
+function drawRoadLight(){
+  const { yTop, yBot } = roadGeom();
+  const cy = yTop + (yBot - yTop)*0.72;
+  const lit = ctx.createRadialGradient(W/2, cy, 0, W/2, cy, W*0.85);
+  lit.addColorStop(0, 'rgba(255,226,170,.16)');
+  lit.addColorStop(0.45, 'rgba(255,206,140,.05)');
+  lit.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = lit; ctx.fillRect(0, yTop, W, H - yTop);
+  const vig = ctx.createLinearGradient(0, 0, W, 0);
+  vig.addColorStop(0, 'rgba(4,5,12,.55)'); vig.addColorStop(0.22, 'rgba(4,5,12,0)');
+  vig.addColorStop(0.78, 'rgba(4,5,12,0)'); vig.addColorStop(1, 'rgba(4,5,12,.55)');
+  ctx.fillStyle = vig; ctx.fillRect(0, yTop, W, H - yTop);
+}
+/* 🌳 OBJETOS DAS LATERAIS: postos ao longo das duas margens do corredor.
+   Andam junto com roadScroll (na marcha eles vêm em direção à câmera), crescem
+   com a perspectiva e são desenhados do fundo para a frente. */
+const SIDE_ROWS = 9;
+function drawSideProps(list){
+  if (!list || !list.length) return;
+  const { yTop, yBot, wTop, wBot } = roadGeom();
+  const frac = ((roadScroll % 1) + 1) % 1, base = Math.floor(roadScroll);
+  const slots = [];
+  for (let i = -1; i <= SIDE_ROWS; i++){
+    const t = (i + frac) / SIDE_ROWS;
+    if (t <= 0.02 || t > 1.04) continue;
+    for (const sgn of [-1, 1]){
+      const h = cellHash((i - base)*2 + (sgn > 0 ? 1 : 0), 31);
+      if (h % 10 < 3) continue;                      // vãos: nem todo posto tem objeto
+      slots.push({ t, sgn, h, key: list[(h >>> 3) % list.length] });
+    }
+  }
+  slots.sort((a, b) => a.t - b.t);                   // do horizonte para a câmera
+  for (const s of slots){
+    const spr = SPR[s.key];
+    const img = spr && DECOR_IMGS[spr[0]];
+    if (!img || !img.naturalWidth) continue;
+    const [, sx, sy, sw, sh] = spr;
+    const e = roadEase(s.t);
+    const y = yTop + (yBot - yTop)*e;                // pé do objeto encosta no chão
+    const road = wTop + (wBot - wTop)*e;
+    const scale = road / wBot;                       // 0 no horizonte, 1 colado na câmera
+    const w = W * (SIDE_W[s.key] || 0.2) * scale * (0.82 + ((s.h >>> 9) % 36)/100);
+    const hgt = w * sh / sw;
+    const cx = W/2 + s.sgn * (road/2 + w*0.34);
+    if (cx + w/2 < -W*0.3 || cx - w/2 > W*1.3) continue;
+    ctx.globalAlpha = Math.min(1, 0.30 + e*1.1);
+    ctx.fillStyle = 'rgba(0,0,0,.30)';               // sombra de contato
+    ctx.beginPath(); ctx.ellipse(cx, y, w*0.32, w*0.09, 0, 0, Math.PI*2); ctx.fill();
+    if (s.h & 1){                                    // metade dos objetos vem espelhada
+      ctx.save(); ctx.translate(cx, 0); ctx.scale(-1, 1);
+      ctx.drawImage(img, sx, sy, sw, sh, -w/2, y - hgt, w, hgt);
+      ctx.restore();
+    } else {
+      ctx.drawImage(img, sx, sy, sw, sh, cx - w/2, y - hgt, w, hgt);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
 const BIOMES = {
-  castelo: { nome:'Castelo', ground:ground('road', 0), build(cfg){
+  castelo: { nome:'Castelo', ground:ground('road', 0), side:['crate','statue','rockBig','bush'], build(cfg){
     const B = 'Tiny Swords (Free Pack)/Buildings/' + cfg.bdir;
     const D = 'Tiny Swords (Free Pack)/Terrain/Decorations/';
     return [
@@ -1834,7 +1990,8 @@ const BIOMES = {
   /* 🌲 trilha de terra batida: as células de mato (forest_land) variam demais
      de cor entre si e a estrada saía remendada — vira canteiro esparso */
   floresta: { nome:'Floresta', tint:'rgba(30,74,28,.16)',
-    ground:ground('road', 1, { mix:GROUND.forest, mixRow:2, mixOdds:7 }), build(){ return [
+    ground:ground('road', 1, { mix:GROUND.forest, mixRow:2, mixOdds:7 }),
+    side:['treeBig','treeMed','treeSm','bush','bush'], build(){ return [
     item('treeBig', 0.82,0.18,0.30,{mirror:true,bg:true,alpha:0.95}),
     item('treeMed', 0.14,0.16,0.22,{bg:true,alpha:0.85}),
     item(treeKey(), 0.60,0.10,0.17,{mirror:true,bg:true,alpha:0.7}),
@@ -1845,7 +2002,8 @@ const BIOMES = {
   /* 🪦 no cemitério a calçada de pedra às vezes dá lugar a uma lápide deitada
      (mix: 1 em cada 6 células vem da folha de lápides) */
   cemiterio: { nome:'Cemitério', tint:'rgba(64,64,96,.20)',
-    ground:ground('road', 2, { mix:GROUND.slabs, mixRow:0, mixOdds:6 }), build(){ return [
+    ground:ground('road', 2, { mix:GROUND.slabs, mixRow:0, mixOdds:6 }),
+    side:['cross','cross','statue','rockBig','treeSm'], build(){ return [
     item('statue', 0.80,0.16,0.15,{mirror:true,bg:true,alpha:0.9}),
     item('cross',  0.15,0.20,0.09,{bg:true,alpha:0.85}),
     item('cross',  0.62,0.12,0.07,{mirror:true,bg:true,alpha:0.7}),
@@ -1855,7 +2013,8 @@ const BIOMES = {
   ];}},
   /* 🏛️ linha 0 da folha: as 4 variantes partem do mesmo cinza (as outras
      misturam bases marrons e a laje ficava manchada) */
-  ruinas: { nome:'Ruínas', tint:'rgba(76,58,40,.18)', ground:ground('cracked', 0), build(){ return [
+  ruinas: { nome:'Ruínas', tint:'rgba(76,58,40,.18)', ground:ground('cracked', 0),
+    side:['statue','crate','rockBig','altar','treeSm'], build(){ return [
     item('statue', 0.82,0.17,0.14,{mirror:true,bg:true,alpha:0.85}),
     item(treeKey(),0.14,0.13,0.18,{bg:true,alpha:0.5}),
     item('crate',  0.60,0.14,0.08,{mirror:true,bg:true,alpha:0.9}),
@@ -1877,6 +2036,8 @@ function buildScenery(){
     loadDecor(b.ground.src);
     if (b.ground.mix) loadDecor(b.ground.mix.src);
   }
+  sideProps = b.side || [];                          // 🌳 objetos das margens do corredor
+  sideProps.forEach(k => SPR[k] && loadDecor(SPR[k][0]));
   scenery = b.build(cfg);
   scenery.forEach(s => loadDecor(s.src));
 }
@@ -1985,17 +2146,21 @@ function drawSceneryItems(list){
     ctx.globalAlpha = 1;
   }
 }
-function drawScenery(){
+function drawScenery(t){
   const timg = DECOR_IMGS[tileSrc];                  // terreno primeiro (chão)
   const b = BIOMES[battleBiome];                     // 🌍 clima do bioma (leve tinta de cor)
+  drawSky(t || 0);                                   // 🌌 céu, astro e morros ao fundo
+  drawVerges();                                      // 🌱 terra dos dois lados da estrada
   /* 🛣️ estrada rumo ao horizonte: chão do bioma (assets/biomas) e, se ele
      ainda não carregou, o tileset antigo como reserva */
   if (!(b && b.ground && drawGround(b.ground)) && timg){
     const fsx = b && b.floor ? b.floor.sx : 0, fsy = b && b.floor ? b.floor.sy : 0, fsingle = b && b.floor && b.floor.single;
     drawRoad(timg, fsx, fsy, fsingle);
   }
+  drawRoadLight();                                   // 💡 luz no miolo + bordas escuras
   if (b && b.tint){ ctx.fillStyle = b.tint; ctx.fillRect(0, 0, W, H); }
   drawSceneryItems(scenery.filter(s => s.bg));       // estruturas/árvores ao fundo
+  drawSideProps(sideProps);                          // 🌳 margens do corredor (fundo → frente)
   /* névoa de distância: escurece o fim do corredor (cenário sim, monstros não) */
   const fog = ctx.createLinearGradient(0, H*0.16, 0, H*0.50);
   fog.addColorStop(0, 'rgba(6,8,16,.55)'); fog.addColorStop(1, 'rgba(6,8,16,0)');
@@ -2443,7 +2608,7 @@ function updateBossBar(){
 function draw(t){
   ctx.clearRect(0,0,W,H);
   updateBossBar();
-  drawScenery();
+  drawScenery(t);
   [...enemies, player].filter(a => a && !a.gone)
     .sort((a,b) => a.y - b.y)
     .forEach(a => drawActor(a, t));
@@ -2645,7 +2810,7 @@ $('#chestBtn').addEventListener('click', async () => {
     save();
     SFX.play('coin');
     showOverlay('🎁 BAÚ ABERTO!',
-      'O baú da Masmorra Nv. ' + S.dgLv + ' continha <b>🪙 ' + gold + '</b>!<br>Volte amanhã para abrir outro.',
+      'O baú da Masmorra Nv. ' + S.dgLv + ' continha <b>🪙 ' + goldCounter(gold) + '</b>!<br>Volte amanhã para abrir outro.',
       chestIdxForLv(S.dgLv));
   } else {
     b.innerHTML = '🎁 Baú do Dia<small>vídeo indisponível — tente de novo</small>';
@@ -4782,7 +4947,7 @@ function victory(){
   save();
   const nx = DG_COLORS[S.dgColor];
   showOverlay('🏆 MASMORRA CONQUISTADA!',
-    'As 3 ondas caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
+    'As 3 ondas caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + goldCounter(bonus) + '</b><br>' +
     scrollMsg +
     'A próxima é a Masmorra <b style="color:' + nx.hex + '">' + nx.nome + '</b> (Nv. ' + S.dgLv + ngTag() + ')…',
     chestIdxForLv(conqueredLv));
@@ -4793,7 +4958,7 @@ function victory(){
 function gameComplete(bonus, scrollMsg){
   save();
   showOverlay('👑 VOCÊ VENCEU O JOGO!',
-    'As 33 masmorras caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + bonus + '</b><br>' +
+    'As 33 masmorras caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + goldCounter(bonus) + '</b><br>' +
     scrollMsg +
     'Quer tentar o <b>NG+' + (S.ngPlus + 1) + '</b>? Seus atributos e seu ouro continuam os mesmos, ' +
     'mas os monstros voltam mais rápidos, mais fortes e com combos maiores.',
@@ -4831,7 +4996,8 @@ function offerDoubleReward(bonus){
     if (ok){
       S.gold += bonus; save();
       b.classList.add('hidden');
-      $('#ovMsg').innerHTML += '<br>🎬 Bônus dobrado: <b>+' + bonus + ' 🪙</b>!';
+      $('#ovMsg').innerHTML += '<br>🎬 Bônus dobrado: <b>+' + goldCounter(bonus) + ' 🪙</b>!';
+      runGoldCounters();
     } else {
       b.disabled = false;
       b.textContent = '🎬 Vídeo indisponível — tentar de novo';
@@ -4882,7 +5048,33 @@ function offerSoulRevive(){
     startRound();
   };
 }
+/* 🪙 marca um número do overlay para subir de 0 até o valor (usar dentro do msg) */
+function goldCounter(v){ return '<span class="cup" data-to="' + v + '">0</span>'; }
+/* anima todo .cup ainda não iniciado: 0 → valor, com tiquetaque de moeda */
+let cupTimers = [];
+function runGoldCounters(){
+  document.querySelectorAll('#ovMsg .cup:not([data-done])').forEach(el => {
+    const to = +el.dataset.to || 0;
+    el.dataset.done = '1';
+    if (to <= 0){ el.textContent = to; return; }
+    const dur = Math.min(1600, 500 + to * 2);        // valores maiores demoram um pouco mais
+    const t0 = performance.now();
+    let lastSfx = 0;
+    el.classList.add('rolling');
+    const step = now => {
+      const p = Math.min(1, (now - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);              // desacelera no fim
+      el.textContent = Math.round(to * e);
+      if (now - lastSfx > 70){ lastSfx = now; SFX.play('coin'); }
+      if (p < 1) cupTimers.push(requestAnimationFrame(step));
+      else { el.classList.remove('rolling'); el.textContent = to; }
+    };
+    cupTimers.push(requestAnimationFrame(step));
+  });
+}
+function stopGoldCounters(){ cupTimers.forEach(id => cancelAnimationFrame(id)); cupTimers = []; }
 function showOverlay(title, msg, chestIdx){
+  stopGoldCounters();
   $('#ovTitle').textContent = title;
   $('#ovMsg').innerHTML = msg;
   $('#ovAd').classList.add('hidden');               // só a vitória oferece o vídeo
@@ -4890,6 +5082,7 @@ function showOverlay(title, msg, chestIdx){
   $('#ovNG').classList.add('hidden');                // só vencer a masmorra 33 oferece o NG+
   $('#overlay').classList.remove('hidden');
   if (chestIdx) startChestAnim(chestIdx); else stopChestAnim();   // 🎁 só vitória/baú do dia animam
+  runGoldCounters();                                 // 🪙 sobe os contadores de ouro do texto
 }
 $('#ovBack').addEventListener('click', () => {
   $('#overlay').classList.add('hidden');
