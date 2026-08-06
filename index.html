@@ -188,8 +188,8 @@
   #bestTag{text-align:center;font-size:12px;color:var(--ink-dim)}
   #reset,#sndToggle{background:none;border:none;color:var(--ink-dim);font-size:11px;text-decoration:underline;padding:2px}
   #cloudStatus{text-align:center;font-size:11px;color:var(--ink-dim);margin-top:6px}
-  #cloudLogin,#cloudSave{width:100%;font-size:13px;font-weight:600;padding:9px}
-  #cloudLogin{margin-bottom:6px}
+  #cloudRow{display:flex;gap:6px}
+  #cloudRow .upbtn{flex:1;min-width:0}
 
   /* ============ BATALHA ============ */
   #battle{padding:10px;gap:8px}
@@ -667,7 +667,7 @@
     <div id="goldbar">
       <img class="icn" data-ico="icoCoin" alt="ouro"> <span class="num" id="gold">0</span>
       <span style="color:var(--border)">·</span>
-      🔥 <span class="num" id="torchN">20</span><span style="font-size:14px;color:var(--ink-dim)">/20</span>
+      🔥 <span class="num" id="torchN">20</span><span style="font-size:14px;color:var(--ink-dim)">/5</span>
       <span id="torchTimer"></span>
       <span style="color:var(--border)">·</span>
       <img class="icn" src="assets/soul.png" alt="souls"> <span class="num" id="soulN">0</span>
@@ -731,8 +731,10 @@
     <button id="enter">🏰 Entrar na Masmorra</button>
     <div id="bestTag">Masmorras conquistadas: 0</div>
     <div id="cloudStatus">☁️ Campanha não sincronizada</div>
-    <button id="cloudLogin">🔑 Já tenho uma campanha salva</button>
-    <button id="cloudSave">☁️ Salvar campanha na nuvem</button>
+    <div id="cloudRow">
+      <button class="upbtn" id="cloudLogin">🔑 Carregar campanha</button>
+      <button class="upbtn" id="cloudSave">☁️ Salvar campanha</button>
+    </div>
     <button id="sndToggle"><img class="icn-s" data-ico="icoSoundOn" alt="" style="margin-right:4px"><span id="sndTxt">efeitos sonoros</span></button>
     <button id="reset">zerar progresso</button>
   </div>
@@ -745,7 +747,7 @@
       <div class="uprow">
         <div class="ico">🔥</div>
         <div class="info">
-          <div class="label">Tocha — <span class="num" id="nTocha">0</span>/20</div>
+          <div class="label">Tocha — <span class="num" id="nTocha">0</span>/5</div>
           <div class="desc">A chave da masmorra: 1 por entrada. Recarrega sozinha a cada 10 min; compre para recarregar na hora</div>
         </div>
         <button class="shopbtn" data-buy="tocha">Comprar<small><img class="icn-s" src="assets/soul.png" alt="Soul"> 1</small></button>
@@ -2859,7 +2861,7 @@ function renderMenu(){
   $('#nMapa').textContent = S.mapas;
   $('#bestTag').textContent = 'Masmorras conquistadas: ' + S.wins;
   renderHeroCard();
-  document.querySelectorAll('.upbtn').forEach(b => {
+  document.querySelectorAll('.upbtn[data-up]').forEach(b => {
     const capped = b.dataset.up === 'hab' && habCount() >= habSkills().length;
     b.querySelector('small .num').textContent = capped ? 'MÁX' : upCost(b.dataset.up);
     b.disabled = capped || S.gold < upCost(b.dataset.up);
@@ -2993,7 +2995,7 @@ setInterval(() => {
     if (!$('#shop').classList.contains('hidden')) renderShop();
   }
 }, 1000);
-document.querySelectorAll('.upbtn').forEach(b => b.addEventListener('click', () => {
+document.querySelectorAll('.upbtn[data-up]').forEach(b => b.addEventListener('click', () => {
   const k = b.dataset.up;
   if (S.gold < upCost(k)) return;
   if (k === 'hab' && habCount() >= habSkills().length) return;   // já aprendeu todos os golpes
