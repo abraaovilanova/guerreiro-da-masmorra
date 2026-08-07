@@ -3481,10 +3481,29 @@ $('#sndToggle').addEventListener('click', () => {
   SFX.play('potion');                                // feedback ao religar
 });
 renderSnd();
+/* Confirmação em dois toques, no lugar do confirm() nativo. No WebView do
+   Android o confirm() só abre se o app tratar o diálogo; sem isso ele devolve
+   undefined — que é falso — e o botão não fazia NADA, sem erro nem aviso.
+   Funcionava no navegador, o que escondeu o problema. */
+let resetArmed = 0;
 $('#reset').addEventListener('click', () => {
-  if (!confirm('Apagar todo o progresso?')) return;
+  const b = $('#reset');
+  if (Date.now() > resetArmed){                      // 1º toque: arma e avisa
+    resetArmed = Date.now() + 4000;
+    b.textContent = 'toque de novo para apagar tudo';
+    b.style.color = 'var(--danger)';
+    setTimeout(() => {
+      if (Date.now() > resetArmed) return;           // já confirmou: não desfaz o texto
+      resetArmed = 0;
+      b.textContent = 'zerar progresso';
+      b.style.color = '';
+    }, 4000);
+    return;
+  }
+  resetArmed = 0;                                    // 2º toque dentro da janela: apaga
+  b.textContent = 'apagando…';
   try { localStorage.removeItem(SAVE_KEY); } catch(e){}
-  location.reload();                                  // recria o save do zero (inclui o roster)
+  location.reload();                                 // recria o save do zero (inclui o roster)
 });
 
 /* ---------- ☁️ salvar campanha na nuvem (login Google + Firestore, ver window.Cloud) ---------- */
