@@ -1005,6 +1005,13 @@ UNITS.gobtnt = { fs:108, cont:[0.880, 1.0], vis:0.95, base:'assets/enemies/gobtn
   anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
 UNITS.serpent = { fs:102, cont:[0.892, 1.0], vis:0.95, base:'assets/enemies/serpent/', dir:'', fall:'🐍',
   anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
+/* 👑 Comandante Negro em 3 acabamentos (aço → osso → cinzas), um por terço das
+   33 masmorras. As variantes saem por recoloração do mesmo sprite, não de
+   gerações separadas: preserva a identidade e custa zero. Único inimigo com
+   attack2, então os combos dele alternam os golpes (ver altAtk). */
+for (const v of ['commander', 'commander_bone', 'commander_ash'])
+  UNITS[v] = { fs:140, cont:[0.679, 1.0], vis:0.95, base:'assets/enemies/' + v + '/', dir:'', fall:'👑',
+    anims:{ idle:'idle.png', run:'run.png', attack:'attack.png', attack2:'attack2.png' } };
 
 /* ---- monstros do THE PACK (frames soltos 100×120, olham p/ esquerda) e Minotauro ---- */
 const PACKBASE = 'assets/THE PACK/Monsters/';
@@ -1858,7 +1865,8 @@ const COMMONS = [
 ];
 /* chefes possíveis da onda 3 — cada masmorra tem um chefe fixo (liberados aos poucos, ver `lv`) */
 const BOSS_DEFS = [
-  { unit:'boss',      name:'Chefe',        hp:160, atk:20, def:6 },              // Cavaleiro da cor
+  { unit:'boss',      name:'Chefe',        hp:160, atk:20, def:6,
+    sprite:() => ['commander','commander_bone','commander_ash'][Math.min(2, Math.floor((S.dgLv - 1)/11))] },
   { unit:'kingslime', name:'Rei Slime',    hp:200, atk:18, def:4, solo:true },
   { unit:'tree',      name:'Árvore Anciã', hp:170, atk:19, def:8, solo:true, art:'A' },   // 🌱 surge do chão
   { unit:'bear',      name:'Urso Feroz',        hp:180, atk:19, def:5, solo:true, lv:2 },
@@ -1892,7 +1900,8 @@ function makeWave(w){
     /* 'sprite' troca SÓ a arte e preserva o kind. Trocar o unit quebraria tudo que
        indexa por tipo lógico — MOVES[en.kind], SPD, o monkTurn, os testes de
        ranged/tnt — e a fase inimiga morria com MOVES[...] undefined. */
-    unit: base.sprite || (base.solo ? base.unit : S.dgColor + '_' + base.unit),
+    unit: (typeof base.sprite === 'function' ? base.sprite() : base.sprite)
+          || (base.solo ? base.unit : S.dgColor + '_' + base.unit),
     hp:Math.round(base.hp*mult), maxhp:Math.round(base.hp*mult),
     atk:Math.round(base.atk*mult), def:Math.round(base.def*mult),
     shield:0,                    // escudos arcanos (boss Nv.5+): quebram antes do HP
@@ -2719,7 +2728,7 @@ function frameCount(a){
     if (CAMP_HERO_IMG.naturalWidth) return CAMP_HERO.frames;
   }
   /* 🛡️ parry novo: 15 frames (formato de blocos, igual ao ataque) */
-  if (a === player && a.anim === 'parry8') return ATK8.frames;
+  if (a === player && (a.anim === 'parry8' || a.anim === 'attack2')) return ATK8.frames;
   /* 🏃 andar novo do guerreiro: idem */
   if (a === player && a.unit === 'warrior' && a.anim === 'run' && WALK8_IMG.naturalWidth)
     return ATK8.frames;
@@ -2774,6 +2783,13 @@ function enrage(en){
 const ATK8 = { src:'assets/new-hero/atack-8-directions.png', fs:64, frames:15 };
 const ATK8_IMG = new Image();
 ATK8_IMG.src = ATK8.src;
+/* 🗡 segundo golpe do herói (estocada) — mesma grade de blocos. Nove chamadas de
+   playOnce(player,'attack') tocavam a MESMA animação, e por isso nenhum especial
+   parecia especial. Agora Lâmina Invisível, Sequência Mortal e o riposte do
+   parry usam a estocada; Fúria e ataque aéreo seguem com o corte descendente,
+   que combina melhor com golpe carregado e com ataque vindo de cima. */
+const ATK8B_IMG = new Image();
+ATK8B_IMG.src = 'assets/new-hero/atack2-8-directions.png';
 const ATK8_BLOCKS = [];
 for (let br = 0; br < 4; br++) for (let bc = 0; bc < 4; bc++)
   if (!(br === 3 && bc === 3)) ATK8_BLOCKS.push([br, bc]);
@@ -2790,7 +2806,9 @@ function drawAttack8(a, f, count){
   const [br, bc] = ATK8_BLOCKS[idx];
   const r = (k / 3) | 0, c = k % 3;
   const d = a.size * 0.85;                            // porte parecido com o do cavaleiro antigo
-  ctx.drawImage(ATK8_IMG, (bc*3 + c)*ATK8.fs, (br*3 + r)*ATK8.fs, ATK8.fs, ATK8.fs,
+  const sheet = (a.anim === 'attack2' && ATK8B_IMG.naturalWidth)
+    ? tinted(ATK8B_IMG, 'atk2') : tinted(ATK8_IMG, 'atk');
+  ctx.drawImage(sheet, (bc*3 + c)*ATK8.fs, (br*3 + r)*ATK8.fs, ATK8.fs, ATK8.fs,
                 -d/2, a.size*0.30 - d*0.867, d, d);   // pés da célula (y≈55/64) na base do herói
 }
 /* 🦘 pulo em 8 direções (mesma estrutura de blocos do ataque): usado na
@@ -2821,7 +2839,7 @@ function draw8(img, a, idx, p){
 function drawJump8(a){
   const k = Math.min(1, (performance.now() - (a.jump8T || 0)) / JUMP8_MS);
   const idx = Math.min(ATK8.frames - 1, Math.floor(k * ATK8.frames));
-  draw8(JUMP8_IMG, a, idx, nearestEnemyPos(a));
+  draw8(tinted(JUMP8_IMG, 'jump'), a, idx, nearestEnemyPos(a));
 }
 /* 🛡️ parry/bloqueio em 8 direções: animação 'parry8' tocada via playOnce,
    acelerada no updateActor pra caber os 15 frames em ~0,5s */
@@ -2829,20 +2847,20 @@ const PARRY8_IMG = new Image();
 PARRY8_IMG.src = 'assets/new-hero/parry-8-directions.png';
 const guardAnim = () => (player && player.unit === 'warrior' && PARRY8_IMG.naturalWidth) ? 'parry8' : 'guard';
 function drawParry8(a, f){
-  draw8(PARRY8_IMG, a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
+  draw8(tinted(PARRY8_IMG, 'parry'), a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
 }
 /* 🧍 idle de batalha em 8 direções: o herói encara o inimigo mais próximo */
 const IDLE8_IMG = new Image();
 IDLE8_IMG.src = 'assets/new-hero/idle-8-directions.png';
 function drawIdle8(a, f){
-  draw8(IDLE8_IMG, a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
+  draw8(tinted(IDLE8_IMG, 'idle'), a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
 }
 /* 😮‍💨 exausto: barra de exaustão estourada — o herói fica ofegante e sem
    defesa até voltar a agir. Mesmo formato de blocos dos outros sheets novos. */
 const TIRED8_IMG = new Image();
 TIRED8_IMG.src = 'assets/new-hero/tired.png';
 function drawTired8(a, f){
-  draw8(TIRED8_IMG, a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
+  draw8(tinted(TIRED8_IMG, 'tired'), a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
 }
 /* 💨 esquiva lateral em 8 direções: como o pulo, o frame segue o TEMPO do
    dash (~330ms) e a direção fica travada no lado do deslize */
@@ -2852,7 +2870,7 @@ const DODGE8_MS = 330;
 function drawDodge8(a){
   const k = Math.min(1, (performance.now() - (a.dodge8T || 0)) / DODGE8_MS);
   const idx = Math.min(ATK8.frames - 1, Math.floor(k * ATK8.frames));
-  draw8(DODGE8_IMG, a, idx, a.dodge8P != null ? a.dodge8P : nearestEnemyPos(a));
+  draw8(tinted(DODGE8_IMG, 'dodge'), a, idx, a.dodge8P != null ? a.dodge8P : nearestEnemyPos(a));
 }
 /* 🏃 andar/correr em 8 direções: a direção vem do VETOR do deslocamento
    (investida, esquiva, volta pra base), não do inimigo */
@@ -2865,7 +2883,7 @@ function drawWalk8(a, f){
     const dx = a.tween.tx - a.tween.sx, dy = a.tween.ty - a.tween.sy;
     p = (dx || dy) ? atk8Pos(dx, dy) : nearestEnemyPos(a);
   } else p = nearestEnemyPos(a);
-  draw8(WALK8_IMG, a, Math.min(ATK8.frames - 1, f), p);
+  draw8(tinted(WALK8_IMG, 'walk'), a, Math.min(ATK8.frames - 1, f), p);
 }
 /* 🧍 idle do herói novo na batalha (mesmo sheet do acampamento, de frente) */
 function drawIdleCam(a, f){
@@ -2907,7 +2925,7 @@ function drawActor(a, t){
     ctx.translate(a.x, a.y);
     /* ⚔️ guerreiro atacando: usa o sheet novo de 8 direções (sem flip — a
        direção certa vem do próprio sheet, apontada para o alvo atual) */
-    if (a === player && a.unit === 'warrior' && a.anim === 'attack' && ATK8_IMG.naturalWidth){
+    if (a === player && a.unit === 'warrior' && (a.anim === 'attack' || a.anim === 'attack2') && ATK8_IMG.naturalWidth){
       drawAttack8(a, f, frameCount(a));
     } else if (a === player && a.unit === 'warrior' && a.anim === 'idle' &&
                (guardBroken || exhausted) && TIRED8_IMG.naturalWidth){
@@ -4072,6 +4090,55 @@ async function nextTurn(){
    unidade e memorizado — é leitura de pixel, cara demais para todo quadro.
    Em file:// o canvas fica "tainted" e getImageData lança; nesse caso devolve
    null e o recorte antigo (torso) continua valendo. */
+/* ---------- ⚔️ TIER DE EQUIPAMENTO DO HERÓI ----------
+   O PixelLab não produz sprites em camadas, então não há como sobrepor escudo e
+   armadura sobre um corpo base. O equivalente viável é recolorir o metal das
+   folhas que já existem — funciona nas 7 animações e nas 8 direções de uma vez.
+
+   Limite conhecido: espada e armadura são o MESMO metal frio (15% dos pixels) e
+   não se separam por cor, só por posição, o que seria frágil. Por isso o tier é
+   único, não um módulo por peça.
+
+   Feito em canvas fora de tela e memorizado — recolorir por quadro seria caro.
+   Em file:// o canvas fica tainted e getImageData lança; nesse caso devolve a
+   folha original e o herói fica no acabamento base, sem quebrar nada. */
+const GEAR_TINTS = [
+  null,                                              // Tier 1: aço, como veio
+  { r:1.24, g:1.28, b:1.34, lift:1.06 },             // Tier 2: prata pálida
+  { r:1.30, g:0.82, b:0.58, lift:0.94 },             // Tier 3: placa escura com brasa
+];
+const gearTier = () => Math.min(2, Math.floor((S.lv.atk || 0) / 10));
+const TINTED = {};
+function tinted(img, key){
+  const t = gearTier();
+  if (!t || !img || !img.naturalWidth) return img;
+  const ck = key + '@' + t;
+  if (TINTED[ck] !== undefined) return TINTED[ck] || img;
+  let out = null;
+  try {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const x = c.getContext('2d', { willReadFrequently:true });
+    x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+    const m = GEAR_TINTS[t];
+    for (let i = 0; i < p.length; i += 4){
+      if (p[i+3] < 128) continue;
+      const mx = Math.max(p[i], p[i+1], p[i+2]), mn = Math.min(p[i], p[i+1], p[i+2]);
+      const sat = mx > 0 ? (mx - mn) / mx : 0;
+      if (sat >= 0.30 || mx <= 60) continue;         // só o metal frio; couro e pele ficam
+      p[i]   = Math.min(255, p[i]   * m.r * m.lift);
+      p[i+1] = Math.min(255, p[i+1] * m.g * m.lift);
+      p[i+2] = Math.min(255, p[i+2] * m.b * m.lift);
+    }
+    x.putImageData(d, 0, 0);
+    c.naturalWidth = c.width;                        // o motor testa naturalWidth
+    out = c;
+  } catch (e){ out = null; }
+  TINTED[ck] = out;
+  return out || img;
+}
+
 const HEAD_BOX = {};
 function headBox(unit){
   if (HEAD_BOX[unit] !== undefined) return HEAD_BOX[unit];
@@ -4703,7 +4770,7 @@ async function playerBlade(){
   fury = Math.max(0, fury - hits); exhausted = true;   // custo: a fúria investida, perde a próxima rodada
   log('👻 LÂMINA INVISÍVEL! ' + hits + (hits > 1 ? ' golpes relâmpago!' : ' golpe relâmpago!'));
   await tween(player, W*0.50, H*0.56, 260, 'run');
-  const hit = playOnce(player, 'attack');
+  const hit = playOnce(player, 'attack2');
   await wait(160);
   SFX.play('crit');
   for (let i = 0; i < hits; i++){
@@ -4793,7 +4860,7 @@ async function playerSeq(){
   }
   const en = enemies[targetIdx];
   await tween(player, ...engageEnemy(en), 300, 'run');
-  const hit = playOnce(player, 'attack');
+  const hit = playOnce(player, 'attack2');
   await wait(200);
   if (mult >= 1.5) shakeApp();
   enemyStagger(en, mult);
@@ -5307,7 +5374,7 @@ async function enemyAttack(en){
 /* contra-ataque (defendeu o combo inteiro): 1.5×–2× do ataque do herói */
 async function counterAttack(en){
   const m = 1.5 + Math.random()*0.5;
-  const swing = playOnce(player, 'attack');
+  const swing = playOnce(player, 'attack2');
   await wait(180);
   shakeApp();
   if (en.shield > 0){
