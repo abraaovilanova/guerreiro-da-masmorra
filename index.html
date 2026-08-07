@@ -3203,7 +3203,9 @@ function drawMenuHero(dt){
     const sx = (f % CAMP_HERO.cols) * CAMP_HERO.fs;
     const sy = Math.floor(f / CAMP_HERO.cols) * CAMP_HERO.fs;
     const d = 140;                                    // 64px ampliado, pés ancorados na sombra
-    heroCtx.drawImage(CAMP_HERO_IMG, sx, sy, CAMP_HERO.fs, CAMP_HERO.fs,
+    /* o acampamento também segue o tier: era a única folha do herói fora do
+       tinted(), e é justamente onde o jogador olha o personagem de perto */
+    heroCtx.drawImage(tinted(CAMP_HERO_IMG, 'camp'), sx, sy, CAMP_HERO.fs, CAMP_HERO.fs,
                       110 - d/2, 118 - d*0.86, d, d);
     return;
   }
