@@ -656,10 +656,12 @@
     border-image:var(--ui-scroll) var(--ui-scroll-slice, 44 54 43 54) fill stretch;
     image-rendering:pixelated;color:#3b2a16;text-shadow:none;box-shadow:none;
   }
-  /* moldura de madeira (Tiny Swords Bars) na barra oscilante da Sequência Mortal */
+  /* calha de ferro na barra oscilante da Sequência Mortal (era a moldura de
+     madeira do Tiny Swords). O slice acompanha o asset: tampa de 126px numa
+     folha de 619, medida no próprio arquivo. */
   .skinned #seq .track{
     border-style:solid;border-color:transparent;border-width:0 16px;
-    border-image:var(--ui-bar) 0 24 0 24 fill stretch;
+    border-image:var(--ui-bar) var(--ui-bar-slice, 0 24 0 24) fill stretch;
     border-radius:0;box-shadow:none;image-rendering:pixelated;
   }
   .ribboned{
@@ -1119,7 +1121,7 @@ const UIA = {
   barBase: 'Bars/BigBar_Base.png',
   barFill: 'Bars/BigBar_Fill.png',
   ribbons: 'Ribbons/SmallRibbons.png',           // 5 fitas de 320×128
-  brackets:'Cursors/Cursor_04.png',              // colchetes de seleção
+  brackets:'assets/icons/ui/brackets.png',       // moldura de alvo (ferro + ouro)
   avaHero: 'Human Avatars/Avatars_01.png',
   icoCoin: 'Icons/Icon_03.png',
   icoMeat: 'Icons/Icon_04.png',
@@ -1150,6 +1152,7 @@ const UIA = {
   btnIronRed:'assets/icons/ui/btn-iron-red.png', // mesma peça, ferro avermelhado
   barIron:   'assets/icons/ui/bar-iron.png',     // calha de ferro, tampas de osso
   scrollIron:'assets/icons/ui/scroll-iron.png',  // pergaminho c/ cantoneiras — menus densos
+  ribbonIron:'assets/icons/ui/ribbon.png',       // fita de título (ferro, ouro e panos)
 };
 const UIIMG = {};
 const uiPromise = Promise.allSettled(Object.entries(UIA).map(([k, f]) => new Promise((res, rej) => {
@@ -1275,18 +1278,29 @@ function drawSegBar(x, y, w, h, val, cap, color, flash){
       R.setProperty('--ui-scroll', 'url(' + UIIMG.scrollIron.src + ')');
       R.setProperty('--ui-scroll-slice', '30');
     } else if (UIIMG.scroll) R.setProperty('--ui-scroll', nineURL(UIIMG.scroll, NINE.paper));
+    /* Os assets novos SEMPRE ganham; os do Tiny Swords só entram como reserva.
+       A ordem importa: antes, as linhas do Tiny Swords vinham depois e
+       sobrescreviam silenciosamente o botão vermelho e a barra de ferro. */
+    if (UIIMG.barIron){                              // calha de ferro na barra CSS
+      R.setProperty('--ui-bar', 'url(' + UIIMG.barIron.src + ')');
+      R.setProperty('--ui-bar-slice', '0 126 0 126');
+    } else if (UIIMG.barBase) R.setProperty('--ui-bar', nineURL(UIIMG.barBase, NINE.bar));
+
     if (UIIMG.btnIron){                              // botões novos: contíguos, slice próprio
       R.setProperty('--ui-btn-blue', 'url(' + UIIMG.btnIron.src + ')');
       R.setProperty('--ui-btn-slice', '24');
-      if (UIIMG.btnIronRed) R.setProperty('--ui-btn-red', 'url(' + UIIMG.btnIronRed.src + ')');
     } else if (UIIMG.btnBlue) R.setProperty('--ui-btn-blue', nineURL(UIIMG.btnBlue, NINE.btn));
-    if (UIIMG.btnRed)  R.setProperty('--ui-btn-red',  nineURL(UIIMG.btnRed, NINE.btn));
-    if (UIIMG.barBase) R.setProperty('--ui-bar',      nineURL(UIIMG.barBase, NINE.bar));
+
+    if (UIIMG.btnIronRed) R.setProperty('--ui-btn-red', 'url(' + UIIMG.btnIronRed.src + ')');
+    else if (UIIMG.btnRed) R.setProperty('--ui-btn-red', nineURL(UIIMG.btnRed, NINE.btn));
+
     if (UIIMG.barFill) R.setProperty('--ui-barfill',  cropURL(UIIMG.barFill, 0, 20, 64, 24));
-    if (UIIMG.ribbons){
+    if (UIIMG.ribbonIron || UIIMG.ribbons){
       const h1 = document.querySelector('h1');
       if (h1){
-        h1.style.borderImage = nineURL(UIIMG.ribbons, NINE.ribbon) + ' 0 62 0 62 fill stretch';
+        h1.style.borderImage = UIIMG.ribbonIron
+          ? 'url(' + UIIMG.ribbonIron.src + ') 0 48 0 48 fill stretch'
+          : nineURL(UIIMG.ribbons, NINE.ribbon) + ' 0 62 0 62 fill stretch';
         h1.classList.add('ribboned');
       }
     }
