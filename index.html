@@ -2018,6 +2018,7 @@ const GROUND = {
   /* gerado no PixelLab: 8 variantes numa linha só. Diferente das folhas acima, a
      célula não tem faixa de "espessura" no topo/base — por isso top:0/bot:64. */
   cracked2: { src:'assets/biomas/ruinas_pixellab.png',              ts:64, top:0,  bot:64, vars:8 },
+  wallstone:{ src:'assets/biomas/wall_stone.png',                   ts:64, top:0,  bot:64, vars:8 },   // paredes de interior
 };
 const ground = (base, row, extra) => Object.assign({}, GROUND[base], { row }, extra || {});
 
@@ -2140,6 +2141,89 @@ function drawVerges(){
   }
   ctx.globalAlpha = 1;
 }
+/* ---------- 🏛️ CENÁRIOS DE INTERIOR (masmorra, igreja, salão) ----------
+   Os 4 biomas originais são a céu aberto: céu, morros, horizonte. Um calabouço
+   é o oposto — o olhar bate numa parede no fim do corredor, não no infinito.
+
+   Reaproveitamos a MESMA malha de perspectiva do chão: para cada fileira, o
+   corredor tem meia-largura w(t) e altura y(t). As paredes sobem verticalmente
+   a partir da borda do chão, e o teto é o espelho do piso. Como a altura da
+   parede escala junto com a largura, o corredor afunila de forma coerente.
+
+   A névoa é aplicada POR FILEIRA (não como gradiente por cima): cada faixa mais
+   distante recebe mais névoa, então o fundo dissolve de verdade em vez de
+   terminar numa linha — que era o defeito dos cenários abertos. ---------- */
+function wallSlice(img, g, x, y, w, h, hash){
+  if (!img || !img.naturalWidth) return;
+  const v = (hash >>> 4) % (g.vars || 1);
+  const st = g.ts + 1;
+  ctx.drawImage(img, v*st, (g.row||0)*st + g.top, g.ts, g.bot - g.top, x, y, w, h);
+}
+
+function drawInterior(){
+  const b = BIOMES[battleBiome];
+  const it = b.interior;
+  const wallImg = DECOR_IMGS[it.wall.src];
+  const { yTop, yBot, wTop, wBot, rows } = roadGeom();
+  const frac = ((roadScroll % 1) + 1) % 1, base = Math.floor(roadScroll);
+
+  ctx.fillStyle = it.dark || '#06070d';              // breu por trás de tudo
+  ctx.fillRect(0, 0, W, H);
+
+  const geo = t => {
+    const e = roadEase(t);
+    return { y: yTop + (yBot - yTop)*e, hw: (wTop + (wBot - wTop)*e)/2,
+             wh: H * it.h * (0.18 + e*0.95) };       // pé-direito cresce com a proximidade
+  };
+
+  for (let i = -1; i <= rows; i++){
+    const t0 = Math.max(0, (i + frac) / rows), t1 = Math.min(1, (i + 1 + frac) / rows);
+    if (t1 <= t0) continue;
+    const a = geo(t0), c = geo(t1);
+    const h = cellHash(i - base, 17);
+    const fog = Math.pow(1 - t0, 2.1);                // 1 no fundo → 0 na câmera
+
+    for (const sgn of [-1, 1]){
+      const xa = W/2 + sgn*a.hw, xc = W/2 + sgn*c.hw;
+      /* parede lateral: quad entre duas fileiras, do chão até o teto */
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(xa, a.y); ctx.lineTo(xc, c.y);
+      ctx.lineTo(xc, c.y - c.wh); ctx.lineTo(xa, a.y - a.wh);
+      ctx.closePath(); ctx.clip();
+      const bx = Math.min(xa, xc), bw = Math.abs(xc - xa) + 1;
+      const by = Math.min(a.y - a.wh, c.y - c.wh), bh = Math.max(a.y, c.y) - by + 1;
+      const reps = Math.max(1, Math.round(bh / Math.max(8, bw)));
+      for (let k = 0; k < reps; k++)
+        wallSlice(wallImg, it.wall, bx, by + k*bh/reps, bw, bh/reps + 0.6, h + k*7);
+      ctx.fillStyle = 'rgba(3,4,9,' + (0.34 + 0.55*fog) + ')';   // sombra + névoa da fileira
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.restore();
+    }
+
+    /* teto: espelho do piso, com névoa própria */
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(W/2 - a.hw, a.y - a.wh); ctx.lineTo(W/2 + a.hw, a.y - a.wh);
+    ctx.lineTo(W/2 + c.hw, c.y - c.wh); ctx.lineTo(W/2 - c.hw, c.y - c.wh);
+    ctx.closePath(); ctx.clip();
+    const cy = Math.min(a.y - a.wh, c.y - c.wh);
+    const chh = Math.abs((c.y - c.wh) - (a.y - a.wh)) + 1;
+    wallSlice(wallImg, it.wall, W/2 - c.hw, cy, c.hw*2 + 1, chh, h + 31);
+    ctx.fillStyle = 'rgba(2,3,8,' + (0.52 + 0.42*fog) + ')';
+    ctx.fillRect(W/2 - c.hw - 1, cy, c.hw*2 + 2, chh);
+    ctx.restore();
+  }
+
+  /* fundo do corredor: o vão escuro para onde tudo converge */
+  const f = geo(0);
+  const grd = ctx.createRadialGradient(W/2, f.y - f.wh*0.45, 1, W/2, f.y - f.wh*0.45, Math.max(f.hw, f.wh));
+  grd.addColorStop(0, it.glow || 'rgba(20,26,44,.85)');
+  grd.addColorStop(1, (it.dark || '#06070d') + 'ff');
+  ctx.fillStyle = grd;
+  ctx.fillRect(W/2 - f.hw, f.y - f.wh, f.hw*2, f.wh);
+}
+
 /* 🌿 TEXTURA DAS LATERAIS — o acostamento era um polígono de cor chapada, o que
    dava aquele aspecto de "chão colorido com objetos jogados por cima". Aqui
    reaproveitamos as MESMAS fileiras de perspectiva do drawGround: cada faixa
@@ -2317,6 +2401,21 @@ const BIOMES = {
     item('crate',  0.90,0.64,0.09,{alpha:0.9}),
   ];}},
 };
+/* 🏛️ interiores: sem céu, sem acostamento, sem props de margem. 'wall' segue o
+   mesmo formato das folhas de chão (grade de células com 1px de separação) e
+   'h' é o pé-direito como fração da altura da tela. */
+BIOMES.cripta = { nome:'Cripta', tint:'rgba(30,36,60,.20)',
+  ground:ground('cracked2', 0),
+  interior:{ wall:GROUND.wallstone, h:0.62, dark:'#05060c', glow:'rgba(28,36,60,.9)' },
+  side:[], build(){ return []; } };
+BIOMES.igreja = { nome:'Igreja Profanada', tint:'rgba(60,44,30,.16)',
+  ground:ground('road', 0),
+  interior:{ wall:GROUND.wallstone, h:0.86, dark:'#070610', glow:'rgba(78,62,34,.85)' },
+  side:[], build(){ return []; } };
+BIOMES.salao = { nome:'Salão do Castelo', tint:'rgba(40,30,50,.18)',
+  ground:ground('cracked2', 0),
+  interior:{ wall:GROUND.wallstone, h:0.70, dark:'#06060e', glow:'rgba(40,30,58,.85)' },
+  side:[], build(){ return []; } };
 const BIOME_KEYS = Object.keys(BIOMES);
 let battleBiome = 'castelo';
 const pickBiome = () => BIOME_KEYS[rnd(0, BIOME_KEYS.length-1)];
@@ -2328,6 +2427,9 @@ function buildScenery(){
   loadDecor(tileSrc);
   if (b.ground){                                     // 🛣️ folhas novas de chão (assets/biomas)
     loadDecor(b.ground.src);
+  }
+  if (b.interior) loadDecor(b.interior.wall.src);      // 🏛️ textura das paredes/teto
+  if (b.ground){
     if (b.ground.mix) loadDecor(b.ground.mix.src);
   }
   if (b.skyline) loadDecor(b.skyline);                // 🏰 faixa de silhueta do horizonte
@@ -2444,8 +2546,12 @@ function drawSceneryItems(list){
 function drawScenery(t){
   const timg = DECOR_IMGS[tileSrc];                  // terreno primeiro (chão)
   const b = BIOMES[battleBiome];                     // 🌍 clima do bioma (leve tinta de cor)
-  drawSky(t || 0);                                   // 🌌 céu, astro e morros ao fundo
-  drawVerges();                                      // 🌱 terra dos dois lados da estrada
+  if (b && b.interior){                              // 🏛️ calabouço/igreja/salão: sem céu
+    drawInterior();
+  } else {
+    drawSky(t || 0);                                 // 🌌 céu, astro e morros ao fundo
+    drawVerges();                                    // 🌱 terra dos dois lados da estrada
+  }
   /* 🛣️ estrada rumo ao horizonte: chão do bioma (assets/biomas) e, se ele
      ainda não carregou, o tileset antigo como reserva */
   if (!(b && b.ground && drawGround(b.ground)) && timg){
@@ -2453,10 +2559,10 @@ function drawScenery(t){
     drawRoad(timg, fsx, fsy, fsingle);
   }
   drawRoadLight();                                   // 💡 luz no miolo + bordas escuras
-  drawHorizonHaze();                                 // dissolve a emenda céu/chão
+  if (!(b && b.interior)) drawHorizonHaze();         // só a céu aberto: no interior a névoa é por fileira
   if (b && b.tint){ ctx.fillStyle = b.tint; ctx.fillRect(0, 0, W, H); }
   drawSceneryItems(scenery.filter(s => s.bg));       // estruturas/árvores ao fundo
-  drawSideProps(sideProps);                          // 🌳 margens do corredor (fundo → frente)
+  if (!(b && b.interior)) drawSideProps(sideProps);  // dentro do corredor não há margem
   /* névoa de distância: escurece o fim do corredor (cenário sim, monstros não) */
   const fog = ctx.createLinearGradient(0, H*0.16, 0, H*0.50);
   fog.addColorStop(0, 'rgba(6,8,16,.55)'); fog.addColorStop(1, 'rgba(6,8,16,0)');
