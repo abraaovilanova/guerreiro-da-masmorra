@@ -3270,6 +3270,8 @@ function renderMenu(){
     ? (() => { const s = Math.max(0, Math.ceil((S.torchT + TORCH_REGEN_MS - Date.now())/1000));
                return '· +1 em ' + Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); })()
     : '';
+  devTopUp();                                        // 🛠️ modo dev: recompõe recursos
+  renderDevBadge();
   $('#gold').textContent = S.gold;
   $('#soulN').textContent = S.souls;
   renderChest();
@@ -3486,6 +3488,42 @@ renderSnd();
    undefined — que é falso — e o botão não fazia NADA, sem erro nem aviso.
    Funcionava no navegador, o que escondeu o problema. */
 let resetArmed = 0;
+/* ---------- 🛠️ MODO DEV — 7 toques em "Masmorras conquistadas" ----------
+   Gatilho escondido num texto não clicável do rodapé: ninguém aciona sem
+   querer, e não precisa de teclado (que não existe no aparelho). Fica no save
+   para sobreviver ao reload; tocar 7 vezes de novo desliga. */
+let devTaps = 0, devTapT = 0;
+function renderDevBadge(){
+  let b = $('#devBadge');
+  if (!S.dev){ if (b) b.remove(); return; }
+  if (!b){
+    b = document.createElement('div');
+    b.id = 'devBadge';
+    b.style.cssText = 'position:fixed;top:4px;left:4px;z-index:99;background:#7f1d1d;color:#fff;' +
+      'font-size:10px;padding:2px 6px;border-radius:3px;letter-spacing:.08em;pointer-events:none';
+    document.body.appendChild(b);
+  }
+  b.textContent = 'MODO DEV';
+}
+function devTopUp(){                                 // chamado a cada renderMenu
+  if (!S.dev) return;
+  S.gold = 999999;
+  S.tochas = TORCH_MAX;
+  S.souls = 999;
+  S.mapas = 99;
+  if (S.gemas) S.gemas.un = GEM_ORDER.slice();       // todas as gemas liberadas p/ testar
+}
+$('#bestTag').addEventListener('click', () => {
+  const now = Date.now();
+  if (now - devTapT > 1200) devTaps = 0;             // sequência tem que ser contínua
+  devTapT = now;
+  if (++devTaps < 7) return;
+  devTaps = 0;
+  S.dev = !S.dev;
+  if (!S.dev){ S.gold = Math.min(S.gold, 9999); }    // desligando: tira o excesso
+  save(); renderDevBadge(); renderMenu();
+});
+
 $('#reset').addEventListener('click', () => {
   const b = $('#reset');
   if (Date.now() > resetArmed){                      // 1º toque: arma e avisa
