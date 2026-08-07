@@ -976,6 +976,22 @@ for (const [c, cfg] of Object.entries(DG_COLORS)){
    próprio sprite — o conteúdo preenche o quadro e o pé encosta na base. ---- */
 UNITS.blackknight = { fs:93, cont:[1.0, 1.0], vis:0.95, base:'assets/enemies/blackknight/', dir:'', fall:'💀',
   anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
+UNITS.skelarcher = { fs:123, cont:[0.756, 1.0], vis:0.95, base:'assets/enemies/skelarcher/', dir:'', fall:'🏹',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
+UNITS.gravelancer = { fs:121, cont:[0.802, 1.0], vis:0.95, base:'assets/enemies/gravelancer/', dir:'', fall:'🔱',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
+UNITS.cultist = { fs:128, cont:[0.719, 1.0], vis:0.95, base:'assets/enemies/cultist/', dir:'', fall:'📿',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
+UNITS.lich = { fs:94, cont:[1.0, 1.0], vis:0.95, base:'assets/enemies/lich/', dir:'', fall:'💀',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png', guard:'guard.png' } };
+UNITS.ogre = { fs:94, cont:[1.0, 1.0], vis:0.95, base:'assets/enemies/ogre/', dir:'', fall:'👹',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png', guard:'guard.png' } };
+UNITS.wraith = { fs:91, cont:[1.0, 1.0], vis:0.95, base:'assets/enemies/wraith/', dir:'', fall:'👻',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
+UNITS.imp = { fs:95, cont:[0.989, 1.0], vis:0.95, base:'assets/enemies/imp/', dir:'', fall:'👺',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
+UNITS.necro = { fs:111, cont:[0.964, 1.0], vis:0.95, base:'assets/enemies/necro/', dir:'', fall:'🔮',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
 
 /* ---- monstros do THE PACK (frames soltos 100×120, olham p/ esquerda) e Minotauro ---- */
 const PACKBASE = 'assets/THE PACK/Monsters/';
@@ -1790,20 +1806,20 @@ const rocksPerRound = () => 1 + gemLv('pedra');   // Nv.1 → 2 pedras … Nv.5 
 
 /* ---------- monstros: 3 comuns, 3 comuns+fortes, Boss ---------- */
 const COMMONS = [
-  { unit:'blackknight', name:'Cavaleiro Negro', hp:30, atk:9, def:2, solo:true },
-  { unit:'archer', name:'Arqueiro', hp:24, atk:12, def:1 },
-  { unit:'lancer', name:'Lanceiro', hp:40, atk:11, def:4 },
-  { unit:'monk',   name:'Monge',    hp:26, atk:10, def:2 },
+  { unit:'pawn',   name:'Cavaleiro Negro',  sprite:'blackknight',  hp:30, atk:9,  def:2 },
+  { unit:'archer', name:'Arqueiro Espectral', sprite:'skelarcher',  hp:24, atk:12, def:1 },
+  { unit:'lancer', name:'Lanceiro Sepulcral', sprite:'gravelancer', hp:40, atk:11, def:4 },
+  { unit:'monk',   name:'Cultista',  sprite:'cultist',     hp:26, atk:10, def:2 },
   /* 🧌 Enemy Pack: monstros solo (sem variação de cor), liberados aos poucos
      ao longo das 33 masmorras para dar variedade à jornada mais longa */
-  { unit:'gnome',       name:'Gnomo Arruaceiro',  hp:24, atk:9,  def:1, solo:true },
-  { unit:'thief',       name:'Ladrão',            hp:26, atk:10, def:1, solo:true, lv:2 },
+  { unit:'gnome',       name:'Servo Deformado',   sprite:'imp',   hp:24, atk:9,  def:1, solo:true },
+  { unit:'thief',       name:'Espectro Ladino',   sprite:'wraith', hp:26, atk:10, def:1, solo:true, lv:2 },
   { unit:'snake',       name:'Cobra Venenosa',    hp:24, atk:11, def:1, solo:true, lv:2 },
   { unit:'spider',      name:'Aranha Gigante',    hp:28, atk:10, def:2, solo:true, lv:3 },
   /* 🔥 goblins de fogo (masmorra 3+): golpes certeiros grudam uma 🧨 no herói */
   { unit:'torch',  name:'Goblin da Tocha', hp:28, atk:10, def:2, fire:true, lv:3 },
   { unit:'tnt',    name:'Goblin Dinamite', hp:22, atk:9,  def:1, fire:true, lv:3 },
-  { unit:'skull',       name:'Caveira Amaldiçoada', hp:32, atk:11, def:3, solo:true, lv:4 },
+  { unit:'skull',       name:'Lich Amaldiçoado',   sprite:'lich', hp:32, atk:11, def:3, solo:true, lv:4 },
   /* 🐂 minotauro (masmorra 4+): pesado, investida exige esquiva lateral */
   { unit:'mino',   name:'Minotauro', hp:46, atk:13, def:3, lv:4, solo:true },
   /* 🎯 arremessadores: ficam à distância em vez de avançar (ver `ranged` em enemyAttack) */
@@ -1811,7 +1827,7 @@ const COMMONS = [
   { unit:'lizard',      name:'Lagarto Cuspidor',   hp:32, atk:11, def:2, solo:true, lv:6, ranged:true },
   { unit:'harpoonfish', name:'Peixe Arpoador',     hp:30, atk:12, def:2, solo:true, lv:7, ranged:true },
   { unit:'paddlefish',  name:'Peixe-Remo',         hp:36, atk:12, def:3, solo:true, lv:8 },
-  { unit:'shaman',      name:'Xamã Selvagem',      hp:34, atk:13, def:2, solo:true, lv:9, ranged:true },
+  { unit:'shaman',      name:'Necromante',        sprite:'necro', hp:34, atk:13, def:2, solo:true, lv:9, ranged:true },
   { unit:'turtle',      name:'Tartaruga Blindada', hp:48, atk:11, def:6, solo:true, lv:10 },   // muro de defesa
   { unit:'wlancer',     name:'Cavaleiro Selvagem', hp:40, atk:14, def:4, solo:true, lv:12 },
 ];
@@ -1823,7 +1839,7 @@ const BOSS_DEFS = [
   { unit:'bear',      name:'Urso Feroz',        hp:180, atk:19, def:5, solo:true, lv:2 },
   { unit:'minolord',  name:'Minotauro Ancestral', hp:210, atk:20, def:6, solo:true, lv:4 },
   { unit:'troll',     name:'Troll das Cavernas', hp:230, atk:21, def:7, solo:true, lv:6 },
-  { unit:'panda',     name:'Panda Guerreiro',    hp:190, atk:18, def:6, solo:true, lv:9 },
+  { unit:'panda',     name:'Ogro Carrasco',      sprite:'ogre',   hp:190, atk:18, def:6, solo:true, lv:9 },
 ];
 
 /* ---------- 🔁 NG+: 33 masmorras fecham o jogo (esticado de 20 para caber
@@ -1848,7 +1864,10 @@ function makeWave(w){
   const mk = (base, i, n) => ({
     ...base,
     kind: base.unit,                       // tipo lógico (pawn/archer/lancer/monk/boss…)
-    unit: base.solo ? base.unit : S.dgColor + '_' + base.unit,   // solo: sprite único, sem cor
+    /* 'sprite' troca SÓ a arte e preserva o kind. Trocar o unit quebraria tudo que
+       indexa por tipo lógico — MOVES[en.kind], SPD, o monkTurn, os testes de
+       ranged/tnt — e a fase inimiga morria com MOVES[...] undefined. */
+    unit: base.sprite || (base.solo ? base.unit : S.dgColor + '_' + base.unit),
     hp:Math.round(base.hp*mult), maxhp:Math.round(base.hp*mult),
     atk:Math.round(base.atk*mult), def:Math.round(base.def*mult),
     shield:0,                    // escudos arcanos (boss Nv.5+): quebram antes do HP
