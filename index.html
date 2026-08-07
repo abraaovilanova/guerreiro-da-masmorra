@@ -2626,6 +2626,9 @@ function makePlayer(){
 
 /* animação "tocar uma vez" (ataque/defesa) — resolve ao terminar */
 const playOnce = (a, anim) => new Promise(res => { a.anim = anim; a.frame = 0; a.acc = 0; a.once = res; });
+/* quanto o golpe do inimigo se antecipa ao fim da janela de defesa, para que a
+   arma esteja descendo enquanto o círculo fecha e o impacto coincida com o parry */
+const SWING_LEAD = 300;
 /* deslocamento suave até (tx,ty) — baseado no relógio para não travar
    se o requestAnimationFrame perder frames (aba em segundo plano etc.) */
 const tween = (a, tx, ty, ms, anim) => new Promise(res => {
@@ -5123,20 +5126,29 @@ async function enemyAttack(en){
     if (hp <= 0) break;
     const type = combo[i].t;
     let result = null;
+    /* combos alternam os dois golpes: sem isso "Dança das Facas" (2 hits) toca o
+       MESMO movimento duas vezes. Cai em 'attack' para quem não tem attack2. */
+    let swing = null;
+    const startSwing = () => { if (!swing) swing = playOnce(en, altAtk(en, i)); };
     if (guardBroken){                                // guarda quebrada: sem parry nem pulo
       log('💫 Exausto, você não consegue reagir ao golpe!');
+      startSwing();
       await wait(550);
     } else {
       /* Nv.>5: cada golpe nomeado tem seu próprio ritmo · 😡 fase 2: 25% mais rápido · NG+: janela geral encolhe */
       const rage = en.enraged ? 0.75 : 1;
       const ms = Math.round((effLv() > 5 ? QTE_MS * (combo[i].m || 1) : QTE_MS) * rage * ngSpeedMult());
       const curve = effLv() > 5 ? combo[i].curve : null;
+      /* O golpe começa DURANTE a janela, não depois dela. Antes o parry resolvia
+         primeiro e o inimigo só então balançava a arma — o jogador aparava o ar
+         e a leitura de causa e efeito ficava invertida. Agora a arma está em
+         curso enquanto o círculo fecha, e o impacto cai no instante do toque. */
+      const lead = Math.min(SWING_LEAD, ms * 0.75);
+      const t = setTimeout(startSwing, Math.max(0, ms - lead));
       result = await runQte(type, combo.length > 1 ? (i+1) + '/' + combo.length : '', ms, curve);
+      clearTimeout(t);
     }
-    /* combos alternam os dois golpes: sem isso "Dança das Facas" (2 hits) toca o
-       MESMO movimento duas vezes. Cai em 'attack' para quem não tem attack2. */
-    const swing = playOnce(en, altAtk(en, i));
-    await wait(180);
+    startSwing();                                    // janela curta demais: garante o golpe
     if (en.kind === 'tnt'){                          // 🧨 a dinamite voa até o herói
       dynFly = { x:en.x, y:en.y - en.size*0.3, tx:player.x, ty:player.y - player.size*0.2,
                  t0:performance.now(), ms:260 };
