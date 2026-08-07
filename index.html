@@ -992,6 +992,12 @@ UNITS.imp = { fs:95, cont:[0.989, 1.0], vis:0.95, base:'assets/enemies/imp/', di
   anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
 UNITS.necro = { fs:111, cont:[0.964, 1.0], vis:0.95, base:'assets/enemies/necro/', dir:'', fall:'🔮',
   anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
+UNITS.gobtorch = { fs:99, cont:[1.0, 1.0], vis:0.95, base:'assets/enemies/gobtorch/', dir:'', fall:'🔥',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
+UNITS.gobtnt = { fs:108, cont:[0.880, 1.0], vis:0.95, base:'assets/enemies/gobtnt/', dir:'', fall:'🧨',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
+UNITS.serpent = { fs:102, cont:[0.892, 1.0], vis:0.95, base:'assets/enemies/serpent/', dir:'', fall:'🐍',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
 
 /* ---- monstros do THE PACK (frames soltos 100×120, olham p/ esquerda) e Minotauro ---- */
 const PACKBASE = 'assets/THE PACK/Monsters/';
@@ -1814,11 +1820,11 @@ const COMMONS = [
      ao longo das 33 masmorras para dar variedade à jornada mais longa */
   { unit:'gnome',       name:'Servo Deformado',   sprite:'imp',   hp:24, atk:9,  def:1, solo:true },
   { unit:'thief',       name:'Espectro Ladino',   sprite:'wraith', hp:26, atk:10, def:1, solo:true, lv:2 },
-  { unit:'snake',       name:'Cobra Venenosa',    hp:24, atk:11, def:1, solo:true, lv:2 },
+  { unit:'snake',       name:'Serpente Podre',    sprite:'serpent', hp:24, atk:11, def:1, solo:true, lv:2 },
   { unit:'spider',      name:'Aranha Gigante',    hp:28, atk:10, def:2, solo:true, lv:3 },
   /* 🔥 goblins de fogo (masmorra 3+): golpes certeiros grudam uma 🧨 no herói */
-  { unit:'torch',  name:'Goblin da Tocha', hp:28, atk:10, def:2, fire:true, lv:3 },
-  { unit:'tnt',    name:'Goblin Dinamite', hp:22, atk:9,  def:1, fire:true, lv:3 },
+  { unit:'torch',  name:'Goblin da Tocha', sprite:'gobtorch', hp:28, atk:10, def:2, fire:true, lv:3 },
+  { unit:'tnt',    name:'Goblin Dinamite', sprite:'gobtnt',  hp:22, atk:9,  def:1, fire:true, lv:3 },
   { unit:'skull',       name:'Lich Amaldiçoado',   sprite:'lich', hp:32, atk:11, def:3, solo:true, lv:4 },
   /* 🐂 minotauro (masmorra 4+): pesado, investida exige esquiva lateral */
   { unit:'mino',   name:'Minotauro', hp:46, atk:13, def:3, lv:4, solo:true },
@@ -2124,6 +2130,7 @@ function drawVerges(){
     ctx.moveTo(xt, yTop); ctx.lineTo(xb, yBot); ctx.lineTo(edge, yBot); ctx.lineTo(edge, yTop);
     ctx.closePath(); ctx.fill();
   }
+  vergeTexture();                                    // textura em perspectiva por cima da cor
   /* sombra na divisa estrada/acostamento — dá volume às beiradas */
   ctx.globalAlpha = 0.45;
   ctx.strokeStyle = '#05060c'; ctx.lineWidth = Math.max(2, W*0.012);
@@ -2133,6 +2140,72 @@ function drawVerges(){
   }
   ctx.globalAlpha = 1;
 }
+/* 🌿 TEXTURA DAS LATERAIS — o acostamento era um polígono de cor chapada, o que
+   dava aquele aspecto de "chão colorido com objetos jogados por cima". Aqui
+   reaproveitamos as MESMAS fileiras de perspectiva do drawGround: cada faixa
+   encolhe rumo ao horizonte, então a textura acompanha a profundidade em vez de
+   ficar plana. Sem asset novo — reusa o tile do próprio bioma, escurecido. */
+function vergeTexture(){
+  const b = BIOMES[battleBiome];
+  const g = b && b.ground;
+  const img = g && DECOR_IMGS[g.src];
+  if (!img || !img.naturalWidth) return;
+  const { yTop, yBot, wTop, wBot, rows, cols } = roadGeom();
+  const frac = ((roadScroll % 1) + 1) % 1, base = Math.floor(roadScroll);
+  ctx.save();
+  ctx.globalAlpha = 0.38;                            // discreta: é terreno fora do caminho
+  for (let i = -1; i <= rows; i++){
+    const t0 = Math.max(0, (i + frac) / rows), t1 = Math.min(1, (i + 1 + frac) / rows);
+    if (t1 <= t0) continue;
+    const e0 = roadEase(t0), e1 = roadEase(t1);
+    const ya = yTop + (yBot-yTop)*e0, yb = yTop + (yBot-yTop)*e1;
+    const rw = wTop + (wBot-wTop)*e0, tw = rw/cols;  // célula acompanha a estrada
+    for (const sgn of [-1, 1]){
+      const inner = W/2 + sgn*rw/2;
+      const n = Math.ceil((sgn < 0 ? inner : W - inner) / tw) + 1;
+      for (let c = 0; c < n; c++){
+        const x = sgn < 0 ? inner - (c+1)*tw : inner + c*tw;
+        const h = cellHash(sgn*100 + c, i - base);
+        const v = (h >>> 4) % (g.vars || 1);
+        const st = g.ts + 1;
+        ctx.drawImage(img, v*st, (g.row||0)*st + g.top, g.ts, g.bot - g.top,
+                      x, ya, tw + 0.6, yb - ya + 0.6);
+      }
+    }
+  }
+  ctx.restore();
+  /* escurece as laterais: mantém o corredor como foco e ajuda a dissolver o fundo */
+  /* o corredor precisa continuar legível: sem um escurecimento forte, estrada e
+     acostamento viram um piso contínuo e o caminho some. */
+  const sh = ctx.createLinearGradient(0, yTop, 0, yBot);
+  sh.addColorStop(0, 'rgba(3,5,11,.88)'); sh.addColorStop(1, 'rgba(3,5,11,.66)');
+  ctx.save();
+  for (const sgn of [-1, 1]){
+    const xt = W/2 + sgn*wTop/2, xb = W/2 + sgn*wBot/2, edge = sgn < 0 ? 0 : W;
+    ctx.beginPath();
+    ctx.moveTo(xt, yTop); ctx.lineTo(xb, yBot); ctx.lineTo(edge, yBot); ctx.lineTo(edge, yTop);
+    ctx.closePath(); ctx.fillStyle = sh; ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* 🌫️ NÉVOA DO HORIZONTE — o chão e o acostamento terminavam numa linha reta e dura.
+   O drawSky já pinta uma névoa nessa altura, mas ela é COBERTA: drawVerges e
+   drawGround vêm depois e pintam opaco a partir de yTop. Aqui repintamos a faixa
+   por cima do chão, centrada no horizonte, para os dois lados dissolverem um no
+   outro em vez de se encostarem. */
+function drawHorizonHaze(){
+  const sk = SKIES[battleBiome] || SKIES.castelo;
+  const { yTop } = roadGeom();
+  const top = yTop - H*0.10, bot = yTop + H*0.16;
+  const g = ctx.createLinearGradient(0, top, 0, bot);
+  g.addColorStop(0,    sk.haze + '00');
+  g.addColorStop(0.42, sk.haze + 'cc');            // mais denso que o do céu: precisa apagar a emenda
+  g.addColorStop(1,    sk.haze + '00');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, top, W, bot - top);
+}
+
 /* 💡 luz do corredor: clareia o miolo onde a luta acontece e escurece as bordas */
 function drawRoadLight(){
   const { yTop, yBot } = roadGeom();
@@ -2380,6 +2453,7 @@ function drawScenery(t){
     drawRoad(timg, fsx, fsy, fsingle);
   }
   drawRoadLight();                                   // 💡 luz no miolo + bordas escuras
+  drawHorizonHaze();                                 // dissolve a emenda céu/chão
   if (b && b.tint){ ctx.fillStyle = b.tint; ctx.fillRect(0, 0, W, H); }
   drawSceneryItems(scenery.filter(s => s.bg));       // estruturas/árvores ao fundo
   drawSideProps(sideProps);                          // 🌳 margens do corredor (fundo → frente)
@@ -2453,6 +2527,11 @@ const tween = (a, tx, ty, ms, anim) => new Promise(res => {
   a.tween = { sx:a.x, sy:a.y, tx, ty, ms, t0:performance.now(), res };
 });
 
+/* alterna entre 'attack' e 'attack2' ao longo de um combo, quando o sprite tem os
+   dois. Mantém o ritmo do QTE intacto: é um golpe por hit, só muda o desenho. */
+function altAtk(a, i){
+  return (i % 2 === 1 && UNITS[a.unit] && UNITS[a.unit].anims.attack2) ? 'attack2' : 'attack';
+}
 function frameCount(a){
   /* 🧍 idle novo do guerreiro: direcional (15 frames) ou, sem ele, o de frente (17) */
   if (a === player && a.unit === 'warrior' && a.anim === 'idle'){
@@ -4564,7 +4643,7 @@ async function playerCombo(){
   let landed = 0;
   for (let i = 0; i < n && !en.dead; i++){
     const r = await comboQte((i+1) + '/' + n);
-    const swing = playOnce(player, 'attack');
+    const swing = playOnce(player, altAtk(player, i));
     await wait(180);
     if (r === 'perfect'){
       landed++;
@@ -4948,7 +5027,9 @@ async function enemyAttack(en){
       const curve = effLv() > 5 ? combo[i].curve : null;
       result = await runQte(type, combo.length > 1 ? (i+1) + '/' + combo.length : '', ms, curve);
     }
-    const swing = playOnce(en, 'attack');
+    /* combos alternam os dois golpes: sem isso "Dança das Facas" (2 hits) toca o
+       MESMO movimento duas vezes. Cai em 'attack' para quem não tem attack2. */
+    const swing = playOnce(en, altAtk(en, i));
     await wait(180);
     if (en.kind === 'tnt'){                          // 🧨 a dinamite voa até o herói
       dynFly = { x:en.x, y:en.y - en.size*0.3, tx:player.x, ty:player.y - player.size*0.2,
