@@ -105,7 +105,7 @@
   .gembtns{flex:none;display:flex;flex-direction:column;gap:4px}
   .gembtns .shopbtn{min-width:96px;padding:6px 8px;font-size:12px}
   .redbtn{background:linear-gradient(180deg,#dc2626,#991b1b);border-color:#f87171}
-  .skinned .shopbtn.redbtn{border-image:var(--ui-btn-red) 47 45 47 45 fill stretch}
+  .skinned .shopbtn.redbtn{border-image:var(--ui-btn-red) var(--ui-btn-slice, 47 45 47 45) fill stretch}
   .gemlocked{opacity:.55}
   /* ============ 🗺 MAPA-MÚNDI ============ */
   #mapFrame{
@@ -123,6 +123,15 @@
     display:inline-block;width:24px;height:24px;vertical-align:-5px;
     background-repeat:no-repeat;background-size:144px 144px;image-rendering:pixelated;
   }
+  /* ⚔ espada e 🛡 armadura: mesma ideia do escudo, mas em tiras horizontais de
+     células 64px (10 espadas / 6 armaduras). A célula sai a 24px na tela, então
+     background-size reduz a tira toda na mesma proporção: 64 → 24. */
+  #swordIco, #armorIco{
+    display:inline-block;width:24px;height:24px;vertical-align:-5px;
+    background-repeat:no-repeat;image-rendering:pixelated;
+  }
+  #swordIco{ background-image:url('assets/icons/ui/swords.png'); background-size:240px 24px }
+  #armorIco{ background-image:url('assets/icons/ui/armors.png'); background-size:144px 24px }
   /* 🦸 herói grande no centro, com os atalhos do acampamento nas laterais */
   #campWrap{display:flex;align-items:center;gap:6px}
   .campSide{display:flex;flex-direction:column;flex:0 0 auto;width:82px;gap:6px}
@@ -131,6 +140,9 @@
     gap:2px;padding:8px 4px;text-align:center;font-weight:700;font-size:13px;line-height:1.15;
   }
   .campSide button small{display:block;font-weight:400;font-size:9px;color:var(--ink-dim);line-height:1.25;margin-top:1px}
+  /* ícone do botão do acampamento: maior que o emoji que ele substituiu; em flex o
+     vertical-align do .icn não vale, então zeramos pra não herdar deslocamento */
+  .campSide button .icn{width:28px;height:28px;vertical-align:0}
   #chestBtn:not(:disabled) small{color:var(--gold)}
   #campWrap #herocard{flex:1;min-width:0}
   /* 🦸 troca de herói no acampamento */
@@ -395,7 +407,7 @@
   #cRun .num{color:var(--gold);margin-left:3px}
   .skinned #cRun{
     background:none;border-radius:0;border:10px solid transparent;
-    border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
+    border-image:var(--ui-scroll) var(--ui-scroll-slice, 44 54 43 54) fill stretch;
     image-rendering:pixelated;color:#3b2a16;text-shadow:none;
   }
   .skinned #cRun .num{color:#7c2d12}
@@ -587,19 +599,22 @@
     .campSide button small{font-size:8px}
   }
   .skinned .card{
-    background:none;border-radius:0;border:13px solid transparent;
-    border-image:var(--ui-paper) 44 54 43 54 fill stretch;
+    /* a moldura dark fantasy tem o miolo VAZADO — sem esta base o conteúdo fica
+       ilegível sobre o vídeo do acampamento. Com o painel antigo (miolo opaco)
+       a base simplesmente não aparece. */
+    background:rgba(10,12,18,.82);border-radius:0;border:15px solid transparent;
+    border-image:var(--ui-paper) var(--ui-paper-slice, 44 54 43 54) fill stretch;
     image-rendering:pixelated;padding:5px 8px;
   }
   .skinned .upbtn,.skinned .shopbtn,.skinned #ovBack,.skinned .side{
     background:none;border-radius:0;border:10px solid transparent;
-    border-image:var(--ui-btn-blue) 47 45 47 45 fill stretch;
+    border-image:var(--ui-btn-blue) var(--ui-btn-slice, 47 45 47 45) fill stretch;
     image-rendering:pixelated;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55);
   }
   .skinned .upbtn small,.skinned .shopbtn small{color:#eaf6ff}
   .skinned #enter{
     background:none;border-radius:0;border:12px solid transparent;
-    border-image:var(--ui-btn-red) 47 45 47 45 fill stretch;
+    border-image:var(--ui-btn-red) var(--ui-btn-slice, 47 45 47 45) fill stretch;
     image-rendering:pixelated;box-shadow:none;text-shadow:0 1px 2px rgba(0,0,0,.55);
   }
   /* pergaminho do Tiny Swords no menu de comandos de batalha (Atacar, Poção…)
@@ -607,7 +622,7 @@
      e ao menu/mão de cartas do mago (#magoBar, #hand), pra unificar a UI de batalha. */
   .skinned #cmds button,.skinned #specBar #cBack,.skinned .specPage button,.skinned #magoBar button{
     background:none;border-radius:0;border:10px solid transparent;
-    border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
+    border-image:var(--ui-scroll) var(--ui-scroll-slice, 44 54 43 54) fill stretch;
     image-rendering:pixelated;color:#3b2a16;text-shadow:none;
   }
   .skinned #cmds button:not(:disabled):active,
@@ -624,7 +639,7 @@
   /* pergaminho também nas cartas do mago (sobrepõe o fundo colorido padrão) */
   .skinned #hand .card{
     background:none;border-radius:0;border:11px solid transparent;
-    border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
+    border-image:var(--ui-scroll) var(--ui-scroll-slice, 44 54 43 54) fill stretch;
     image-rendering:pixelated;box-shadow:none;
   }
   .skinned #hand .card .cd-nome{color:#3b2a16}
@@ -633,7 +648,7 @@
   /* mesmo pergaminho no botão de Ataque Aéreo (após esquivar um golpe rasteiro) */
   .skinned #quickAtk{
     background:none;border-radius:0;border:14px solid transparent;
-    border-image:var(--ui-scroll) 44 54 43 54 fill stretch;
+    border-image:var(--ui-scroll) var(--ui-scroll-slice, 44 54 43 54) fill stretch;
     image-rendering:pixelated;color:#3b2a16;text-shadow:none;box-shadow:none;
   }
   /* moldura de madeira (Tiny Swords Bars) na barra oscilante da Sequência Mortal */
@@ -667,7 +682,7 @@
     <div id="goldbar">
       <img class="icn" data-ico="icoCoin" alt="ouro"> <span class="num" id="gold">0</span>
       <span style="color:var(--border)">·</span>
-      🔥 <span class="num" id="torchN">20</span><span style="font-size:14px;color:var(--ink-dim)">/5</span>
+      <img class="icn" data-ico="icoTorch" alt="tochas"> <span class="num" id="torchN">20</span><span style="font-size:14px;color:var(--ink-dim)">/5</span>
       <span id="torchTimer"></span>
       <span style="color:var(--border)">·</span>
       <img class="icn" src="assets/soul.png" alt="souls"> <span class="num" id="soulN">0</span>
@@ -675,7 +690,7 @@
 
     <div id="campWrap">
       <div class="campSide">
-        <button id="openShop">🛒<small>Mercado</small></button>
+        <button id="openShop"><img class="icn" data-ico="icoShop" alt=""><small>Mercado</small></button>
         <!-- 🔒 PATCH FUTURO (outros heróis): recrutamento desativado por ora
         <button id="openRecruit">🦸<small>Recrutar</small></button>
         -->
@@ -698,7 +713,7 @@
         <!-- 🔒 PATCH FUTURO (mapa-múndi): acesso ao mapa desativado por ora
         <button id="openMap">🗺️<small>Mapa</small></button>
         -->
-        <button id="chestBtn">🎁<small>Baú do Dia</small></button>
+        <button id="chestBtn"><img class="icn" data-ico="icoChest" alt=""><small>Baú do Dia</small></button>
       </div>
     </div>
 
@@ -706,24 +721,24 @@
       <div class="label" style="margin-bottom:2px">Atributos</div>
       <div id="attrsRow">
         <div class="uprow">
-          <div class="ico"><img class="icn" data-ico="icoMeat" alt="vida"></div>
+          <div class="ico"><span id="armorIco" title="armadura"></span></div>
           <div class="info"><div class="label">Vida máxima</div><div class="val num" id="mVida">60</div><div class="milebar" id="mb-vida"><span></span><span></span><span></span><span></span><span></span></div></div>
-          <button class="upbtn" data-up="vida">+20 vida<small>🪙 <span class="num">50</span></small></button>
+          <button class="upbtn" data-up="vida">+20 vida<small><img class="icn-s" data-ico="icoCoin" alt=""> <span class="num">50</span></small></button>
         </div>
         <div class="uprow">
-          <div class="ico"><img class="icn" data-ico="icoSword" alt="ataque"></div>
+          <div class="ico"><span id="swordIco" title="arma"></span></div>
           <div class="info"><div class="label">Ataque</div><div class="val num" id="mAtk">10</div><div class="milebar" id="mb-atk"><span></span><span></span><span></span><span></span><span></span></div></div>
-          <button class="upbtn" data-up="atk">+3 ataque<small>🪙 <span class="num">60</span></small></button>
+          <button class="upbtn" data-up="atk">+3 ataque<small><img class="icn-s" data-ico="icoCoin" alt=""> <span class="num">60</span></small></button>
         </div>
         <div class="uprow">
           <div class="ico"><span id="shieldIco"></span></div>
           <div class="info"><div class="label">Defesa</div><div class="val num" id="mDef">3</div><div class="milebar" id="mb-def"><span></span><span></span><span></span><span></span><span></span></div></div>
-          <button class="upbtn" data-up="def">+2 defesa<small>🪙 <span class="num">60</span></small></button>
+          <button class="upbtn" data-up="def">+2 defesa<small><img class="icn-s" data-ico="icoCoin" alt=""> <span class="num">60</span></small></button>
         </div>
         <div class="uprow">
-          <div class="ico">✨</div>
+          <div class="ico"><img class="icn" data-ico="icoSpark" alt="habilidade"></div>
           <div class="info"><div class="label">Habilidade <span id="habInfo" style="font-weight:400;font-size:11px;color:var(--ink-dim)"></span></div><div class="val num" id="mHab">0</div><div class="milebar" id="mb-hab"><span></span><span></span><span></span><span></span><span></span></div></div>
-          <button class="upbtn" data-up="hab">+1 habilidade<small>🪙 <span class="num">40</span></small></button>
+          <button class="upbtn" data-up="hab">+1 habilidade<small><img class="icn-s" data-ico="icoCoin" alt=""> <span class="num">40</span></small></button>
         </div>
       </div>
     </div>
@@ -742,10 +757,10 @@
   <!-- ================= MERCADO ================= -->
   <div class="screen hidden" id="shop">
     <h1>🛒 <em>Mercado</em></h1>
-    <div id="shopGold">🪙 0</div>
+    <div id="shopGold"><img class="icn-s" data-ico="icoCoin" alt=""> 0</div>
     <div class="card">
       <div class="uprow">
-        <div class="ico">🔥</div>
+        <div class="ico"><img class="icn" data-ico="icoTorch" alt="tochas"></div>
         <div class="info">
           <div class="label">Tocha — <span class="num" id="nTocha">0</span>/5</div>
           <div class="desc">A chave da masmorra: 1 por entrada. Recarrega sozinha a cada 10 min; compre para recarregar na hora</div>
@@ -762,7 +777,7 @@
       </div>
     </div>
     <div class="card">
-      <div class="label" style="margin-bottom:2px">💎 Gemas — <span id="gemHeroName">o herói</span> usa 1 por vez</div>
+      <div class="label" style="margin-bottom:2px"><img class="icn-s" data-ico="icoGem" alt=""> Gemas — <span id="gemHeroName">o herói</span> usa 1 por vez</div>
       <div id="gemList"></div>
     </div>
     <button id="shopBack">↩ Voltar ao acampamento</button>
@@ -780,7 +795,7 @@
   <div class="screen hidden" id="worldmap">
     <h1>🗺️ <em>Mapa-múndi</em></h1>
     <div id="mapFrame"><canvas id="mapCv"></canvas></div>
-    <button id="mapEnter" class="hidden">⚔ Entrar na Masmorra</button>
+    <button id="mapEnter" class="hidden"><img class="icn-s" data-ico="icoSword" alt=""> Entrar na Masmorra</button>
     <button id="mapBack">↩ Voltar ao acampamento</button>
   </div>
 
@@ -800,7 +815,7 @@
       </div>
       <button class="side" id="arrL" aria-label="Alvo anterior">◀</button>
       <button class="side" id="arrR" aria-label="Próximo alvo">▶</button>
-      <div id="swipehint">setas/toque para mirar · arraste do herói para jogar uma 🪨</div>
+      <div id="swipehint">setas/toque para mirar · arraste do herói para jogar uma <img class="icn-s" data-ico="icoStone" alt=""></div>
       <div id="movename"></div>
       <div id="tutbox" class="hidden">
         <div id="tutTxt"></div>
@@ -808,7 +823,7 @@
       </div>
       <button id="tutSkip" class="hidden">Pular tutorial ⏭</button>
       <div id="qte">
-        <div class="zone"><div class="target">🛡️</div><div class="shrink"></div></div>
+        <div class="zone"><div class="target"><img class="icn" data-ico="icoShield" alt=""></div><div class="shrink"></div></div>
         <div class="tip">TOQUE QUANDO O CÍRCULO FECHAR!</div>
       </div>
       <div id="seq">
@@ -825,12 +840,12 @@
         <div class="track"><div id="mashFill"></div></div>
         <div class="sub" id="mashPct">0% de crítico</div>
       </div>
-      <button id="quickAtk" class="hidden">⚡ ATAQUE RÁPIDO!</button>
+      <button id="quickAtk" class="hidden"><img class="icn-s" data-ico="icoBolt" alt=""> ATAQUE RÁPIDO!</button>
 
       <div class="card" id="cmds">
         <div id="cmdMain">
           <button id="cAtk"><span class="cur">▶</span><img class="icn-s" data-ico="icoSword" alt="" style="margin-right:4px">Atacar</button>
-          <button id="cSpec"><span class="cur">▶</span>✨ Ataque especial</button>
+          <button id="cSpec"><span class="cur">▶</span><img class="icn-s" data-ico="icoSpark" alt="" style="margin-right:4px">Ataque especial</button>
           <button id="cPot"><span class="cur">▶</span><img class="icn-s" src="assets/potion-heal.png" alt="" style="margin-right:4px">Poção</button>
         </div>
         <div id="cmdPot" class="hidden">
@@ -848,8 +863,8 @@
           <div id="specView">
             <div id="specTrack">
               <div class="specPage">
-                <button id="cFury">⚡ Fúria <span class="num" id="furyM">(⚡1+)</span></button>
-                <button id="cSeq">☠ Seq. Mortal <span class="num" id="seqM">(⚡2+)</span></button>
+                <button id="cFury"><img class="icn-s" data-ico="icoBolt" alt=""> Fúria <span class="num" id="furyM">(⚡1+)</span></button>
+                <button id="cSeq"><img class="icn-s" data-ico="icoSkull" alt=""> Seq. Mortal <span class="num" id="seqM">(⚡2+)</span></button>
               </div>
               <div class="specPage">
                 <button id="cCombo">🗡 Combo <span class="num" id="comboM">(⚡1+)</span></button>
@@ -865,7 +880,7 @@
       <!-- 🃏 Mago Arcanista: menu de batalha + mão de cartas -->
       <div id="magoBar" class="hidden">
         <button id="cMagoAtk" class="hold">✨ Ataque simples</button>
-        <button id="cMagoCast" class="hold" disabled>🔮 Conjurar<span class="num" id="magoCastN"></span></button>
+        <button id="cMagoCast" class="hold" disabled><img class="icn-s" data-ico="icoOrb" alt=""> Conjurar<span class="num" id="magoCastN"></span></button>
         <button id="cMagoDestroy" class="hold hidden">🗑️ Destruir carta</button>
       </div>
       <div id="hand" class="hidden"></div>
@@ -955,6 +970,12 @@ for (const [c, cfg] of Object.entries(DG_COLORS)){
             run:   { file:'TNT_' + cfg.gob + '.png', row:1, frames:6 },
             attack:{ file:'TNT_' + cfg.gob + '.png', row:2, frames:7 } } };
 }
+
+/* ---- inimigos dark fantasy gerados no PixelLab: tira horizontal de fs×fs,
+   1 direção (olham p/ leste; o motor espelha via a.flip). cont/vis medidos do
+   próprio sprite — o conteúdo preenche o quadro e o pé encosta na base. ---- */
+UNITS.blackknight = { fs:93, cont:[1.0, 1.0], vis:0.95, base:'assets/enemies/blackknight/', dir:'', fall:'💀',
+  anims:{ idle:'idle.png', run:'run.png', attack:'attack.png' } };
 
 /* ---- monstros do THE PACK (frames soltos 100×120, olham p/ esquerda) e Minotauro ---- */
 const PACKBASE = 'assets/THE PACK/Monsters/';
@@ -1081,13 +1102,34 @@ const UIA = {
   icoSoundOff:'Icons/Icon_09.png',
   gemBlue: 'Buttons/TinyRoundBlueButton.png',   // 💎 gema Nv.1
   gemRed:  'Buttons/TinyRoundRedButton.png',    // 💎 gema Nv.2 (mais forte)
+  /* ícones recortados do Shikashi's Fantasy Icons Pack v2 (32×32 na folha, salvos em 64×64).
+     Caminho começando com 'assets/' é usado como está, sem o UIBASE do Tiny Swords. */
+  icoTorch:  'assets/icons/ui/torch.png',       // fogueira — contador de tochas
+  icoShop:   'assets/icons/ui/shop.png',        // cesta — botão Mercado
+  icoChest:  'assets/icons/ui/chest.png',       // baú — botão Baú do Dia
+  icoGem:    'assets/icons/ui/gem.png',         // diamante — gemas em geral
+  icoStone:  'assets/icons/ui/stone.png',       // pedra — Gema do Arremesso
+  icoVital:  'assets/icons/ui/vital.png',       // frasco vermelho — Gema Vital
+  icoEcho:   'assets/icons/ui/echo.png',        // espada — Gema do Eco
+  icoPierce: 'assets/icons/ui/pierce.png',      // orbe azul — Gema Perfurante
+  icoSkull:  'assets/icons/ui/skull.png',       // caveira — Sequência Mortal / derrota
+  icoSpark:  'assets/icons/ui/spark.png',       // brilho — atributo Habilidade
+  icoBolt:   'assets/icons/ui/bolt.png',        // raios — Fúria / ataque rápido
+  icoOrb:    'assets/icons/ui/orb.png',         // orbe — Conjurar (mago)
+  /* moldura dark fantasy gerada no PixelLab. Já vem contígua (centro vazado),
+     então NÃO passa pelo nineURL — vai direto como border-image. */
+  paperDark: 'assets/icons/ui/panel-dark.png',
+  btnIron:   'assets/icons/ui/btn-iron.png',     // botão de ferro c/ filete dourado
+  btnIronRed:'assets/icons/ui/btn-iron-red.png', // mesma peça, ferro avermelhado
+  barIron:   'assets/icons/ui/bar-iron.png',     // calha de ferro, tampas de osso
+  scrollIron:'assets/icons/ui/scroll-iron.png',  // pergaminho c/ cantoneiras — menus densos
 };
 const UIIMG = {};
 const uiPromise = Promise.allSettled(Object.entries(UIA).map(([k, f]) => new Promise((res, rej) => {
   const img = new Image();
   img.onload = () => { UIIMG[k] = img; res(); };
   img.onerror = () => rej(k);
-  img.src = (window.EMBED && window.EMBED['ui.' + k]) || (UIBASE + f);
+  img.src = (window.EMBED && window.EMBED['ui.' + k]) || (f.startsWith('assets/') ? f : UIBASE + f);
 })));
 
 /* geometria dos 9-slices (os sheets têm os pedaços espaçados na grade) */
@@ -1123,6 +1165,23 @@ function cropURL(img, sx, sy, sw, sh){
 /* barra estilo Tiny Swords (Bars/BigBar_Base+Fill) desenhada no canvas de batalha —
    usa a mesma geometria de fatias do NINE.bar. frac = 0..1 preenchido. */
 function drawUIBar(x, y, w, h, frac){
+  /* barra nova (PixelLab): 3 fatias medidas no asset — tampa 126px, miolo até 493,
+     vão interno com 20.4% de recuo lateral e 12.7% vertical (faixas douradas). */
+  const iron = UIIMG.barIron;
+  if (iron && iron.naturalWidth){
+    const SW = 619, SH = 158, CAP = 126;
+    const capW = Math.min(w/2, h * CAP/SH);
+    const midW = Math.max(0, w - capW*2);
+    ctx.drawImage(iron, 0, 0, CAP, SH, x, y, capW, h);
+    if (midW > 0) ctx.drawImage(iron, CAP, 0, SW - CAP*2, SH, x + capW, y, midW, h);
+    ctx.drawImage(iron, SW - CAP, 0, CAP, SH, x + w - capW, y, capW, h);
+    if (frac > 0){
+      const ix = x + w*0.204, iw = w*0.592, iy = y + h*0.127, ih = h*0.746;
+      ctx.fillStyle = '#c2410c';
+      ctx.fillRect(ix, iy, iw * Math.min(1, frac), Math.max(1, ih));
+    }
+    return true;
+  }
   const base = UIIMG.barBase, fill = UIIMG.barFill;
   if (!base || !base.naturalWidth) return false;
   const capW = Math.min(w/2, h * 24/51);
@@ -1181,9 +1240,19 @@ function drawSegBar(x, y, w, h, val, cap, color, flash){
      toDataURL falha; nesse caso mantemos o visual CSS escuro dos painéis */
   try {
     const R = document.documentElement.style;
-    if (UIIMG.paper)   R.setProperty('--ui-paper',   nineURL(UIIMG.paper, NINE.paper));
-    if (UIIMG.scroll)  R.setProperty('--ui-scroll',  nineURL(UIIMG.scroll, NINE.paper));
-    if (UIIMG.btnBlue) R.setProperty('--ui-btn-blue', nineURL(UIIMG.btnBlue, NINE.btn));
+    if (UIIMG.paperDark){                            // moldura nova: contígua, slice próprio
+      R.setProperty('--ui-paper', 'url(' + UIIMG.paperDark.src + ')');
+      R.setProperty('--ui-paper-slice', '60');
+    } else if (UIIMG.paper) R.setProperty('--ui-paper', nineURL(UIIMG.paper, NINE.paper));
+    if (UIIMG.scrollIron){                           // pergaminho novo: contíguo, slice próprio
+      R.setProperty('--ui-scroll', 'url(' + UIIMG.scrollIron.src + ')');
+      R.setProperty('--ui-scroll-slice', '30');
+    } else if (UIIMG.scroll) R.setProperty('--ui-scroll', nineURL(UIIMG.scroll, NINE.paper));
+    if (UIIMG.btnIron){                              // botões novos: contíguos, slice próprio
+      R.setProperty('--ui-btn-blue', 'url(' + UIIMG.btnIron.src + ')');
+      R.setProperty('--ui-btn-slice', '24');
+      if (UIIMG.btnIronRed) R.setProperty('--ui-btn-red', 'url(' + UIIMG.btnIronRed.src + ')');
+    } else if (UIIMG.btnBlue) R.setProperty('--ui-btn-blue', nineURL(UIIMG.btnBlue, NINE.btn));
     if (UIIMG.btnRed)  R.setProperty('--ui-btn-red',  nineURL(UIIMG.btnRed, NINE.btn));
     if (UIIMG.barBase) R.setProperty('--ui-bar',      nineURL(UIIMG.barBase, NINE.bar));
     if (UIIMG.barFill) R.setProperty('--ui-barfill',  cropURL(UIIMG.barFill, 0, 20, 64, 24));
@@ -1682,6 +1751,16 @@ function renderShieldIcon(){
   el.style.backgroundImage = "url('assets/Shields" + sheet + ".png')";
   el.style.backgroundPosition = (-c*24) + 'px ' + (-r*24) + 'px';
 }
+/* ⚔ arma e 🛡 armadura evoluem junto com os upgrades, um degrau a cada 5 níveis.
+   Ficam no último degrau quando o nível passa do fim da tira (não dá volta:
+   voltar pra espada de aço depois da de mithril pareceria bug). */
+const SWORD_TIERS = 10, ARMOR_TIERS = 6;
+function renderGearIcons(){
+  const s = Math.min(Math.floor((S.lv.atk  || 0) / 5), SWORD_TIERS - 1);
+  const a = Math.min(Math.floor((S.lv.vida || 0) / 5), ARMOR_TIERS - 1);
+  $('#swordIco').style.backgroundPosition = (-s*24) + 'px 0';
+  $('#armorIco').style.backgroundPosition = (-a*24) + 'px 0';
+}
 const upCost = k => Math.round(UPS[k].base * Math.pow(1.55, S.lv[k]));
 /* tocha e mapa só se compram com 💠 Souls (derrubadas pelos chefes) */
 const SHOP = { tocha:{cost:1}, mapa:{cost:1} };
@@ -1691,14 +1770,16 @@ const SHOP = { tocha:{cost:1}, mapa:{cost:1} };
    com custo que cresce exponencialmente. O guerreiro equipa só 1 por vez. ---------- */
 const GEM_ORDER = ['pedra', 'vital', 'eco', 'perfura'];
 const GEM_MAX = 5;
+/* ico  = emoji, usado onde o destino é textContent/canvas (ex.: #heroSub, addFloat)
+   icoK = chave em UIA, usada só onde montamos innerHTML — ver icoHTML() */
 const GEMS = {
-  pedra:   { nome:'Gema do Arremesso', ico:'🪨', cost1:250,
+  pedra:   { nome:'Gema do Arremesso', ico:'🪨', icoK:'icoStone',  cost1:250,
              desc: lv => (1 + lv) + ' pedradas grátis por rodada' },
-  vital:   { nome:'Gema Vital',        ico:'💗', cost1:300,
+  vital:   { nome:'Gema Vital',        ico:'💗', icoK:'icoVital',  cost1:300,
              desc: lv => 'Parry perfeito cura ' + (3 + 2*lv) + '% do HP máximo' },
-  eco:     { nome:'Gema do Eco',       ico:'⚔️', cost1:400,
+  eco:     { nome:'Gema do Eco',       ico:'⚔️', icoK:'icoEcho',   cost1:400,
              desc: lv => 'O ataque simples golpeia 2× (eco com ' + Math.round(37.5 + 12.5*lv) + '% do dano)' },
-  perfura: { nome:'Gema Perfurante',   ico:'💠', cost1:400,
+  perfura: { nome:'Gema Perfurante',   ico:'💠', icoK:'icoPierce', cost1:400,
              desc: lv => (30 + 10*lv) + '% do dano atravessa os escudos arcanos' },
 };
 /* evoluir do nível lv → lv+1: ×5 por nível (chegar ao Nv.5 custa 624.000 🪙 no total, mais de 2^19) */
@@ -1709,7 +1790,7 @@ const rocksPerRound = () => 1 + gemLv('pedra');   // Nv.1 → 2 pedras … Nv.5 
 
 /* ---------- monstros: 3 comuns, 3 comuns+fortes, Boss ---------- */
 const COMMONS = [
-  { unit:'pawn',   name:'Servo',    hp:30, atk:9,  def:2 },
+  { unit:'blackknight', name:'Cavaleiro Negro', hp:30, atk:9, def:2, solo:true },
   { unit:'archer', name:'Arqueiro', hp:24, atk:12, def:1 },
   { unit:'lancer', name:'Lanceiro', hp:40, atk:11, def:4 },
   { unit:'monk',   name:'Monge',    hp:26, atk:10, def:2 },
@@ -1869,17 +1950,27 @@ let scenery = [], tileSrc = null, sideProps = [];
    O chão continua sendo a plataforma colorida da cor da masmorra. ---------- */
 const TXPLANT = 'assets/Texture/TX Plant.png';
 const TXPROPS = 'assets/Texture/TX Props.png';
+const PLCOLUMN = 'assets/biomas/props/column.png';
+const PLCLIFF  = 'assets/biomas/props/cliff.png';
+const PLDEADTR = 'assets/biomas/props/deadtree.png';
+const PLCART   = 'assets/biomas/props/cart.png';
+const PLRUBBLE = 'assets/biomas/props/rubble.png';
 const SPR = {   // [folha, sx, sy, sw, sh]
   treeBig:[TXPLANT,24,14,113,139], treeMed:[TXPLANT,161,17,95,136], treeSm:[TXPLANT,295,31,79,120],
   bush:[TXPLANT,216,185,47,42],
   crate:[TXPROPS,160,18,32,46], statue:[TXPROPS,445,21,37,72], rockBig:[TXPROPS,3,430,57,42],
   cross:[TXPROPS,227,303,26,40], altar:[TXPROPS,353,269,94,72],
+  /* props gerados no PixelLab (PNG solto, não folha — por isso sx/sy = 0 e sw/sh = a
+     imagem inteira). Já vêm aparados: o pé encosta no chão em drawSideProps. */
+  column:[PLCOLUMN,0,0,60,155], rubble:[PLRUBBLE,0,0,123,61],
+  cliff:[PLCLIFF,0,0,118,163], deadtree:[PLDEADTR,0,0,105,166], cart:[PLCART,0,0,109,60],
 };
 /* largura-base (fração da tela) de cada sprite quando ele passa colado na câmera —
    usada pelos objetos das laterais do corredor, que escalam com a perspectiva */
 const SIDE_W = {
   treeBig:0.46, treeMed:0.38, treeSm:0.30, bush:0.18,
   crate:0.13, statue:0.22, rockBig:0.20, cross:0.14, altar:0.30,
+  column:0.20, rubble:0.24, cliff:0.26, deadtree:0.30, cart:0.22,
 };
 /* item de cenário recortado: (sprite, x, y, largura-fração, opções) */
 const item = (key, x, y, w, opt = {}) => {
@@ -1899,6 +1990,9 @@ const GROUND = {
   forest:   { src:'assets/biomas/forest_land.png',                  ts:64, top:10, bot:53, vars:4 },
   cracked:  { src:'assets/biomas/cracked_stone_from_the_ruins.png', ts:64, top:10, bot:53, vars:4 },
   slabs:    { src:'assets/biomas/cemetery_slabs.png',               ts:64, top:10, bot:53, vars:4 },
+  /* gerado no PixelLab: 8 variantes numa linha só. Diferente das folhas acima, a
+     célula não tem faixa de "espessura" no topo/base — por isso top:0/bot:64. */
+  cracked2: { src:'assets/biomas/ruinas_pixellab.png',              ts:64, top:0,  bot:64, vars:8 },
 };
 const ground = (base, row, extra) => Object.assign({}, GROUND[base], { row }, extra || {});
 
@@ -1959,12 +2053,45 @@ function drawSky(t){
   /* ⛰️ duas fileiras de silhueta com parallax (a de trás desliza mais devagar) */
   const ph = roadScroll * 0.08;
   drawHills(sk.hills[1], yTop*0.94, H*0.055, 5.5, ph*0.45);
+  drawSkyline(yTop);                                  // 🏰 faixa do bioma, entre as duas fileiras
   drawHills(sk.hills[0], yTop*1.02, H*0.038, 8.2, ph + 1.7);
   /* névoa quente na linha do horizonte: costura o céu com o chão */
   const hz = ctx.createLinearGradient(0, yTop*0.80, 0, yTop*1.10);
   hz.addColorStop(0, sk.haze + '00'); hz.addColorStop(0.65, sk.haze + '66'); hz.addColorStop(1, sk.haze + '00');
   ctx.fillStyle = hz; ctx.fillRect(0, yTop*0.80, W, yTop*0.32);
 }
+/* 🏰 FAIXA DE SILHUETA DO BIOMA (assets/biomas/skyline/*.png)
+   Fica entre as duas fileiras de morros, com parallax próprio (mais lento que a
+   estrada, mais rápido que o morro de trás) — é o que dá profundidade ao fundo.
+
+   A faixa precisa repetir sem emenda enquanto desliza. Em vez de depender do
+   gerador produzir uma imagem tileável (que ele não garante), desenhamos cada
+   cópia ímpar ESPELHADA: a borda direita de uma cópia é, por construção, igual
+   à borda esquerda da seguinte. Emenda perfeita com qualquer imagem. */
+const SKYLINE = {};
+function drawSkyline(yTop){
+  const src = (BIOMES[battleBiome] || BIOMES.castelo).skyline;
+  if (!src) return;
+  const img = DECOR_IMGS[src];
+  if (!img || !img.naturalWidth) return;
+  const h = H * 0.17, w = h * img.width / img.height;
+  const y = yTop - h * 0.86;                          // pé da faixa encosta no horizonte
+  const off = ((roadScroll * 0.035 * w) % (w*2) + w*2) % (w*2);
+  ctx.save();
+  ctx.globalAlpha = 0.55;                             // distante: some parcialmente no céu
+  for (let i = -2; i * w - off < W + w; i++){
+    const x = i * w - off;
+    if (((i % 2) + 2) % 2 === 0){
+      ctx.drawImage(img, x, y, w, h);
+    } else {                                          // cópia ímpar espelhada: costura a emenda
+      ctx.translate(x + w/2, 0); ctx.scale(-1, 1);
+      ctx.drawImage(img, -w/2, y, w, h);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+  }
+  ctx.restore();
+}
+
 /* 🌱 acostamento: preenche o que sobra dos lados do trapézio da estrada */
 function drawVerges(){
   const sk = SKIES[battleBiome] || SKIES.castelo;
@@ -2048,12 +2175,15 @@ function drawSideProps(list){
 }
 
 const BIOMES = {
-  castelo: { nome:'Castelo', ground:ground('road', 0), side:['crate','statue','rockBig','bush'], build(cfg){
+  castelo: { nome:'Castelo', skyline:'assets/biomas/skyline/castelo.png', ground:ground('road', 0), side:['cliff','cart','crate','statue','rockBig','bush'], build(cfg){
     const B = 'Tiny Swords (Free Pack)/Buildings/' + cfg.bdir;
     const D = 'Tiny Swords (Free Pack)/Terrain/Decorations/';
     return [
-      { src:B+'Castle.png', x:0.76,y:0.14,w:0.52,alpha:0.85,mirror:true,bg:true },
-      { src:B+'Tower.png',  x:0.16,y:0.22,w:0.16,alpha:0.50,mirror:true,bg:true },
+      /* torreão e torre em ruína (PixelLab, dark fantasy) no lugar dos prédios
+         coloridos do Tiny Swords. Larguras menores: os novos são mais altos
+         que largos, então 0.52 estouraria a tela. */
+      { src:'assets/biomas/buildings/keep.png',  x:0.74,y:0.17,w:0.34,alpha:0.85,mirror:true,bg:true },
+      { src:'assets/biomas/buildings/tower.png', x:0.17,y:0.20,w:0.13,alpha:0.55,mirror:true,bg:true },
       { src:D+'Rocks/Rock'+rnd(1,4)+'.png',   x:0.10,y:0.56,w:0.14,alpha:0.55 },
       { src:D+'Bushes/Bushe'+rnd(1,4)+'.png', x:0.90,y:0.66,w:0.16,alpha:0.55 },
       { src:D+'Rocks/Rock'+rnd(1,4)+'.png',   x:0.13,y:0.87,w:0.13,alpha:0.45 },
@@ -2061,9 +2191,9 @@ const BIOMES = {
   }},
   /* 🌲 trilha de terra batida: as células de mato (forest_land) variam demais
      de cor entre si e a estrada saía remendada — vira canteiro esparso */
-  floresta: { nome:'Floresta', tint:'rgba(30,74,28,.16)',
+  floresta: { nome:'Floresta', skyline:'assets/biomas/skyline/floresta.png', tint:'rgba(30,74,28,.16)',
     ground:ground('road', 1, { mix:GROUND.forest, mixRow:2, mixOdds:7 }),
-    side:['treeBig','treeMed','treeSm','bush','bush'], build(){ return [
+    side:['treeBig','treeMed','deadtree','cliff','treeSm','bush','bush'], build(){ return [
     item('treeBig', 0.82,0.18,0.30,{mirror:true,bg:true,alpha:0.95}),
     item('treeMed', 0.14,0.16,0.22,{bg:true,alpha:0.85}),
     item(treeKey(), 0.60,0.10,0.17,{mirror:true,bg:true,alpha:0.7}),
@@ -2073,9 +2203,9 @@ const BIOMES = {
   ];}},
   /* 🪦 no cemitério a calçada de pedra às vezes dá lugar a uma lápide deitada
      (mix: 1 em cada 6 células vem da folha de lápides) */
-  cemiterio: { nome:'Cemitério', tint:'rgba(64,64,96,.20)',
+  cemiterio: { nome:'Cemitério', skyline:'assets/biomas/skyline/cemiterio.png', tint:'rgba(64,64,96,.20)',
     ground:ground('road', 2, { mix:GROUND.slabs, mixRow:0, mixOdds:6 }),
-    side:['cross','cross','statue','rockBig','treeSm'], build(){ return [
+    side:['cross','cross','deadtree','statue','cliff','rockBig'], build(){ return [
     item('statue', 0.80,0.16,0.15,{mirror:true,bg:true,alpha:0.9}),
     item('cross',  0.15,0.20,0.09,{bg:true,alpha:0.85}),
     item('cross',  0.62,0.12,0.07,{mirror:true,bg:true,alpha:0.7}),
@@ -2085,8 +2215,8 @@ const BIOMES = {
   ];}},
   /* 🏛️ linha 0 da folha: as 4 variantes partem do mesmo cinza (as outras
      misturam bases marrons e a laje ficava manchada) */
-  ruinas: { nome:'Ruínas', tint:'rgba(76,58,40,.18)', ground:ground('cracked', 0),
-    side:['statue','crate','rockBig','altar','treeSm'], build(){ return [
+  ruinas: { nome:'Ruínas', skyline:'assets/biomas/skyline/ruinas.png', tint:'rgba(76,58,40,.18)', ground:ground('cracked2', 0),
+    side:['column','rubble','column','cliff','cart','statue','altar'], build(){ return [
     item('statue', 0.82,0.17,0.14,{mirror:true,bg:true,alpha:0.85}),
     item(treeKey(),0.14,0.13,0.18,{bg:true,alpha:0.5}),
     item('crate',  0.60,0.14,0.08,{mirror:true,bg:true,alpha:0.9}),
@@ -2108,6 +2238,7 @@ function buildScenery(){
     loadDecor(b.ground.src);
     if (b.ground.mix) loadDecor(b.ground.mix.src);
   }
+  if (b.skyline) loadDecor(b.skyline);                // 🏰 faixa de silhueta do horizonte
   sideProps = b.side || [];                          // 🌳 objetos das margens do corredor
   sideProps.forEach(k => SPR[k] && loadDecor(SPR[k][0]));
   scenery = b.build(cfg);
@@ -2849,6 +2980,7 @@ function renderMenu(){
     : '· golpes: ' + habCount() + '/' + habSkills().length +
       ' — próx. no Nv. ' + (habCount() + 1) * HAB_STEP;
   renderShieldIcon();
+  renderGearIcons();
   /* 🎯 barrinhas de marco: mostram quanto falta pro próximo ciclo de 5 upgrades */
   for (const k of ['vida', 'atk', 'def', 'hab']){
     const bar = $('#mb-' + k); if (!bar) continue;
@@ -2879,9 +3011,11 @@ function renderChest(){
   const opened = S.chestDay === localDay();
   const b = $('#chestBtn');
   b.disabled = opened;
-  b.innerHTML = opened
-    ? '🎁 Baú do Dia<small>✅ aberto — volte amanhã</small>'
-    : '🎁 Baú do Dia<small>🎬 assistir e abrir · 🪙 ' + chestReward() + '</small>';
+  /* reescreve o botão inteiro, então o ícone precisa ser remontado aqui —
+     o <img data-ico> do HTML estático se perde neste innerHTML */
+  b.innerHTML = icoHTML('icoChest', '🎁') + ' Baú do Dia' + (opened
+    ? '<small>✅ aberto — volte amanhã</small>'
+    : '<small>🎬 assistir e abrir · ' + icoS('icoCoin','🪙') + ' ' + chestReward() + '</small>');
 }
 $('#chestBtn').addEventListener('click', async () => {
   if (S.chestDay === localDay()) return;
@@ -2895,7 +3029,7 @@ $('#chestBtn').addEventListener('click', async () => {
     save();
     SFX.play('coin');
     showOverlay('🎁 BAÚ ABERTO!',
-      'O baú da Masmorra Nv. ' + S.dgLv + ' continha <b>🪙 ' + goldCounter(gold) + '</b>!<br>Volte amanhã para abrir outro.',
+      'O baú da Masmorra Nv. ' + S.dgLv + ' continha <b>' + icoS('icoCoin','🪙') + ' ' + goldCounter(gold) + '</b>!<br>Volte amanhã para abrir outro.',
       chestIdxForLv(S.dgLv));
   } else {
     b.innerHTML = '🎁 Baú do Dia<small>vídeo indisponível — tente de novo</small>';
@@ -2908,7 +3042,7 @@ $('#chestBtn').addEventListener('click', async () => {
 /* ---- MERCADO: tela própria ---- */
 function renderShop(){
   regenTorches();
-  $('#shopGold').innerHTML = '🪙 ' + S.gold + ' · 🔥 ' + S.tochas + '/' + TORCH_MAX +
+  $('#shopGold').innerHTML = icoS('icoCoin','🪙') + ' ' + S.gold + ' · ' + icoS('icoTorch','🔥') + ' ' + S.tochas + '/' + TORCH_MAX +
     ' · <img class="icn-s" src="assets/soul.png" alt="Souls"> ' + S.souls;
   renderGems();
   renderMenu();                                      // mantém contadores/botões em dia
@@ -2919,6 +3053,12 @@ function gemIconHTML(lv){
   const img = lv >= 3 ? UIIMG.gemRed : UIIMG.gemBlue;
   return img ? '<img class="gemicn" src="' + img.src + '" alt="gema">' : '💎';
 }
+/* ícone 2D pra strings de innerHTML. Cai no emoji se o PNG não tiver carregado —
+   mesma degradação do applySkin(). NÃO use onde o destino é textContent/canvas. */
+function icoHTML(key, fb, cls){
+  return UIIMG[key] ? '<img class="' + (cls || 'icn') + '" src="' + UIIMG[key].src + '" alt="">' : (fb || '');
+}
+const icoS = (key, fb) => icoHTML(key, fb, 'icn-s');   // versão miúda, p/ dentro de texto
 function renderGems(){
   const nextMilestone = S.dgLv <= 1 ? 1 : Math.ceil(S.dgLv / 5) * 5;
   let lockedIdx = 0;
@@ -2938,17 +3078,17 @@ function renderGems(){
     let btns = '';
     if (!own){
       btns = '<button class="shopbtn" data-gem="' + id + '" data-gact="buy1"' +
-             (S.gold < g.cost1 ? ' disabled' : '') + '>Comprar<small>🪙 ' + g.cost1 + '</small></button>';
+             (S.gold < g.cost1 ? ' disabled' : '') + '>Comprar<small>' + icoS('icoCoin','🪙') + ' ' + g.cost1 + '</small></button>';
     } else {
       btns = '<button class="shopbtn" data-gem="' + id + '" data-gact="equip">' +
              (eq ? '✅ Equipada' : 'Equipar') + '</button>';
       if (own < GEM_MAX)
         btns += '<button class="shopbtn redbtn" data-gem="' + id + '" data-gact="up"' +
                 (S.gold < gemUpCost(own) ? ' disabled' : '') + '>Nv. ' + (own + 1) +
-                '<small>🪙 ' + gemUpCost(own) + '</small></button>';
+                '<small>' + icoS('icoCoin','🪙') + ' ' + gemUpCost(own) + '</small></button>';
     }
     return '<div class="uprow"><div class="ico">' + (own ? gemIconHTML(own) : '📜') + '</div><div class="info">' +
-      '<div class="label">' + g.ico + ' ' + g.nome + (own ? ' — Nv.' + own + '/' + GEM_MAX : '') + '</div>' +
+      '<div class="label">' + icoHTML(g.icoK, g.ico) + ' ' + g.nome + (own ? ' — Nv.' + own + '/' + GEM_MAX : '') + '</div>' +
       '<div class="desc">' + g.desc(Math.max(1, own)) + '</div></div>' +
       '<div class="gembtns">' + btns + '</div></div>';
   }).join('');
@@ -3853,7 +3993,7 @@ async function startTutorial(){
   } else {
     S.gold += 100; save();
     showOverlay('🎓 TREINAMENTO CONCLUÍDO!',
-      'Você dominou o básico do combate!<br>Bônus de formatura: <b>🪙 100</b><br><br>' +
+      'Você dominou o básico do combate!<br>Bônus de formatura: <b>' + icoS('icoCoin','🪙') + ' 100</b><br><br>' +
       'Lembre-se: parry e esquiva gastam o inimigo e enchem sua fúria,<br>' +
       'a 🪨 pedrada é grátis toda rodada — e monstros exaustos perdem a vez.<br>Boa sorte na masmorra!');
   }
@@ -5078,7 +5218,7 @@ function victory(){
     if (nova){
       S.gemas.un.push(nova);
       scrollMsg = '<br>📜 O chefe derrubou um <b>Pergaminho de Gema</b>!<br>' +
-                  GEMS[nova].ico + ' <b>' + GEMS[nova].nome + '</b> liberada no Mercado!<br>';
+                  icoHTML(GEMS[nova].icoK, GEMS[nova].ico) + ' <b>' + GEMS[nova].nome + '</b> liberada no Mercado!<br>';
     }
   }
   S.gold += bonus; S.wins++;
@@ -5095,7 +5235,7 @@ function victory(){
   save();
   const nx = DG_COLORS[S.dgColor];
   showOverlay('🏆 MASMORRA CONQUISTADA!',
-    'As 3 ondas caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + goldCounter(bonus) + '</b><br>' +
+    'As 3 ondas caíram diante da sua lâmina!<br>Bônus de vitória: <b>' + icoS('icoCoin','🪙') + ' ' + goldCounter(bonus) + '</b><br>' +
     scrollMsg +
     'A próxima é a Masmorra <b style="color:' + nx.hex + '">' + nx.nome + '</b> (Nv. ' + S.dgLv + ngTag() + ')…',
     chestIdxForLv(conqueredLv));
@@ -5106,7 +5246,7 @@ function victory(){
 function gameComplete(bonus, scrollMsg){
   save();
   showOverlay('👑 VOCÊ VENCEU O JOGO!',
-    'As 33 masmorras caíram diante da sua lâmina!<br>Bônus de vitória: <b>🪙 ' + goldCounter(bonus) + '</b><br>' +
+    'As 33 masmorras caíram diante da sua lâmina!<br>Bônus de vitória: <b>' + icoS('icoCoin','🪙') + ' ' + goldCounter(bonus) + '</b><br>' +
     scrollMsg +
     'Quer tentar o <b>NG+' + (S.ngPlus + 1) + '</b>? Seus atributos e seu ouro continuam os mesmos, ' +
     'mas os monstros voltam mais rápidos, mais fortes e com combos maiores.',
