@@ -2807,7 +2807,7 @@ function drawAttack8(a, f, count){
   const r = (k / 3) | 0, c = k % 3;
   const d = a.size * 0.85;                            // porte parecido com o do cavaleiro antigo
   const sheet = (a.anim === 'attack2' && ATK8B_IMG.naturalWidth)
-    ? tinted(ATK8B_IMG, 'atk2') : tinted(ATK8_IMG, 'atk');
+    ? heroSheet(ATK8B_IMG, 'atk2', 'atk2') : heroSheet(ATK8_IMG, 'atk', 'atk');
   ctx.drawImage(sheet, (bc*3 + c)*ATK8.fs, (br*3 + r)*ATK8.fs, ATK8.fs, ATK8.fs,
                 -d/2, a.size*0.30 - d*0.867, d, d);   // pés da célula (y≈55/64) na base do herói
 }
@@ -2839,7 +2839,7 @@ function draw8(img, a, idx, p){
 function drawJump8(a){
   const k = Math.min(1, (performance.now() - (a.jump8T || 0)) / JUMP8_MS);
   const idx = Math.min(ATK8.frames - 1, Math.floor(k * ATK8.frames));
-  draw8(tinted(JUMP8_IMG, 'jump'), a, idx, nearestEnemyPos(a));
+  draw8(heroSheet(JUMP8_IMG, 'jump', 'jump'), a, idx, nearestEnemyPos(a));
 }
 /* 🛡️ parry/bloqueio em 8 direções: animação 'parry8' tocada via playOnce,
    acelerada no updateActor pra caber os 15 frames em ~0,5s */
@@ -2847,20 +2847,20 @@ const PARRY8_IMG = new Image();
 PARRY8_IMG.src = 'assets/new-hero/parry-8-directions.png';
 const guardAnim = () => (player && player.unit === 'warrior' && PARRY8_IMG.naturalWidth) ? 'parry8' : 'guard';
 function drawParry8(a, f){
-  draw8(tinted(PARRY8_IMG, 'parry'), a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
+  draw8(heroSheet(PARRY8_IMG, 'parry', 'parry'), a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
 }
 /* 🧍 idle de batalha em 8 direções: o herói encara o inimigo mais próximo */
 const IDLE8_IMG = new Image();
 IDLE8_IMG.src = 'assets/new-hero/idle-8-directions.png';
 function drawIdle8(a, f){
-  draw8(tinted(IDLE8_IMG, 'idle'), a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
+  draw8(heroSheet(IDLE8_IMG, 'idle', 'idle'), a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
 }
 /* 😮‍💨 exausto: barra de exaustão estourada — o herói fica ofegante e sem
    defesa até voltar a agir. Mesmo formato de blocos dos outros sheets novos. */
 const TIRED8_IMG = new Image();
 TIRED8_IMG.src = 'assets/new-hero/tired.png';
 function drawTired8(a, f){
-  draw8(tinted(TIRED8_IMG, 'tired'), a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
+  draw8(heroSheet(TIRED8_IMG, 'tired', 'tired'), a, Math.min(ATK8.frames - 1, f), nearestEnemyPos(a));
 }
 /* 💨 esquiva lateral em 8 direções: como o pulo, o frame segue o TEMPO do
    dash (~330ms) e a direção fica travada no lado do deslize */
@@ -2870,7 +2870,7 @@ const DODGE8_MS = 330;
 function drawDodge8(a){
   const k = Math.min(1, (performance.now() - (a.dodge8T || 0)) / DODGE8_MS);
   const idx = Math.min(ATK8.frames - 1, Math.floor(k * ATK8.frames));
-  draw8(tinted(DODGE8_IMG, 'dodge'), a, idx, a.dodge8P != null ? a.dodge8P : nearestEnemyPos(a));
+  draw8(heroSheet(DODGE8_IMG, 'dodge', 'dodge'), a, idx, a.dodge8P != null ? a.dodge8P : nearestEnemyPos(a));
 }
 /* 🏃 andar/correr em 8 direções: a direção vem do VETOR do deslocamento
    (investida, esquiva, volta pra base), não do inimigo */
@@ -2883,7 +2883,7 @@ function drawWalk8(a, f){
     const dx = a.tween.tx - a.tween.sx, dy = a.tween.ty - a.tween.sy;
     p = (dx || dy) ? atk8Pos(dx, dy) : nearestEnemyPos(a);
   } else p = nearestEnemyPos(a);
-  draw8(tinted(WALK8_IMG, 'walk'), a, Math.min(ATK8.frames - 1, f), p);
+  draw8(heroSheet(WALK8_IMG, 'walk', 'walk'), a, Math.min(ATK8.frames - 1, f), p);
 }
 /* 🧍 idle do herói novo na batalha (mesmo sheet do acampamento, de frente) */
 function drawIdleCam(a, f){
@@ -4149,6 +4149,32 @@ async function nextTurn(){
    unidade e memorizado — é leitura de pixel, cara demais para todo quadro.
    Em file:// o canvas fica "tainted" e getImageData lança; nesse caso devolve
    null e o recorte antigo (torso) continua valendo. */
+/* ---------- 🛡️ TIER 3: FOLHAS PRÓPRIAS ----------
+   A recoloração muda a COR do metal, não a forma — a espada continua curta e o
+   escudo pequeno. No topo da progressão o herói passa a usar um conjunto
+   próprio: placa completa, escudo grande com runa e montante.
+
+   Só entram quando as 8 folhas tiverem carregado. Sem o conjunto completo o
+   herói trocaria de armadura ao aparar ou esquivar, o que é pior que não ter
+   tier nenhum. */
+const T3 = {};
+for (const [k, f] of Object.entries({
+  idle:'idle', walk:'walk', atk:'atack', atk2:'atack2',
+  parry:'parry', dodge:'dodge', jump:'jump', tired:'tired',
+})){
+  const im = new Image();
+  im.src = 'assets/new-hero/t3-' + f + '-8-directions.png';
+  T3[k] = im;
+}
+const T3_KEYS = Object.keys(T3);
+const t3Ready = () => T3_KEYS.every(k => T3[k].naturalWidth > 0);
+/* devolve a folha do tier 3 quando o herói chegou ao topo e o conjunto está
+   completo; senão devolve a folha base (que ainda passa pela recoloração) */
+function heroSheet(img, key, t3key){
+  return (gearTier() >= 2 && t3Ready() && T3[t3key].naturalWidth)
+    ? T3[t3key] : tinted(img, key);
+}
+
 /* ---------- ⚔️ TIER DE EQUIPAMENTO DO HERÓI ----------
    O PixelLab não produz sprites em camadas, então não há como sobrepor escudo e
    armadura sobre um corpo base. O equivalente viável é recolorir o metal das
