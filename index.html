@@ -1699,7 +1699,10 @@ const atkMul = () => 1;             // reservado p/ futuros bônus de dano tempo
 /* ---------- 🎁 baús: animação de abertura (vitória de masmorra / Baú do Dia) ----------
    12 desenhos diferentes (assets/chests/chest1.png … chest12.png), cada um uma tira
    de 4 quadros de 112×112px (fechado → tremendo → abrindo → aberto com tesouro). */
-const CHEST_FRAME = 112, CHEST_FRAMES = 4;
+/* baú novo (PixelLab): 9 quadros de 128px. As 12 variantes por nível de masmorra
+   saem por recoloração da MESMA animação — antes eram 12 baús distintos de 4
+   quadros. Recolorir preserva a coerência do movimento e mantém a variedade. */
+const CHEST_FRAME = 128, CHEST_FRAMES = 9;
 const CHEST_IMGS = [];
 for (let i = 1; i <= 12; i++){
   const img = new Image();
