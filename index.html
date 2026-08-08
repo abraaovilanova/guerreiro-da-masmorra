@@ -535,6 +535,11 @@
     display:flex;align-items:center;justify-content:center;padding:24px;
   }
   #overlay .card{width:100%;max-width:360px;text-align:center;display:flex;flex-direction:column;gap:12px;padding:22px}
+  /* cena de vitória/derrota: ocupa a largura do card, acima do título */
+  #ovScene{
+    width:100%;border-radius:3px;image-rendering:pixelated;display:block;
+    box-shadow:0 4px 18px rgba(0,0,0,.6);
+  }
   #chestCv{width:96px;height:96px;align-self:center;image-rendering:pixelated}
   #ovTitle{font-size:24px;font-weight:800}
   #ovMsg{font-size:14px;line-height:1.55;color:var(--ink-dim)}
@@ -905,6 +910,7 @@
   <!-- ================= FIM DE MASMORRA ================= -->
   <div id="overlay" class="hidden">
     <div class="card">
+      <img id="ovScene" class="hidden" alt="">
       <canvas id="chestCv" class="hidden" width="112" height="112"></canvas>
       <div id="ovTitle">VITÓRIA!</div>
       <div id="ovMsg"></div>
@@ -5727,7 +5733,7 @@ function victory(){
     'As 3 ondas caíram diante da sua lâmina!<br>Bônus de vitória: <b>' + icoS('icoCoin','🪙') + ' ' + goldCounter(bonus) + '</b><br>' +
     scrollMsg +
     'A próxima é a Masmorra <b style="color:' + nx.hex + '">' + nx.nome + '</b> (Nv. ' + S.dgLv + ngTag() + ')…',
-    chestIdxForLv(conqueredLv));
+    chestIdxForLv(conqueredLv), 'victory');
   offerDoubleReward(bonus);
 }
 /* 👑 masmorra 33 vencida: fim do ciclo — oferece iniciar o próximo NG+
@@ -5739,7 +5745,7 @@ function gameComplete(bonus, scrollMsg){
     scrollMsg +
     'Quer tentar o <b>NG+' + (S.ngPlus + 1) + '</b>? Seus atributos e seu ouro continuam os mesmos, ' +
     'mas os monstros voltam mais rápidos, mais fortes e com combos maiores.',
-    chestIdxForLv(S.dgLv));
+    chestIdxForLv(S.dgLv), 'victory');
   offerDoubleReward(bonus);
   offerNGPlus();
 }
@@ -5802,7 +5808,7 @@ function defeat(){
       : 'Você não havia coletado ouro nesta masmorra.<br>') +
     (S.souls > 0
       ? 'Você tem <b>' + S.souls + '</b> <img class="icn-s" src="assets/soul.png" alt="Soul"> — use uma para se reerguer <b>de onde parou</b>!'
-      : 'Fortaleça-se e tente de novo!<br><span style="font-size:12px;color:var(--ink-dim)">Dica: chefes derrotados deixam <img class="icn-s" src="assets/soul.png" alt="Souls"> Souls, que revivem você de onde parou.</span>'));
+      : 'Fortaleça-se e tente de novo!<br><span style="font-size:12px;color:var(--ink-dim)">Dica: chefes derrotados deixam <img class="icn-s" src="assets/soul.png" alt="Souls"> Souls, que revivem você de onde parou.</span>', null, 'defeat'));
   if (S.souls > 0) offerSoulRevive();
 }
 /* 💠 SOUL: revive o herói na mesma onda, com os inimigos como estavam */
@@ -5850,8 +5856,13 @@ function runGoldCounters(){
   });
 }
 function stopGoldCounters(){ cupTimers.forEach(id => cancelAnimationFrame(id)); cupTimers = []; }
-function showOverlay(title, msg, chestIdx){
+function showOverlay(title, msg, chestIdx, scene){
   stopGoldCounters();
+  /* 🖼️ cena grande no topo (vitória/derrota). Fica oculta quando não há arte,
+     então overlays sem cena (duelo, baú do dia) seguem como antes. */
+  const sc = $('#ovScene');
+  if (scene){ sc.src = 'assets/scenes/' + scene + '.png'; sc.classList.remove('hidden'); }
+  else sc.classList.add('hidden');
   $('#ovTitle').textContent = title;
   $('#ovMsg').innerHTML = msg;
   $('#ovAd').classList.add('hidden');               // só a vitória oferece o vídeo
